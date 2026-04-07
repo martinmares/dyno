@@ -1,3 +1,9 @@
+---
+title: Mermaid Diagrams
+description: How to embed Mermaid diagrams in your documentation pages.
+weight: 1
+---
+
 # Mermaid Diagrams
 
 Dyno supports [Mermaid.js](https://mermaid.js.org/) diagrams out of the box. Just use a fenced code block with the `mermaid` language tag.

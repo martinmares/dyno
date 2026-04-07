@@ -156,16 +156,32 @@ func (idx *Index) Search(query string) []SearchResult {
 		return nil
 	}
 
-	// Gather doc scores: docID → count of matching token occurrences
+	// Gather doc scores: docID → count of matching token occurrences.
+	// For each query token, first try exact match, then prefix/substring match
+	// against all indexed terms so that e.g. "config" finds "configuration".
 	scores := make(map[int]float64)
 	firstPos := make(map[int]int) // docID → position of first hit
 
 	for _, tok := range tokens {
-		postings := idx.inverted[tok]
-		for _, p := range postings {
-			scores[p.DocID]++
+		// Exact match scores 1.0 per posting
+		for _, p := range idx.inverted[tok] {
+			scores[p.DocID] += 1.0
 			if existing, ok := firstPos[p.DocID]; !ok || p.Position < existing {
 				firstPos[p.DocID] = p.Position
+			}
+		}
+		// Substring match on other indexed terms scores 0.5 (partial credit)
+		for term, postings := range idx.inverted {
+			if term == tok {
+				continue // already counted
+			}
+			if strings.Contains(term, tok) {
+				for _, p := range postings {
+					scores[p.DocID] += 0.5
+					if existing, ok := firstPos[p.DocID]; !ok || p.Position < existing {
+						firstPos[p.DocID] = p.Position
+					}
+				}
 			}
 		}
 	}
@@ -233,12 +249,12 @@ func extractSnippet(body string, tokens []string, _ int) string {
 	return highlightTerms(snippet, tokens)
 }
 
-// highlightTerms wraps each occurrence of any token in <mark>...</mark>.
+// highlightTerms wraps each occurrence of any token (or word containing it) in <mark>...</mark>.
 func highlightTerms(text string, tokens []string) string {
 	if len(tokens) == 0 {
 		return text
 	}
-	// Build a regex that matches any of the tokens (case-insensitive)
+	// Match the token as a substring within a word (case-insensitive)
 	escaped := make([]string, len(tokens))
 	for i, t := range tokens {
 		escaped[i] = regexp.QuoteMeta(t)

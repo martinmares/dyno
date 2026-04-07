@@ -1,3 +1,9 @@
+---
+title: API Reference
+description: HTTP endpoints exposed by the Dyno server for advanced integrations.
+weight: 1
+---
+
 # API Reference
 
 Dyno exposes a simple HTTP API for advanced integrations.

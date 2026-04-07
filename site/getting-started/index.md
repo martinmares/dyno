@@ -1,3 +1,9 @@
+---
+title: Getting Started
+description: Everything you need to get up and running with Dyno in minutes.
+weight: 1
+---
+
 # Getting Started
 
 Everything you need to get up and running with Dyno in minutes.

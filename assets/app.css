@@ -212,9 +212,10 @@ html.dark .nav-section-title[data-active="true"] {
 /* ── Copy button on code blocks ─────────────────────────────────────────── */
 .copy-btn {
   position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  padding: 0.25rem 0.5rem;
+  top: 0;
+  right: 0.6rem;
+  height: 2rem;
+  padding: 0 0.5rem;
   border-radius: 0.375rem;
   border: 1px solid #30363d;
   background: #161b22;
@@ -250,16 +251,16 @@ pre.chroma:hover .copy-btn {
 
 .anchor-link {
   position: absolute;
-  left: -1.25em;
+  left: -1.5em;
   top: 50%;
   transform: translateY(-50%);
   opacity: 0;
   color: #9ca3af;
   text-decoration: none;
-  font-weight: 400;
-  font-size: 0.9em;
   transition: opacity 0.15s, color 0.15s;
   user-select: none;
+  display: inline-flex;
+  align-items: center;
 }
 .prose h1:hover .anchor-link,
 .prose h2:hover .anchor-link,
@@ -309,3 +310,129 @@ html.dark .prose blockquote {
 html.dark .prose blockquote p {
   color: #7dd3fc;
 }
+
+/* ── Lightbox ────────────────────────────────────────────────────────────────── */
+#lightbox-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.85);
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+}
+#lightbox-overlay.open {
+  display: flex;
+  animation: lightbox-fade-in 0.2s ease forwards;
+}
+@keyframes lightbox-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+#lightbox-img {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 0.5rem;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+  cursor: default;
+}
+
+/* Prose images: subtle rounded style + pointer cursor set via JS */
+.prose img {
+  border-radius: 0.375rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+  transition: box-shadow 0.15s;
+}
+.prose img:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+
+/* ── Callouts ────────────────────────────────────────────────────────────────── */
+.callout {
+  border-radius: 0.5rem;
+  padding: 1rem 1.25rem;
+  margin: 1.5rem 0;
+  border-left: 4px solid;
+}
+.callout-title {
+  font-weight: 600;
+  font-size: 0.875rem;
+  margin-bottom: 0.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.callout-body p:first-child { margin-top: 0; }
+.callout-body p:last-child  { margin-bottom: 0; }
+
+/* Note */
+.callout-note {
+  background: #f0f9ff;
+  border-color: #0ea5e9;
+  color: #0c4a6e;
+}
+html.dark .callout-note {
+  background: #0c1a27;
+  border-color: #0284c7;
+  color: #bae6fd;
+}
+.callout-note .callout-title { color: #0284c7; }
+html.dark .callout-note .callout-title { color: #38bdf8; }
+
+/* Info */
+.callout-info {
+  background: #f5f3ff;
+  border-color: #8b5cf6;
+  color: #3b0764;
+}
+html.dark .callout-info {
+  background: #1a1030;
+  border-color: #7c3aed;
+  color: #ddd6fe;
+}
+.callout-info .callout-title { color: #7c3aed; }
+html.dark .callout-info .callout-title { color: #a78bfa; }
+
+/* Tip */
+.callout-tip {
+  background: #f0fdf4;
+  border-color: #22c55e;
+  color: #14532d;
+}
+html.dark .callout-tip {
+  background: #0d1f14;
+  border-color: #16a34a;
+  color: #bbf7d0;
+}
+.callout-tip .callout-title { color: #16a34a; }
+html.dark .callout-tip .callout-title { color: #4ade80; }
+
+/* Warning */
+.callout-warning {
+  background: #fffbeb;
+  border-color: #f59e0b;
+  color: #78350f;
+}
+html.dark .callout-warning {
+  background: #1f1a08;
+  border-color: #d97706;
+  color: #fde68a;
+}
+.callout-warning .callout-title { color: #d97706; }
+html.dark .callout-warning .callout-title { color: #fbbf24; }
+
+/* Danger */
+.callout-danger {
+  background: #fff1f2;
+  border-color: #f43f5e;
+  color: #881337;
+}
+html.dark .callout-danger {
+  background: #1f0a0e;
+  border-color: #e11d48;
+  color: #fecdd3;
+}
+.callout-danger .callout-title { color: #e11d48; }
+html.dark .callout-danger .callout-title { color: #fb7185; }

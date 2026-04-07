@@ -76,9 +76,17 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 			http.ServeFile(w, r, staticPath)
 			return
 		}
-		// Try with "_" prefix on the first path segment
-		if underscoredPath := underscoreFirstSegment(rawPath); underscoredPath != rawPath {
-			altPath := filepath.Join(s.siteRoot, "site", filepath.FromSlash(underscoredPath))
+		// Try with "_" prefix on each directory segment to support asset
+		// directories like "_images/" referenced as "images/" in Markdown.
+		parts := strings.Split(rawPath, "/")
+		for i := 0; i < len(parts)-1; i++ {
+			if strings.HasPrefix(parts[i], "_") {
+				continue // already prefixed
+			}
+			candidate := make([]string, len(parts))
+			copy(candidate, parts)
+			candidate[i] = "_" + candidate[i]
+			altPath := filepath.Join(s.siteRoot, "site", filepath.Join(candidate...))
 			if info, err := os.Stat(altPath); err == nil && !info.IsDir() {
 				http.ServeFile(w, r, altPath)
 				return
@@ -250,12 +258,3 @@ func rewriteAbsoluteLinks(htmlStr, basePath string) string {
 	})
 }
 
-// underscoreFirstSegment prefixes the first path segment with "_".
-// "images/foo.png" → "_images/foo.png"
-func underscoreFirstSegment(p string) string {
-	slash := strings.Index(p, "/")
-	if slash < 0 {
-		return "_" + p
-	}
-	return "_" + p[:slash] + p[slash:]
-}

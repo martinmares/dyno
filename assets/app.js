@@ -212,6 +212,7 @@ document.addEventListener('DOMContentLoaded', function () {
   updateActiveNavLink(window.location.pathname);
   initTOCScrollSpy();
   initCopyButtons();
+  initLightbox();
 });
 
 // ─── HTMX hooks ───────────────────────────────────────────────────────────────
@@ -221,6 +222,7 @@ document.addEventListener('htmx:afterSwap', function (e) {
     initMermaid();
     initTOCScrollSpy();
     initCopyButtons();
+    initLightbox();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   if (e.target.id === 'page-content' || e.target.id === 'search-results-container') {
@@ -300,3 +302,45 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 });
+
+// ─── Lightbox ─────────────────────────────────────────────────────────────────
+
+function initLightbox() {
+  // Create overlay once
+  if (!document.getElementById('lightbox-overlay')) {
+    const overlay = document.createElement('div');
+    overlay.id = 'lightbox-overlay';
+    overlay.innerHTML = '<img id="lightbox-img" src="" alt="">';
+    document.body.appendChild(overlay);
+
+    // Close on overlay click (outside image)
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) closeLightbox();
+    });
+
+    // Close on Escape
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeLightbox();
+    });
+  }
+
+  // Attach to all prose images not yet initialized
+  document.querySelectorAll('.prose img:not([data-lightbox-init])').forEach(function (img) {
+    img.setAttribute('data-lightbox-init', '1');
+    img.style.cursor = 'zoom-in';
+    img.addEventListener('click', function () {
+      const overlay = document.getElementById('lightbox-overlay');
+      const lbImg = document.getElementById('lightbox-img');
+      lbImg.src = img.src;
+      lbImg.alt = img.alt;
+      overlay.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    });
+  });
+}
+
+function closeLightbox() {
+  const overlay = document.getElementById('lightbox-overlay');
+  if (overlay) overlay.classList.remove('open');
+  document.body.style.overflow = '';
+}

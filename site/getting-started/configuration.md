@@ -1,3 +1,9 @@
+---
+title: Configuration
+description: How to configure Dyno using dyno.yaml and CLI flags.
+weight: 2
+---
+
 # Configuration
 
 Dyno is designed to work without any configuration file. Everything is driven by CLI flags and directory structure.

@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 	"unicode"
+
+	"gopkg.in/yaml.v3"
 )
 
 // NavNode represents a single item in the navigation tree.
@@ -22,6 +24,43 @@ type NavNode struct {
 }
 
 var numericPrefix = regexp.MustCompile(`^\d+[-_]?`)
+
+var frontmatterRe = regexp.MustCompile(`(?s)^---\r?\n(.*?)\r?\n---\r?\n?`)
+
+// isDraft returns true if the file starts with "draft: true" in its YAML front matter.
+func isDraft(path string) bool {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	m := frontmatterRe.FindSubmatch(data)
+	if m == nil {
+		return false
+	}
+	var fm struct {
+		Draft bool `yaml:"draft"`
+	}
+	_ = yaml.Unmarshal(m[1], &fm)
+	return fm.Draft
+}
+
+// titleFromFrontmatter returns the title from YAML front matter, or empty string.
+func titleFromFrontmatter(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	m := frontmatterRe.FindSubmatch(data)
+	if m == nil {
+		return ""
+	}
+	var fm struct {
+		Title string `yaml:"title"`
+	}
+	_ = yaml.Unmarshal(m[1], &fm)
+	return fm.Title
+}
+
 
 // titleFromSlug converts a filesystem name to a display title.
 // "01-getting-started" → "Getting Started"
@@ -139,18 +178,33 @@ func BuildTree(siteRoot, basePath string) (*NavNode, error) {
 			}
 		}
 
+		// Skip draft pages
+		if isDraft(path) {
+			return nil
+		}
+
 		var fullPath string
 		if baseName == "index" || numericPrefix.ReplaceAllString(baseName, "") == "index" {
 			// index.md in a dir → the dir's landing page
 			// The parent dir node gets the FSPath set
 			parentNode.FSPath = path
+			// Override dir title from frontmatter if present
+			if t := titleFromFrontmatter(path); t != "" {
+				parentNode.Title = t
+			}
 			return nil
 		}
 
 		fullPath = basePath + "/" + strings.Join(urlParts, "/")
 
+		// Use frontmatter title if available, otherwise derive from filename
+		title := titleFromFrontmatter(path)
+		if title == "" {
+			title = titleFromSlug(baseName)
+		}
+
 		node := &NavNode{
-			Title:    titleFromSlug(baseName),
+			Title:    title,
 			Slug:     slug,
 			FullPath: fullPath,
 			FSPath:   path,

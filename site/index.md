@@ -1,3 +1,9 @@
+---
+title: Welcome to Dyno Docs
+description: Self-hosted documentation server built with Go, HTMX and Tailwind CSS.
+weight: 1
+---
+
 # Welcome to Dyno Docs
 
 **Dyno** is a modern, self-hosted documentation server built with Go + HTMX + Tailwind CSS.

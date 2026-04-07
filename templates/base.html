@@ -128,7 +128,7 @@
 
     <!-- Main content -->
     <main id="main-content" class="flex-1 min-w-0 flex flex-col">
-      <div class="flex flex-1 gap-8 max-w-5xl mx-auto w-full px-6 py-8">
+      <div class="flex flex-1 gap-8 max-w-screen-xl mx-auto w-full px-6 py-8">
         <!-- Page content -->
         <div id="page-content" class="flex-1 min-w-0">
           {{ block "page-content" . }}{{ end }}
@@ -155,7 +155,7 @@
 
   <!-- Footer -->
   <footer class="border-t border-gray-200 dark:border-gray-800 mt-auto">
-    <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between text-xs text-gray-400 dark:text-gray-500">
+    <div class="max-w-screen-xl mx-auto px-6 py-4 flex items-center justify-between text-xs text-gray-400 dark:text-gray-500">
       <span>{{ if .Site }}© {{ .Site.Copyright }}{{ if .Site.Version }} · v{{ .Site.Version }}{{ end }}{{ else }}dyno{{ end }}</span>
       <span>Built with <a href="https://github.com/mares/dyno" class="hover:text-brand-500 transition-colors">dyno</a></span>
     </div>

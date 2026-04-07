@@ -12,6 +12,7 @@ import (
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer/html"
+	"gopkg.in/yaml.v3"
 )
 
 // TOCEntry represents a heading for the table of contents.
@@ -21,11 +22,20 @@ type TOCEntry struct {
 	Text  string
 }
 
+// Frontmatter holds optional YAML metadata from the top of a Markdown file.
+type Frontmatter struct {
+	Title       string `yaml:"title"`
+	Description string `yaml:"description"`
+	Draft       bool   `yaml:"draft"`
+	Weight      int    `yaml:"weight"` // for future custom ordering
+}
+
 // Result holds the rendered HTML and extracted metadata.
 type Result struct {
-	HTML  string
-	TOC   []TOCEntry
-	Title string
+	HTML        string
+	TOC         []TOCEntry
+	Title       string
+	Frontmatter Frontmatter
 }
 
 // Renderer wraps goldmark with our configuration.
@@ -96,24 +106,43 @@ func (r *Renderer) DarkCSS() string { return r.darkCSS }
 // Render converts Markdown source to HTML, transforms mermaid blocks,
 // and extracts TOC entries and the page title.
 func (r *Renderer) Render(src []byte) (*Result, error) {
+	fm, body := parseFrontmatter(src)
+
 	// Pre-process: replace ```mermaid blocks with raw HTML divs before goldmark
 	// sees them, so chroma never gets a chance to syntax-highlight them.
-	preprocessed := extractMermaidBlocks(src)
+	preprocessed := extractMermaidBlocks(body)
 
 	var buf bytes.Buffer
 	if err := r.md.Convert(preprocessed, &buf); err != nil {
 		return nil, err
 	}
 
-	htmlStr := addAnchorLinks(buf.String())
+	htmlStr := transformCallouts(addAnchorLinks(buf.String()))
 	toc := extractTOC(htmlStr)
 	title := extractTitle(htmlStr)
+	if title == "" && fm.Title != "" {
+		title = fm.Title
+	}
 
 	return &Result{
-		HTML:  htmlStr,
-		TOC:   toc,
-		Title: title,
+		HTML:        htmlStr,
+		TOC:         toc,
+		Title:       title,
+		Frontmatter: fm,
 	}, nil
+}
+
+var frontmatterRe = regexp.MustCompile(`(?s)^---\r?\n(.*?)\r?\n---\r?\n?`)
+
+// parseFrontmatter strips YAML front matter from src and returns it parsed + the remaining body.
+func parseFrontmatter(src []byte) (Frontmatter, []byte) {
+	var fm Frontmatter
+	m := frontmatterRe.FindSubmatch(src)
+	if m == nil {
+		return fm, src
+	}
+	_ = yaml.Unmarshal(m[1], &fm)
+	return fm, src[len(m[0]):]
 }
 
 // RenderString is a convenience wrapper.
@@ -169,7 +198,7 @@ func addAnchorLinks(htmlStr string) string {
 			return match
 		}
 		tag, id, inner := subs[1], subs[2], subs[3]
-		anchor := `<a href="#` + id + `" class="anchor-link" aria-hidden="true">#</a>`
+		anchor := `<a href="#` + id + `" class="anchor-link" aria-hidden="true"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg></a>`
 		return `<` + tag + ` id="` + id + `">` + anchor + inner + `</` + tag + `>`
 	})
 }
@@ -203,4 +232,51 @@ func extractTitle(htmlStr string) string {
 
 func stripTags(s string) string {
 	return strings.TrimSpace(tagRe.ReplaceAllString(s, ""))
+}
+
+// calloutRe matches a blockquote whose first paragraph starts with [!TYPE]
+// Goldmark renders it as: <blockquote>\n<p>[!NOTE]\nrest</p>...
+var calloutRe = regexp.MustCompile(`(?s)<blockquote>\s*<p>\[!(NOTE|TIP|WARNING|DANGER|INFO)\]\n?(.*?)</p>(.*?)</blockquote>`)
+
+var calloutMeta = map[string][2]string{
+	"NOTE":    {"💡", "callout-note"},
+	"INFO":    {"ℹ️", "callout-info"},
+	"TIP":     {"✅", "callout-tip"},
+	"WARNING": {"⚠️", "callout-warning"},
+	"DANGER":  {"🚨", "callout-danger"},
+}
+
+// transformCallouts converts GitHub-style blockquote callouts into styled divs.
+// Syntax in Markdown:
+//
+//	> [!NOTE]
+//	> This is a note.
+func transformCallouts(htmlStr string) string {
+	return calloutRe.ReplaceAllStringFunc(htmlStr, func(match string) string {
+		subs := calloutRe.FindStringSubmatch(match)
+		if len(subs) < 4 {
+			return match
+		}
+		kind := subs[1]
+		firstPara := strings.TrimSpace(subs[2])
+		rest := strings.TrimSpace(subs[3])
+
+		meta, ok := calloutMeta[kind]
+		if !ok {
+			return match
+		}
+		icon, class := meta[0], meta[1]
+		label := strings.Title(strings.ToLower(kind))
+
+		inner := ""
+		if firstPara != "" {
+			inner += "<p>" + firstPara + "</p>"
+		}
+		inner += rest
+
+		return `<div class="callout ` + class + `">` +
+			`<div class="callout-title">` + icon + ` ` + label + `</div>` +
+			`<div class="callout-body">` + inner + `</div>` +
+			`</div>`
+	})
 }
