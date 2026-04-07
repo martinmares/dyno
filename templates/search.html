@@ -1,0 +1,28 @@
+{{ define "search-results" }}
+{{ if .Results }}
+<div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl overflow-hidden">
+  <div class="px-4 py-2 border-b border-gray-100 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400">
+    {{ len .Results }} result{{ if ne (len .Results) 1 }}s{{ end }} for "<strong>{{ .Query }}</strong>"
+  </div>
+  <ul class="divide-y divide-gray-100 dark:divide-gray-800 max-h-80 overflow-y-auto">
+    {{ range .Results }}
+    <li>
+      <a href="{{ .Path }}"
+         hx-get="{{ .Path }}"
+         hx-target="#page-content"
+         hx-push-url="true"
+         class="block px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors search-result-link">
+        <div class="font-medium text-sm text-gray-900 dark:text-gray-100 mb-1">{{ .Title | safeHTML }}</div>
+        <div class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">{{ .Snippet | safeHTML }}</div>
+        <div class="text-xs text-brand-500 mt-1">{{ .Path }}</div>
+      </a>
+    </li>
+    {{ end }}
+  </ul>
+</div>
+{{ else if .Query }}
+<div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl p-6 text-center text-sm text-gray-500 dark:text-gray-400">
+  No results for "<strong>{{ .Query }}</strong>"
+</div>
+{{ end }}
+{{ end }}

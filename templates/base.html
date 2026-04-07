@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en" class="">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ .Title }}{{ if .Site }} — {{ .Site.Title }}{{ end }}</title>
+  {{ if and .Site .Site.Favicon }}<link rel="icon" href="{{ .Site.Favicon }}">{{ else }}<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">{{ end }}
+
+  <!-- Tailwind CSS CDN with Typography plugin -->
+  <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50:  '#f0f9ff',
+              100: '#e0f2fe',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- HTMX -->
+  <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+
+  <!-- Mermaid -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+
+  <!-- Chroma syntax highlighting — light rules first, dark scoped under html.dark -->
+  <style>{{ .LightCSS }}</style>
+  <style>{{ .DarkCSS }}</style>
+
+  <!-- Custom styles -->
+  <link rel="stylesheet" href="/assets/app.css" />
+</head>
+<body class="bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 antialiased transition-colors duration-200">
+
+  <!-- Top navbar -->
+  <header class="fixed top-0 left-0 right-0 z-50 h-14 border-b border-gray-200 dark:border-gray-800 bg-white/90 dark:bg-gray-950/90 backdrop-blur flex items-center px-4 gap-4">
+    <!-- Mobile sidebar toggle -->
+    <button id="sidebar-toggle" class="lg:hidden p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Toggle sidebar">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+      </svg>
+    </button>
+
+    <!-- Logo / site title -->
+    <a href="{{ .BasePath }}/" class="flex items-center gap-2 font-bold text-lg text-brand-600 dark:text-brand-500 shrink-0">
+      {{ if and .Site .Site.LogoURL }}
+        <img src="{{ .Site.LogoURL }}" class="w-6 h-6 object-contain" alt="{{ .Site.LogoText }}">
+      {{ else }}
+        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+      {{ end }}
+      <span>{{ if .Site }}{{ .Site.LogoText }}{{ else }}dyno{{ end }}</span>
+    </a>
+
+    <!-- Search bar -->
+    <div class="flex-1 max-w-xl relative">
+      <div class="relative">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        <input
+          id="search-input"
+          type="search"
+          placeholder="Search docs… (Ctrl+K)"
+          class="w-full pl-9 pr-4 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+          hx-get="/search"
+          hx-trigger="input changed delay:300ms, search"
+          hx-target="#search-results-container"
+          hx-indicator="#search-spinner"
+          name="q"
+          autocomplete="off"
+        />
+        <span id="search-spinner" class="htmx-indicator absolute right-3 top-1/2 -translate-y-1/2">
+          <svg class="animate-spin w-4 h-4 text-brand-500" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+          </svg>
+        </span>
+      </div>
+      <!-- Search results dropdown -->
+      <div id="search-results-container" class="absolute top-full left-0 right-0 mt-1 z-50 hidden"></div>
+    </div>
+
+    <div class="flex items-center gap-2 ml-auto">
+      <!-- GitHub link -->
+      {{ if and .Site .Site.GitHubURL }}
+      <a href="{{ .Site.GitHubURL }}" target="_blank" rel="noopener" class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400" aria-label="GitHub">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+        </svg>
+      </a>
+      {{ end }}
+      <!-- Theme toggle -->
+      <button id="theme-toggle" class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" aria-label="Toggle theme">
+        <!-- Sun icon (shown in dark mode) -->
+        <svg id="icon-sun" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/>
+        </svg>
+        <!-- Moon icon (shown in light mode) -->
+        <svg id="icon-moon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="flex pt-14 min-h-screen">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="fixed lg:sticky top-14 left-0 h-[calc(100vh-3.5rem)] w-64 shrink-0 overflow-y-auto border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 z-40 -translate-x-full lg:translate-x-0 transition-transform duration-200">
+      <nav class="p-4 space-y-1">
+        {{ template "nav-tree" (dict "node" .Nav "current" .CurrentPath "depth" 0) }}
+      </nav>
+    </aside>
+
+    <!-- Sidebar overlay (mobile) -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black/40 z-30 hidden lg:hidden"></div>
+
+    <!-- Main content -->
+    <main id="main-content" class="flex-1 min-w-0 flex flex-col">
+      <div class="flex flex-1 gap-8 max-w-5xl mx-auto w-full px-6 py-8">
+        <!-- Page content -->
+        <div id="page-content" class="flex-1 min-w-0">
+          {{ block "page-content" . }}{{ end }}
+        </div>
+
+        <!-- Right TOC sidebar -->
+        {{ if .TOC }}
+        <aside class="hidden xl:block w-48 shrink-0">
+          <div class="sticky top-20">
+            <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">On this page</p>
+            <ul class="space-y-2 text-sm">
+              {{ range .TOC }}
+              <li class="{{ if eq .Level 3 }}pl-3{{ end }}">
+                <a href="#{{ .ID }}" class="toc-link block text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors line-clamp-2 py-0.5">{{ .Text }}</a>
+              </li>
+              {{ end }}
+            </ul>
+          </div>
+        </aside>
+        {{ end }}
+      </div>
+    </main>
+  </div>
+
+  <!-- Footer -->
+  <footer class="border-t border-gray-200 dark:border-gray-800 mt-auto">
+    <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between text-xs text-gray-400 dark:text-gray-500">
+      <span>{{ if .Site }}© {{ .Site.Copyright }}{{ if .Site.Version }} · v{{ .Site.Version }}{{ end }}{{ else }}dyno{{ end }}</span>
+      <span>Built with <a href="https://github.com/mares/dyno" class="hover:text-brand-500 transition-colors">dyno</a></span>
+    </div>
+  </footer>
+
+  <script src="/assets/app.js"></script>
+</body>
+
+</html>
+
+{{/* Recursive nav tree partial */}}
+{{ define "nav-tree" }}
+{{ $node := index . "node" }}
+{{ $current := index . "current" }}
+{{ $depth := index . "depth" }}
+{{ range $node.Children }}
+  {{ if .IsDir }}
+    <div class="nav-section mt-4 first:mt-0">
+      {{/* Section header — clickable if has index.md, otherwise plain label */}}
+      {{ if .FSPath }}
+        <a href="{{ .FullPath }}"
+           hx-get="{{ .FullPath }}"
+           hx-target="#page-content"
+           hx-push-url="true"
+           class="nav-link nav-section-title flex items-center justify-between px-2 py-1 rounded text-xs font-semibold uppercase tracking-widest transition-colors"
+           data-path="{{ .FullPath }}"
+           data-active="{{ if eq .FullPath $current }}true{{ else }}false{{ end }}">
+          {{ .Title }}
+          <svg class="w-3 h-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </a>
+      {{ else }}
+        <p class="px-2 py-1 text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
+          {{ .Title }}
+        </p>
+      {{ end }}
+      {{/* Children — indented with left border */}}
+      <div class="mt-0.5 ml-0 pl-2 border-l-2 border-gray-100 dark:border-gray-800">
+        {{ template "nav-tree" (dict "node" . "current" $current "depth" (add $depth 1)) }}
+      </div>
+    </div>
+  {{ else }}
+    <a href="{{ .FullPath }}"
+       hx-get="{{ .FullPath }}"
+       hx-target="#page-content"
+       hx-push-url="true"
+       class="nav-link nav-page-link flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors"
+       data-path="{{ .FullPath }}"
+       data-active="{{ if eq .FullPath $current }}true{{ else }}false{{ end }}">
+      <span class="nav-dot w-1.5 h-1.5 rounded-full shrink-0 opacity-0 {{ if eq .FullPath $current }}opacity-100{{ end }}"></span>
+      {{ .Title }}
+    </a>
+  {{ end }}
+{{ end }}
+{{ end }}
+
+{{/* dict helper used in nav-tree */}}

@@ -1,0 +1,311 @@
+/* ── Base ──────────────────────────────────────────────────────────────── */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ── HTMX loading indicator ────────────────────────────────────────────── */
+.htmx-indicator {
+  display: none;
+}
+.htmx-request .htmx-indicator,
+.htmx-request.htmx-indicator {
+  display: inline-flex;
+}
+
+/* ── Search highlight ──────────────────────────────────────────────────── */
+mark {
+  background-color: #fef08a;
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 2px;
+}
+html.dark mark {
+  background-color: #854d0e;
+  color: #fef9c3;
+}
+
+/* ── Mermaid diagrams ──────────────────────────────────────────────────── */
+.mermaid {
+  display: flex;
+  justify-content: center;
+  margin: 2rem 0;
+  overflow-x: auto;
+}
+.mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Undo any code-block styles that leak onto mermaid <pre> elements */
+pre.mermaid,
+.prose pre.mermaid {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  position: static !important;
+  color: inherit !important;
+}
+pre.mermaid::before,
+pre.mermaid::after,
+.prose pre.mermaid::before,
+.prose pre.mermaid::after {
+  display: none !important;
+}
+
+/* ── Prose: strip Tailwind's backtick pseudo-elements ──────────────────── */
+.prose code::before,
+.prose code::after {
+  content: '' !important;
+}
+
+/* Inline code pill */
+.prose :not(pre) > code {
+  background-color: #f3f4f6;
+  color: #111827;
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+  font-size: 0.875em;
+  font-weight: 500;
+}
+html.dark .prose :not(pre) > code {
+  background-color: #1f2937;
+  color: #e5e7eb;
+}
+
+/* ── Fenced code blocks — macOS terminal style ──────────────────────────── */
+.prose pre:not(.mermaid),
+pre.chroma {
+  position: relative;
+  background-color: #1c1c1e !important;
+  color: #e6edf3 !important;
+  /* Extra top padding to make room for the title bar */
+  padding: 2.5rem 1.25rem 1rem 1.25rem !important;
+  border-radius: 0.625rem !important;
+  border: 1px solid #3a3a3c !important;
+  overflow-x: auto !important;
+  font-size: 0.875rem !important;
+  line-height: 1.7 !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25) !important;
+}
+
+/* Title bar */
+.prose pre:not(.mermaid)::before,
+pre.chroma::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2rem;
+  background-color: #2c2c2e;
+  border-radius: 0.625rem 0.625rem 0 0;
+  border-bottom: 1px solid #3a3a3c;
+  pointer-events: none;
+}
+
+/* Traffic light dots via box-shadow trick */
+.prose pre:not(.mermaid)::after,
+pre.chroma::after {
+  content: '';
+  position: absolute;
+  top: 0.65rem;
+  left: 0.75rem;
+  width: 0.72rem;
+  height: 0.72rem;
+  border-radius: 50%;
+  background-color: #ff5f57;
+  box-shadow:
+    1.1rem 0 0 #febc2e,
+    2.2rem 0 0 #28c840;
+  pointer-events: none;
+}
+
+.prose pre > code {
+  background: transparent !important;
+  color: inherit !important;
+  padding: 0 !important;
+  font-size: inherit !important;
+  border: none !important;
+  border-radius: 0 !important;
+}
+
+/* ── Sidebar scrollbar ──────────────────────────────────────────────────── */
+#sidebar {
+  scrollbar-width: thin;
+  scrollbar-color: #e5e7eb transparent;
+}
+html.dark #sidebar {
+  scrollbar-color: #374151 transparent;
+}
+#sidebar::-webkit-scrollbar { width: 4px; }
+#sidebar::-webkit-scrollbar-track { background: transparent; }
+#sidebar::-webkit-scrollbar-thumb {
+  background: #e5e7eb;
+  border-radius: 2px;
+}
+html.dark #sidebar::-webkit-scrollbar-thumb {
+  background: #374151;
+}
+
+/* ── Sidebar nav — active state via data-active ─────────────────────────── */
+
+.nav-section:first-child {
+  margin-top: 0 !important;
+}
+
+/* Page links */
+.nav-page-link {
+  color: #4b5563;        /* gray-600 */
+  font-weight: 400;
+}
+html.dark .nav-page-link {
+  color: #9ca3af;        /* gray-400 */
+}
+.nav-page-link:hover {
+  color: #111827;
+  background-color: #f3f4f6;
+}
+html.dark .nav-page-link:hover {
+  color: #f9fafb;
+  background-color: rgba(255,255,255,0.06);
+}
+
+/* Active page link */
+.nav-page-link[data-active="true"] {
+  color: #0284c7;        /* brand-600 */
+  font-weight: 500;
+  background-color: #e0f2fe;  /* brand-100 — soft, not blinding */
+}
+html.dark .nav-page-link[data-active="true"] {
+  color: #38bdf8;        /* sky-400 — readable on dark */
+  background-color: rgba(14, 165, 233, 0.12);  /* brand-500 at 12% opacity */
+}
+
+/* Active dot */
+.nav-dot {
+  opacity: 0;
+}
+.nav-page-link[data-active="true"] .nav-dot {
+  opacity: 1;
+  background-color: #0284c7;
+}
+html.dark .nav-page-link[data-active="true"] .nav-dot {
+  background-color: #38bdf8;
+}
+
+/* Section title links */
+.nav-section-title {
+  color: #6b7280;
+}
+html.dark .nav-section-title {
+  color: #6b7280;
+}
+.nav-section-title[data-active="true"] {
+  color: #0284c7;
+}
+html.dark .nav-section-title[data-active="true"] {
+  color: #38bdf8;
+}
+
+/* ── Copy button on code blocks ─────────────────────────────────────────── */
+.copy-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid #30363d;
+  background: #161b22;
+  color: #8b949e;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+}
+pre.chroma:hover .copy-btn {
+  opacity: 1;
+}
+.copy-btn:hover {
+  color: #e6edf3;
+  border-color: #8b949e;
+}
+.copy-btn.copied {
+  color: #3fb950;
+  border-color: #3fb950;
+  opacity: 1;
+}
+
+/* ── Heading anchor links ────────────────────────────────────────────────── */
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+  position: relative;
+}
+
+.anchor-link {
+  position: absolute;
+  left: -1.25em;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
+  color: #9ca3af;
+  text-decoration: none;
+  font-weight: 400;
+  font-size: 0.9em;
+  transition: opacity 0.15s, color 0.15s;
+  user-select: none;
+}
+.prose h1:hover .anchor-link,
+.prose h2:hover .anchor-link,
+.prose h3:hover .anchor-link,
+.prose h4:hover .anchor-link {
+  opacity: 1;
+}
+.anchor-link:hover {
+  color: #0284c7;
+}
+
+/* ── TOC active link ─────────────────────────────────────────────────────── */
+.toc-link.active {
+  color: #0284c7;
+  font-weight: 500;
+}
+html.dark .toc-link.active {
+  color: #38bdf8;
+}
+
+/* ── Prose table polish ──────────────────────────────────────────────────── */
+.prose table {
+  font-size: 0.875rem;
+}
+.prose thead th {
+  background-color: #f9fafb;
+}
+html.dark .prose thead th {
+  background-color: #111827;
+}
+
+/* ── Prose blockquote ────────────────────────────────────────────────────── */
+.prose blockquote {
+  border-left-color: #0ea5e9;
+  background-color: #f0f9ff;
+  padding: 0.75rem 1rem;
+  border-radius: 0 0.375rem 0.375rem 0;
+}
+html.dark .prose blockquote {
+  background-color: #0c1a27;
+  border-left-color: #0284c7;
+}
+.prose blockquote p {
+  margin: 0 !important;
+  color: #0369a1;
+}
+html.dark .prose blockquote p {
+  color: #7dd3fc;
+}
