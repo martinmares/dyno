@@ -1,13 +1,17 @@
 package server
 
 import (
+	"encoding/json"
+	"fmt"
 	"html/template"
+	"io"
 	"log"
-	"regexp"
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
+	"time"
 
 	"github.com/mares/dyno/internal/config"
 	"github.com/mares/dyno/internal/markdown"
@@ -235,6 +239,113 @@ func (s *Server) internalError(w http.ResponseWriter, r *http.Request, err error
 		tmplName = "page-content"
 	}
 	_ = s.render(w, tmplName, data)
+}
+
+// ── API proxy ──────────────────────────────────────────────────────────────
+
+// apiProxyRequest is the JSON body sent by the browser JS.
+type apiProxyRequest struct {
+	Method  string              `json:"method"`
+	URL     string              `json:"url"`
+	Headers map[string]string   `json:"headers"`
+	Body    string              `json:"body"`
+}
+
+var apiHTTPClient = &http.Client{Timeout: 30 * time.Second}
+
+func (s *Server) apiProxyHandler(w http.ResponseWriter, r *http.Request) {
+	var req apiProxyRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	if req.URL == "" || req.Method == "" {
+		http.Error(w, "method and url required", http.StatusBadRequest)
+		return
+	}
+
+	var bodyReader io.Reader
+	if req.Body != "" {
+		bodyReader = strings.NewReader(req.Body)
+	}
+
+	outReq, err := http.NewRequestWithContext(r.Context(), req.Method, req.URL, bodyReader)
+	if err != nil {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprintf(w, `<div class="api-error">Invalid URL: %s</div>`, htmlEscapeStr(err.Error()))
+		return
+	}
+	for k, v := range req.Headers {
+		outReq.Header.Set(k, v)
+	}
+
+	start := time.Now()
+	resp, err := apiHTTPClient.Do(outReq)
+	elapsed := time.Since(start)
+	if err != nil {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprintf(w, `<div class="api-error">Request failed: %s</div>`, htmlEscapeStr(err.Error()))
+		return
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20)) // 1 MB limit
+	ct := resp.Header.Get("Content-Type")
+
+	// Pretty-print JSON if applicable.
+	displayBody := string(respBody)
+	if strings.Contains(ct, "application/json") || isJSON(respBody) {
+		var v any
+		if json.Unmarshal(respBody, &v) == nil {
+			if pretty, err := json.MarshalIndent(v, "", "  "); err == nil {
+				displayBody = string(pretty)
+			}
+		}
+	}
+
+	statusClass := "api-status-2xx"
+	if resp.StatusCode >= 500 {
+		statusClass = "api-status-5xx"
+	} else if resp.StatusCode >= 400 {
+		statusClass = "api-status-4xx"
+	} else if resp.StatusCode >= 300 {
+		statusClass = "api-status-3xx"
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	// Return JSON payload so JS can populate both Body and Headers tabs.
+	// Wrapped in a <script> + a hidden div carrying the data.
+	payload := map[string]any{
+		"status":     resp.StatusCode,
+		"statusText": resp.Status,
+		"elapsed":    elapsed.Milliseconds(),
+		"statusClass": statusClass,
+		"body":       displayBody,
+		"headers":    flattenHeaders(resp.Header),
+	}
+	data, _ := json.Marshal(payload)
+	fmt.Fprintf(w, `<script>applyProxyResponse(%s)</script>`, data)
+}
+
+// flattenHeaders converts http.Header to ordered [][]string for JSON.
+func flattenHeaders(h http.Header) [][2]string {
+	out := make([][2]string, 0, len(h))
+	for k, vs := range h {
+		out = append(out, [2]string{k, strings.Join(vs, ", ")})
+	}
+	return out
+}
+
+func isJSON(b []byte) bool {
+	b = []byte(strings.TrimSpace(string(b)))
+	return len(b) > 0 && (b[0] == '{' || b[0] == '[')
+}
+
+func htmlEscapeStr(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	return s
 }
 
 // absLinkRe matches href="/..." and src="/..." that are not protocol-relative (//...)

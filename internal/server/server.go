@@ -123,6 +123,7 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 		s.mux.HandleFunc("GET "+basePath+"/{path...}", s.pageHandler)
 	}
 	s.mux.HandleFunc("GET /search", s.searchHandler)
+	s.mux.HandleFunc("POST /api-proxy", s.apiProxyHandler)
 	s.mux.HandleFunc("GET /healthz", s.healthHandler)
 
 	return s, nil
@@ -142,7 +143,11 @@ func (s *Server) getTemplate() (*template.Template, error) {
 
 // Handler returns the HTTP handler with middleware applied.
 func (s *Server) Handler() http.Handler {
-	return recoveryMiddleware(loggingMiddleware(gzipMiddleware(cacheMiddleware(s.mux))))
+	cache := cacheMiddleware
+	if s.devMode {
+		cache = devCacheMiddleware
+	}
+	return recoveryMiddleware(loggingMiddleware(gzipMiddleware(cache(s.mux))))
 }
 
 func (s *Server) redirectHandler(w http.ResponseWriter, r *http.Request) {

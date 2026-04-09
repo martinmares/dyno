@@ -344,3 +344,161 @@ function closeLightbox() {
   if (overlay) overlay.classList.remove('open');
   document.body.style.overflow = '';
 }
+
+// ── API widget ────────────────────────────────────────────────────────────
+
+function apiToggle(id) {
+  const widget = document.getElementById(id);
+  if (!widget) return;
+  const panel = widget.querySelector('.api-panel');
+  const btn = widget.querySelector('.api-toggle');
+  const open = panel.hasAttribute('hidden');
+  if (open) {
+    panel.removeAttribute('hidden');
+    btn.setAttribute('aria-expanded', 'true');
+    widget.classList.add('open');
+  } else {
+    panel.setAttribute('hidden', '');
+    btn.setAttribute('aria-expanded', 'false');
+    widget.classList.remove('open');
+  }
+}
+
+function apiAuthTab(id, mode, btn) {
+  const widget = document.getElementById(id);
+  if (!widget) return;
+  widget.querySelectorAll('.api-auth-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  widget.querySelectorAll('.api-auth-panel').forEach(p => {
+    p.style.display = p.dataset.auth === mode ? '' : 'none';
+  });
+}
+
+function apiRespTab(id, tab, btn) {
+  const widget = document.getElementById(id);
+  if (!widget) return;
+  widget.querySelectorAll('.api-resp-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  widget.querySelectorAll('.api-resp-panel').forEach(p => {
+    p.style.display = p.dataset.resp === tab ? '' : 'none';
+  });
+}
+
+function apiSend(id) {
+  const widget = document.getElementById(id);
+  if (!widget) return;
+  const spec = (window.__apiWidgets || {})[id];
+  if (!spec) return;
+
+  // Resolve {{var}} placeholders
+  const vars = {};
+  widget.querySelectorAll('[data-var]').forEach(el => {
+    vars[el.dataset.var] = el.value;
+  });
+  function resolve(s) {
+    return s.replace(/\{\{(\w+)\}\}/g, (_, k) => vars[k] || '');
+  }
+
+  let url = resolve(spec.url);
+  let headers = {};
+
+  // Static headers from the block
+  (spec.headers || []).forEach(([k, v]) => { headers[resolve(k)] = resolve(v); });
+
+  // Auth
+  const activeAuth = widget.querySelector('.api-auth-tab.active');
+  const authMode = activeAuth ? activeAuth.textContent.trim().toLowerCase() : 'none';
+  if (authMode === 'bearer') {
+    const tok = widget.querySelector('[data-role="bearer-token"]');
+    if (tok && tok.value) headers['Authorization'] = 'Bearer ' + tok.value;
+  } else if (authMode === 'basic') {
+    const u = widget.querySelector('[data-role="basic-user"]');
+    const p = widget.querySelector('[data-role="basic-pass"]');
+    if (u && p) headers['Authorization'] = 'Basic ' + btoa(u.value + ':' + p.value);
+  }
+
+  // Body
+  let body = '';
+  const bodyEl = widget.querySelector('[data-role="body"]');
+  if (bodyEl) {
+    body = bodyEl.value;
+    if (body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+  }
+
+  // UI: show loading state
+  const sendBtn = widget.querySelector('.api-send-btn');
+  const statusBadge = widget.querySelector('[data-role="status"]');
+  const responseDiv = widget.querySelector('[data-role="response"]');
+  sendBtn.disabled = true;
+  sendBtn.textContent = 'Sending…';
+  statusBadge.className = 'api-status-badge';
+  statusBadge.textContent = '';
+  responseDiv.style.display = 'none';
+
+  fetch('/api-proxy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ method: spec.method, url, headers, body }),
+  })
+    .then(r => r.text())
+    .then(html => {
+      // The response is a <script> tag that calls applyProxyResponse()
+      // We need to set up the current widget context first.
+      window.__currentApiWidget = id;
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      const scripts = tmp.querySelectorAll('script');
+      scripts.forEach(s => {
+        const el = document.createElement('script');
+        el.textContent = s.textContent;
+        document.head.appendChild(el).remove();
+      });
+    })
+    .catch(err => {
+      statusBadge.textContent = 'Error';
+      statusBadge.className = 'api-status-badge visible api-status-5xx';
+      responseDiv.style.display = '';
+      const bodyPre = widget.querySelector('[data-role="resp-body"]');
+      if (bodyPre) bodyPre.textContent = err.message;
+    })
+    .finally(() => {
+      sendBtn.disabled = false;
+      sendBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg> Send';
+    });
+}
+
+function applyProxyResponse(data) {
+  const id = window.__currentApiWidget;
+  if (!id) return;
+  const widget = document.getElementById(id);
+  if (!widget) return;
+
+  const statusBadge = widget.querySelector('[data-role="status"]');
+  const responseDiv = widget.querySelector('[data-role="response"]');
+  const bodyPre = widget.querySelector('[data-role="resp-body"]');
+  const headersTable = widget.querySelector('[data-role="resp-headers"]');
+
+  statusBadge.textContent = data.status + ' · ' + data.elapsed + 'ms';
+  statusBadge.className = 'api-status-badge visible ' + data.statusClass;
+
+  if (bodyPre) bodyPre.textContent = data.body;
+
+  if (headersTable) {
+    headersTable.innerHTML = (data.headers || [])
+      .map(([k, v]) => `<tr><td>${escHtml(k)}</td><td>${escHtml(v)}</td></tr>`)
+      .join('');
+  }
+
+  responseDiv.style.display = '';
+  // Show body tab by default
+  widget.querySelectorAll('.api-resp-tab').forEach(b => b.classList.remove('active'));
+  const bodyTab = widget.querySelector('.api-resp-tab');
+  if (bodyTab) bodyTab.classList.add('active');
+  widget.querySelectorAll('.api-resp-panel').forEach(p => {
+    p.style.display = p.dataset.resp === 'body' ? '' : 'none';
+  });
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
