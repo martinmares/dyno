@@ -6,39 +6,17 @@
   <title>{{ .Title }}{{ if .Site }} — {{ .Site.Title }}{{ end }}</title>
   {{ if and .Site .Site.Favicon }}<link rel="icon" href="{{ .Site.Favicon }}">{{ else }}<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">{{ end }}
 
-  <!-- Tailwind CSS CDN with Typography plugin -->
-  <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            brand: {
-              50:  '#f0f9ff',
-              100: '#e0f2fe',
-              500: '#0ea5e9',
-              600: '#0284c7',
-              700: '#0369a1',
-            }
-          }
-        }
-      }
-    }
-  </script>
-
   <!-- HTMX -->
-  <script src="https://unpkg.com/htmx.org@2.0.4" defer></script>
+  <script src="/assets/htmx.min.js" defer></script>
 
   <!-- Mermaid -->
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+  <script src="/assets/mermaid.min.js"></script>
 
   <!-- Chroma syntax highlighting — light rules first, dark scoped under html.dark -->
   <style>{{ .LightCSS }}</style>
   <style>{{ .DarkCSS }}</style>
 
-  <!-- Custom styles -->
-  <link rel="stylesheet" href="/assets/app.css" />
+  <link rel="stylesheet" href="/assets/tailwind.css" />
 </head>
 <body class="bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 antialiased transition-colors duration-200">
 

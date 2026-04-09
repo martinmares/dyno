@@ -5,8 +5,9 @@ import (
 	"html/template"
 	"io/fs"
 	"net/http"
-
+	"os"
 	"sync"
+	"time"
 
 	"github.com/mares/dyno/internal/config"
 	"github.com/mares/dyno/internal/markdown"
@@ -27,6 +28,12 @@ type Server struct {
 	tmplFS    fs.FS              // used in dev mode for live reloading
 	devMode   bool
 	mux       *http.ServeMux
+	pageCache map[string]pageCacheEntry
+}
+
+type pageCacheEntry struct {
+	modTime time.Time
+	result  *markdown.Result
 }
 
 // Reload swaps the navigation tree and search index atomically (used by --watch).
@@ -35,6 +42,7 @@ func (s *Server) Reload(nav *navigation.NavNode, idx *search.Index) {
 	defer s.mu.Unlock()
 	s.nav = nav
 	s.idx = idx
+	s.pageCache = make(map[string]pageCacheEntry)
 }
 
 func (s *Server) getNav() *navigation.NavNode {
@@ -88,15 +96,16 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 	}
 
 	s := &Server{
-		siteRoot: cfg.SiteRoot,
-		basePath: cfg.SiteCfg.GetBasePath(),
-		siteCfg:  cfg.SiteCfg,
-		nav:      nav,
-		idx:      idx,
-		renderer: renderer,
-		tmplFS:   tmplFS,
-		devMode:  cfg.DevMode,
-		mux:      http.NewServeMux(),
+		siteRoot:  cfg.SiteRoot,
+		basePath:  cfg.SiteCfg.GetBasePath(),
+		siteCfg:   cfg.SiteCfg,
+		nav:       nav,
+		idx:       idx,
+		renderer:  renderer,
+		tmplFS:    tmplFS,
+		devMode:   cfg.DevMode,
+		mux:       http.NewServeMux(),
+		pageCache: make(map[string]pageCacheEntry),
 	}
 
 	if !cfg.DevMode {
@@ -127,6 +136,42 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 	s.mux.HandleFunc("GET /healthz", s.healthHandler)
 
 	return s, nil
+}
+
+func (s *Server) getRenderedPage(fsPath string) (*markdown.Result, error) {
+	info, err := os.Stat(fsPath)
+	if err != nil {
+		return nil, err
+	}
+
+	modTime := info.ModTime()
+
+	s.mu.RLock()
+	cached, ok := s.pageCache[fsPath]
+	s.mu.RUnlock()
+	if ok && cached.modTime.Equal(modTime) {
+		resultCopy := *cached.result
+		return &resultCopy, nil
+	}
+
+	src, err := os.ReadFile(fsPath)
+	if err != nil {
+		return nil, err
+	}
+	res, err := s.renderer.Render(src)
+	if err != nil {
+		return nil, err
+	}
+
+	s.mu.Lock()
+	s.pageCache[fsPath] = pageCacheEntry{
+		modTime: modTime,
+		result:  res,
+	}
+	s.mu.Unlock()
+
+	resultCopy := *res
+	return &resultCopy, nil
 }
 
 func parseTemplates(tmplFS fs.FS) (*template.Template, error) {

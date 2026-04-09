@@ -3,7 +3,7 @@ package server
 import (
 	"compress/gzip"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
@@ -37,7 +37,12 @@ func loggingMiddleware(next http.Handler) http.Handler {
 		start := time.Now()
 		rw := &responseWriter{ResponseWriter: w, status: 200}
 		next.ServeHTTP(rw, r)
-		log.Printf("%s %s %d %s", r.Method, r.URL.Path, rw.status, time.Since(start))
+		slog.Info("request completed",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"status", rw.status,
+			"duration", time.Since(start),
+		)
 	})
 }
 
@@ -45,7 +50,7 @@ func recoveryMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if rec := recover(); rec != nil {
-				log.Printf("panic: %v", rec)
+				slog.Error("panic recovered", "panic", rec)
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			}
 		}()
@@ -128,7 +133,7 @@ func cacheMiddlewareWithDev(next http.Handler, dev bool) http.Handler {
 			if dev {
 				w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 			} else {
-				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+				w.Header().Set("Cache-Control", "public, max-age=3600, must-revalidate")
 			}
 		}
 		next.ServeHTTP(w, r)

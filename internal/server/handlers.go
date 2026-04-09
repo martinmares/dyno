@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -116,14 +116,12 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	src, err := os.ReadFile(fsPath)
+	res, err := s.getRenderedPage(fsPath)
 	if err != nil {
-		s.notFound(w, r)
-		return
-	}
-
-	res, err := s.renderer.Render(src)
-	if err != nil {
+		if os.IsNotExist(err) {
+			s.notFound(w, r)
+			return
+		}
 		s.internalError(w, r, err)
 		return
 	}
@@ -165,13 +163,13 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 	if isHTMX(r) {
 		w.Header().Set("HX-Push-Url", node.FullPath)
 		if err := s.render(w, "page-content", data); err != nil {
-			log.Printf("template error: %v", err)
+			slog.Error("template error", "template", "page-content", "err", err)
 		}
 		return
 	}
 
 	if err := s.render(w, "base.html", data); err != nil {
-		log.Printf("template error: %v", err)
+		slog.Error("template error", "template", "base.html", "err", err)
 	}
 }
 
@@ -196,13 +194,13 @@ func (s *Server) searchHandler(w http.ResponseWriter, r *http.Request) {
 
 	if isHTMX(r) {
 		if err := s.render(w, "search-results", data); err != nil {
-			log.Printf("template error: %v", err)
+			slog.Error("template error", "template", "search-results", "err", err)
 		}
 		return
 	}
 
 	if err := s.render(w, "search-page.html", data); err != nil {
-		log.Printf("template error: %v", err)
+		slog.Error("template error", "template", "search-page.html", "err", err)
 	}
 }
 
@@ -224,7 +222,7 @@ func (s *Server) notFound(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) internalError(w http.ResponseWriter, r *http.Request, err error) {
-	log.Printf("internal error: %v", err)
+	slog.Error("internal error", "err", err, "path", r.URL.Path)
 	w.WriteHeader(http.StatusInternalServerError)
 	data := PageData{
 		Title:       "Internal Error",
@@ -245,10 +243,10 @@ func (s *Server) internalError(w http.ResponseWriter, r *http.Request, err error
 
 // apiProxyRequest is the JSON body sent by the browser JS.
 type apiProxyRequest struct {
-	Method  string              `json:"method"`
-	URL     string              `json:"url"`
-	Headers map[string]string   `json:"headers"`
-	Body    string              `json:"body"`
+	Method  string            `json:"method"`
+	URL     string            `json:"url"`
+	Headers map[string]string `json:"headers"`
+	Body    string            `json:"body"`
 }
 
 var apiHTTPClient = &http.Client{Timeout: 30 * time.Second}
@@ -316,12 +314,12 @@ func (s *Server) apiProxyHandler(w http.ResponseWriter, r *http.Request) {
 	// Return JSON payload so JS can populate both Body and Headers tabs.
 	// Wrapped in a <script> + a hidden div carrying the data.
 	payload := map[string]any{
-		"status":     resp.StatusCode,
-		"statusText": resp.Status,
-		"elapsed":    elapsed.Milliseconds(),
+		"status":      resp.StatusCode,
+		"statusText":  resp.Status,
+		"elapsed":     elapsed.Milliseconds(),
 		"statusClass": statusClass,
-		"body":       displayBody,
-		"headers":    flattenHeaders(resp.Header),
+		"body":        displayBody,
+		"headers":     flattenHeaders(resp.Header),
 	}
 	data, _ := json.Marshal(payload)
 	fmt.Fprintf(w, `<script>applyProxyResponse(%s)</script>`, data)
@@ -368,4 +366,3 @@ func rewriteAbsoluteLinks(htmlStr, basePath string) string {
 		return attr + `="` + basePath + path + `"`
 	})
 }
-

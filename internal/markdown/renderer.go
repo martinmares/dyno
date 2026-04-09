@@ -11,8 +11,8 @@ import (
 
 	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/alecthomas/chroma/v2/styles"
-	highlighting "github.com/yuin/goldmark-highlighting/v2"
 	"github.com/yuin/goldmark"
+	highlighting "github.com/yuin/goldmark-highlighting/v2"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer/html"
@@ -533,7 +533,7 @@ func renderAPIWidget(src string) string {
 	b.WriteString(`<div class="api-titlebar">`)
 	b.WriteString(`<span class="api-method ` + methodColor(spec.method) + `">` + htmlEscape(spec.method) + `</span>`)
 	b.WriteString(`<span class="api-url">` + htmlEscape(spec.url) + `</span>`)
-	b.WriteString(`<button class="api-toggle" onclick="apiToggle('` + widgetID + `')" aria-expanded="false">`)
+	b.WriteString(`<button type="button" class="api-toggle" data-api-action="toggle" aria-expanded="false">`)
 	b.WriteString(`<span class="api-toggle-label">Try it</span>`)
 	b.WriteString(`<svg class="api-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>`)
 	b.WriteString(`</button>`)
@@ -559,9 +559,9 @@ func renderAPIWidget(src string) string {
 	b.WriteString(`<div class="api-section">`)
 	b.WriteString(`<div class="api-section-title">Auth</div>`)
 	b.WriteString(`<div class="api-auth-tabs">`)
-	b.WriteString(`<button class="api-auth-tab active" onclick="apiAuthTab('` + widgetID + `','none',this)">None</button>`)
-	b.WriteString(`<button class="api-auth-tab" onclick="apiAuthTab('` + widgetID + `','bearer',this)">Bearer</button>`)
-	b.WriteString(`<button class="api-auth-tab" onclick="apiAuthTab('` + widgetID + `','basic',this)">Basic</button>`)
+	b.WriteString(`<button type="button" class="api-auth-tab active" data-api-action="auth-tab" data-api-auth="none">None</button>`)
+	b.WriteString(`<button type="button" class="api-auth-tab" data-api-action="auth-tab" data-api-auth="bearer">Bearer</button>`)
+	b.WriteString(`<button type="button" class="api-auth-tab" data-api-action="auth-tab" data-api-auth="basic">Basic</button>`)
 	b.WriteString(`</div>`)
 	b.WriteString(`<div class="api-auth-panel" data-auth="bearer" style="display:none">`)
 	b.WriteString(`<input class="api-input" data-role="bearer-token" placeholder="Bearer token">`)
@@ -595,7 +595,7 @@ func renderAPIWidget(src string) string {
 
 	// Send button
 	b.WriteString(`<div class="api-send-row">`)
-	b.WriteString(`<button class="api-send-btn" onclick="apiSend('` + widgetID + `')">`)
+	b.WriteString(`<button type="button" class="api-send-btn" data-api-action="send">`)
 	b.WriteString(`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg> Send`)
 	b.WriteString(`</button>`)
 	b.WriteString(`<span class="api-status-badge" data-role="status"></span>`)
@@ -604,8 +604,8 @@ func renderAPIWidget(src string) string {
 	// Response area (hidden until response arrives)
 	b.WriteString(`<div class="api-response" data-role="response" style="display:none">`)
 	b.WriteString(`<div class="api-response-tabs">`)
-	b.WriteString(`<button class="api-resp-tab active" onclick="apiRespTab('` + widgetID + `','body',this)">Body</button>`)
-	b.WriteString(`<button class="api-resp-tab" onclick="apiRespTab('` + widgetID + `','headers',this)">Headers</button>`)
+	b.WriteString(`<button type="button" class="api-resp-tab active" data-api-action="resp-tab" data-api-resp="body">Body</button>`)
+	b.WriteString(`<button type="button" class="api-resp-tab" data-api-action="resp-tab" data-api-resp="headers">Headers</button>`)
 	b.WriteString(`</div>`)
 	b.WriteString(`<div class="api-resp-panel" data-resp="body"><pre class="api-resp-pre" data-role="resp-body"></pre></div>`)
 	b.WriteString(`<div class="api-resp-panel" data-resp="headers" style="display:none"><table class="api-resp-headers" data-role="resp-headers"></table></div>`)

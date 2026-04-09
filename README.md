@@ -20,6 +20,7 @@ A self-hosted documentation server — think GitBook or Notion, but as a single 
 - **Hot reload** — `--watch` flag reloads navigation and search index on file changes
 - **Dev mode** — `--dev` flag reloads templates from disk without rebuilding
 - **Single binary** — everything embedded, no Node.js, no build pipeline
+- **Prebuilt production CSS** — Tailwind is compiled into local assets instead of loaded from a CDN
 
 ## Project layout
 
@@ -56,12 +57,20 @@ All fields are optional — dyno works with no config file at all.
 
 Requires **Go 1.22+**.
 
+### Development
+
+```bash
+just css          # build production CSS once
+just css-watch    # rebuild CSS while editing templates
+go run . --dev --watch
+```
+
 ### macOS
 
 ```bash
 git clone https://github.com/mares/dyno
 cd dyno
-go build -o dyno .
+just release-macos
 ./dyno --dir /path/to/your/docs
 ```
 
@@ -76,7 +85,7 @@ go install github.com/mares/dyno@latest
 ```bash
 git clone https://github.com/mares/dyno
 cd dyno
-go build -o dyno .
+just release-linux
 ./dyno --dir /path/to/your/docs
 ```
 
@@ -111,6 +120,7 @@ Flags:
   -d, --dir string    Directory containing site/ folder (default ".")
       --dev           Reload templates from disk on every request
       --watch         Watch site/ for changes and reload navigation/search
+      --log-format    Log format: text or json (default "text")
       --version       Print version and exit
 ```
 

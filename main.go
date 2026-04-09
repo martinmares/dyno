@@ -1,12 +1,12 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"flag"
 	"fmt"
-	"context"
 	"io/fs"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	charmlog "github.com/charmbracelet/log"
 	"github.com/mares/dyno/internal/config"
 	"github.com/mares/dyno/internal/markdown"
 	"github.com/mares/dyno/internal/navigation"
@@ -32,6 +33,7 @@ func main() {
 	dir := flag.String("dir", ".", "Directory containing site/ folder")
 	dev := flag.Bool("dev", false, "Dev mode: reload templates and assets from disk on every request")
 	watch := flag.Bool("watch", false, "Watch site/ for changes and reload navigation/search automatically")
+	logFormat := flag.String("log-format", "text", "Log format: text or json")
 	showVersion := flag.Bool("version", false, "Print version and exit")
 	flag.StringVar(port, "p", "3000", "Port (shorthand)")
 	flag.StringVar(dir, "d", ".", "Directory (shorthand)")
@@ -42,44 +44,53 @@ func main() {
 		return
 	}
 
+	setupLogger(*logFormat)
+
 	siteRoot, err := filepath.Abs(*dir)
 	if err != nil {
-		log.Fatalf("invalid directory: %v", err)
+		slog.Error("invalid directory", "err", err)
+		os.Exit(1)
 	}
 
 	siteDir := filepath.Join(siteRoot, "site")
 	if _, err := os.Stat(siteDir); os.IsNotExist(err) {
-		log.Fatalf("site/ directory not found in %s\n\nCreate a site/ directory with Markdown files to get started.", siteRoot)
+		slog.Error("site directory not found", "site_root", siteRoot)
+		fmt.Fprintf(os.Stderr, "Create a site/ directory with Markdown files to get started.\n")
+		os.Exit(1)
 	}
 
 	siteCfg, err := config.Load(siteRoot)
 	if err != nil {
-		log.Fatalf("failed to load dyno.yaml: %v", err)
+		slog.Error("failed to load dyno.yaml", "err", err)
+		os.Exit(1)
 	}
 
-	log.Printf("dyno v%s — %s — loading docs from %s", version, siteCfg.Title, siteDir)
+	slog.Info("loading docs", "version", version, "title", siteCfg.Title, "site_dir", siteDir)
 	if *dev {
-		log.Printf("dev mode: templates and assets loaded from disk (no rebuild needed)")
+		slog.Info("dev mode enabled", "templates", "disk", "assets", "disk")
 	}
 
 	nav, err := navigation.BuildTree(siteRoot, siteCfg.GetBasePath())
 	if err != nil {
-		log.Fatalf("failed to build navigation tree: %v", err)
+		slog.Error("failed to build navigation tree", "err", err)
+		os.Exit(1)
 	}
-	log.Printf("navigation: loaded %d pages", countNodes(nav))
+	slog.Info("navigation loaded", "pages", countNodes(nav))
 
 	renderer, err := markdown.NewRenderer()
 	if err != nil {
-		log.Fatalf("failed to create renderer: %v", err)
+		slog.Error("failed to create renderer", "err", err)
+		os.Exit(1)
 	}
 
 	idx, err := search.BuildIndex(nav, func(src string) (string, error) {
 		return renderer.ToPlainText([]byte(src))
 	})
 	if err != nil {
-		log.Fatalf("failed to build search index: %v", err)
+		slog.Error("failed to build search index", "err", err)
+		os.Exit(1)
 	}
-	log.Printf("search: indexed %d documents", idx.DocCount())
+	slog.Info("search indexed", "documents", idx.DocCount())
 
 	// In dev mode: read templates/assets from the real filesystem.
 	// In prod mode: use the embedded FS baked into the binary.
@@ -89,7 +100,8 @@ func main() {
 		// Assumes dyno is run from its own source root (where go.mod lives).
 		sourceRoot, err := filepath.Abs(*dir)
 		if err != nil {
-			log.Fatalf("cannot resolve source root: %v", err)
+			slog.Error("cannot resolve source root", "err", err)
+			os.Exit(1)
 		}
 		// Check if templates/ exists here; if not, try the binary's own directory.
 		if _, err := os.Stat(filepath.Join(sourceRoot, "templates")); os.IsNotExist(err) {
@@ -109,7 +121,8 @@ func main() {
 	}
 	srv, err := server.New(cfg, staticFS, nav, idx, renderer)
 	if err != nil {
-		log.Fatalf("failed to create server: %v", err)
+		slog.Error("failed to create server", "err", err)
+		os.Exit(1)
 	}
 
 	if *watch {
@@ -117,9 +130,10 @@ func main() {
 			return renderer.ToPlainText([]byte(src))
 		}
 		if err := watcher.Watch(siteRoot, siteCfg.GetBasePath(), srv, plainText); err != nil {
-			log.Fatalf("failed to start watcher: %v", err)
+			slog.Error("failed to start watcher", "err", err)
+			os.Exit(1)
 		}
-		log.Printf("watch: monitoring %s/site/ for changes", siteRoot)
+		slog.Info("watcher enabled", "site_dir", filepath.Join(siteRoot, "site"))
 	}
 
 	addr := ":" + *port
@@ -136,18 +150,33 @@ func main() {
 	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
 	go func() {
 		<-quit
-		log.Println("shutting down...")
+		slog.Info("shutting down")
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := httpSrv.Shutdown(ctx); err != nil {
-			log.Printf("shutdown error: %v", err)
+			slog.Error("shutdown error", "err", err)
 		}
 	}()
 
-	log.Printf("dyno listening on http://localhost%s", addr)
+	slog.Info("server listening", "addr", "http://localhost"+addr)
 	if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("server error: %v", err)
+		slog.Error("server error", "err", err)
+		os.Exit(1)
 	}
+}
+
+func setupLogger(format string) {
+	var handler slog.Handler
+	if format == "json" {
+		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})
+	} else {
+		handler = charmlog.NewWithOptions(os.Stdout, charmlog.Options{
+			Level:           charmlog.InfoLevel,
+			TimeFormat:      time.RFC3339,
+			ReportTimestamp: true,
+		})
+	}
+	slog.SetDefault(slog.New(handler))
 }
 
 func countNodes(node *navigation.NavNode) int {

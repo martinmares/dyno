@@ -1,7 +1,7 @@
 package watcher
 
 import (
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -51,7 +51,7 @@ func Watch(siteRoot, basePath string, srv Reloader, plainText func(string) (stri
 				if !ok {
 					return
 				}
-				log.Printf("watcher error: %v", err)
+				slog.Error("watcher error", "err", err)
 			}
 		}
 	}()
@@ -62,16 +62,16 @@ func Watch(siteRoot, basePath string, srv Reloader, plainText func(string) (stri
 func rebuild(siteRoot, basePath string, srv Reloader, plainText func(string) (string, error)) {
 	nav, err := navigation.BuildTree(siteRoot, basePath)
 	if err != nil {
-		log.Printf("watch: rebuild nav failed: %v", err)
+		slog.Error("watch rebuild nav failed", "err", err)
 		return
 	}
 	idx, err := search.BuildIndex(nav, plainText)
 	if err != nil {
-		log.Printf("watch: rebuild index failed: %v", err)
+		slog.Error("watch rebuild index failed", "err", err)
 		return
 	}
 	srv.Reload(nav, idx)
-	log.Printf("watch: reloaded (%d pages)", countNodes(nav))
+	slog.Info("watch reload complete", "pages", countNodes(nav))
 }
 
 func countNodes(node *navigation.NavNode) int {

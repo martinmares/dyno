@@ -347,8 +347,7 @@ function closeLightbox() {
 
 // ── API widget ────────────────────────────────────────────────────────────
 
-function apiToggle(id) {
-  const widget = document.getElementById(id);
+function apiToggle(widget) {
   if (!widget) return;
   const panel = widget.querySelector('.api-panel');
   const btn = widget.querySelector('.api-toggle');
@@ -364,8 +363,7 @@ function apiToggle(id) {
   }
 }
 
-function apiAuthTab(id, mode, btn) {
-  const widget = document.getElementById(id);
+function apiAuthTab(widget, mode, btn) {
   if (!widget) return;
   widget.querySelectorAll('.api-auth-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
@@ -374,8 +372,7 @@ function apiAuthTab(id, mode, btn) {
   });
 }
 
-function apiRespTab(id, tab, btn) {
-  const widget = document.getElementById(id);
+function apiRespTab(widget, tab, btn) {
   if (!widget) return;
   widget.querySelectorAll('.api-resp-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
@@ -384,9 +381,9 @@ function apiRespTab(id, tab, btn) {
   });
 }
 
-function apiSend(id) {
-  const widget = document.getElementById(id);
+function apiSend(widget) {
   if (!widget) return;
+  const id = widget.id;
   const spec = (window.__apiWidgets || {})[id];
   if (!spec) return;
 
@@ -502,3 +499,28 @@ function applyProxyResponse(data) {
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+
+document.addEventListener('click', function (e) {
+  const btn = e.target.closest('[data-api-action]');
+  if (!btn) return;
+
+  const widget = btn.closest('.api-widget');
+  if (!widget) return;
+
+  const action = btn.getAttribute('data-api-action');
+  if (action === 'toggle') {
+    apiToggle(widget);
+    return;
+  }
+  if (action === 'auth-tab') {
+    apiAuthTab(widget, btn.getAttribute('data-api-auth') || 'none', btn);
+    return;
+  }
+  if (action === 'resp-tab') {
+    apiRespTab(widget, btn.getAttribute('data-api-resp') || 'body', btn);
+    return;
+  }
+  if (action === 'send') {
+    apiSend(widget);
+  }
+});
