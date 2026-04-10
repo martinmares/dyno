@@ -6,10 +6,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{{ if .Query }}Search: {{ .Query }}{{ else }}Search{{ end }} — Dyno Docs</title>
-  <script src="/assets/htmx.min.js" defer></script>
+  {{ if .FaviconURL }}<link rel="icon" href="{{ .FaviconURL }}">{{ else if and .Site .Site.LogoURL }}<link rel="icon" href="{{ .Site.LogoURL }}">{{ else }}<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230284c7'%3E%3Cpath d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/%3E%3C/svg%3E">{{ end }}
+  <script src="{{ .HTMXURL }}" defer></script>
   <style id="chroma-light">{{ .LightCSS }}</style>
   <style id="chroma-dark">{{ .DarkCSS }}</style>
-  <link rel="stylesheet" href="/assets/tailwind.css" />
+  <link rel="stylesheet" href="{{ .TailwindURL }}" />
 </head>
 <body class="bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 antialiased">
   <header class="fixed top-0 left-0 right-0 z-50 h-14 border-b border-gray-200 dark:border-gray-800 bg-white/90 dark:bg-gray-950/90 backdrop-blur flex items-center px-4 gap-4">
@@ -52,7 +53,7 @@
       </div>
     </main>
   </div>
-  <script src="/assets/app.js"></script>
+  <script src="{{ .AppJSURL }}"></script>
 </body>
 </html>
 {{ end }}

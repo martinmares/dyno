@@ -10,16 +10,18 @@ import (
 
 // SiteConfig holds the user-defined site configuration from dyno.yaml.
 type SiteConfig struct {
-	Title        string `yaml:"title"`
-	Description  string `yaml:"description"`
-	Version      string `yaml:"version"`
-	LogoURL      string `yaml:"logo_url"`
-	LogoText     string `yaml:"logo_text"`
-	GitHubURL    string `yaml:"github_url"`    // e.g. "https://github.com/org/repo"
-	GitHubBranch string `yaml:"github_branch"` // default: "main"
-	Copyright    string `yaml:"copyright"`
-	Favicon      string `yaml:"favicon"`   // URL or path under assets/
-	BasePath     *string `yaml:"base_path"` // e.g. "/docs" (default), "" or "/" for root
+	Title                        string   `yaml:"title"`
+	Description                  string   `yaml:"description"`
+	Version                      string   `yaml:"version"`
+	LogoURL                      string   `yaml:"logo_url"`
+	LogoText                     string   `yaml:"logo_text"`
+	GitHubURL                    string   `yaml:"github_url"`    // e.g. "https://github.com/org/repo"
+	GitHubBranch                 string   `yaml:"github_branch"` // default: "main"
+	Copyright                    string   `yaml:"copyright"`
+	Favicon                      string   `yaml:"favicon"`   // URL or path under assets/
+	BasePath                     *string  `yaml:"base_path"` // e.g. "/docs" (default), "" or "/" for root
+	APIProxyAllowedHosts         []string `yaml:"api_proxy_allowed_hosts"`
+	APIProxyAllowPrivateNetworks *bool    `yaml:"api_proxy_allow_private_networks"`
 }
 
 // GetBasePath returns the normalized base path as a string.
@@ -54,6 +56,14 @@ func (c *SiteConfig) Defaults() {
 		}
 		c.BasePath = &normalized
 	}
+	if c.APIProxyAllowPrivateNetworks == nil {
+		allow := true
+		c.APIProxyAllowPrivateNetworks = &allow
+	}
+}
+
+func (c *SiteConfig) AllowPrivateProxyTargets() bool {
+	return c.APIProxyAllowPrivateNetworks != nil && *c.APIProxyAllowPrivateNetworks
 }
 
 // Load reads dyno.yaml from siteRoot. If the file doesn't exist, returns defaults.

@@ -133,7 +133,7 @@ func cacheMiddlewareWithDev(next http.Handler, dev bool) http.Handler {
 			if dev {
 				w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 			} else {
-				w.Header().Set("Cache-Control", "public, max-age=3600, must-revalidate")
+				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 			}
 		}
 		next.ServeHTTP(w, r)

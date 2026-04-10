@@ -4,19 +4,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{{ .Title }}{{ if .Site }} — {{ .Site.Title }}{{ end }}</title>
-  {{ if and .Site .Site.Favicon }}<link rel="icon" href="{{ .Site.Favicon }}">{{ else }}<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">{{ end }}
+  {{ if .FaviconURL }}<link rel="icon" href="{{ .FaviconURL }}">{{ else if and .Site .Site.LogoURL }}<link rel="icon" href="{{ .Site.LogoURL }}">{{ else }}<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230284c7'%3E%3Cpath d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/%3E%3C/svg%3E">{{ end }}
 
   <!-- HTMX -->
-  <script src="/assets/htmx.min.js" defer></script>
+  <script src="{{ .HTMXURL }}" defer></script>
 
   <!-- Mermaid -->
-  <script src="/assets/mermaid.min.js"></script>
+  <script src="{{ .MermaidURL }}"></script>
 
   <!-- Chroma syntax highlighting — light rules first, dark scoped under html.dark -->
   <style>{{ .LightCSS }}</style>
   <style>{{ .DarkCSS }}</style>
 
-  <link rel="stylesheet" href="/assets/tailwind.css" />
+  <link rel="stylesheet" href="{{ .TailwindURL }}" />
 </head>
 <body class="bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 antialiased transition-colors duration-200">
 
@@ -112,21 +112,7 @@
           {{ block "page-content" . }}{{ end }}
         </div>
 
-        <!-- Right TOC sidebar -->
-        {{ if .TOC }}
-        <aside class="hidden xl:block w-48 shrink-0">
-          <div class="sticky top-20">
-            <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">On this page</p>
-            <ul class="space-y-2 text-sm">
-              {{ range .TOC }}
-              <li class="{{ if eq .Level 3 }}pl-3{{ end }}">
-                <a href="#{{ .ID }}" class="toc-link block text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors line-clamp-2 py-0.5">{{ .Text }}</a>
-              </li>
-              {{ end }}
-            </ul>
-          </div>
-        </aside>
-        {{ end }}
+        {{ template "toc-sidebar" . }}
       </div>
     </main>
   </div>
@@ -139,7 +125,7 @@
     </div>
   </footer>
 
-  <script src="/assets/app.js"></script>
+  <script src="{{ .AppJSURL }}"></script>
 </body>
 
 </html>

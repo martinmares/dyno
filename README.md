@@ -49,9 +49,15 @@ github_url: https://github.com/org/repo
 github_branch: main
 copyright: My Organization
 base_path: /docs   # or "" for root
+api_proxy_allowed_hosts:
+  - api.example.com
+api_proxy_allow_private_networks: false
 ```
 
 All fields are optional — dyno works with no config file at all.
+
+`api_proxy_allowed_hosts` limits the interactive API widget to an explicit host allowlist.
+`api_proxy_allow_private_networks` controls whether the widget may call loopback/private targets; default is `true` for compatibility.
 
 ## Building
 
@@ -63,6 +69,7 @@ Requires **Go 1.22+**.
 just css          # build production CSS once
 just css-watch    # rebuild CSS while editing templates
 go run . --dev --watch
+go run . --version
 ```
 
 ### macOS

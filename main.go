@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -26,7 +27,14 @@ import (
 //go:embed templates assets
 var embeddedFS embed.FS
 
-const version = "0.1.0"
+//go:embed VERSION
+var versionFile string
+
+var (
+	version     = strings.TrimSpace(versionFile)
+	buildCommit = "dev"
+	buildDate   = "unknown"
+)
 
 func main() {
 	port := flag.String("port", "3000", "Port to listen on")
@@ -40,7 +48,7 @@ func main() {
 	flag.Parse()
 
 	if *showVersion {
-		fmt.Printf("dyno v%s\n", version)
+		fmt.Printf("dyno v%s (commit %s, built %s)\n", version, buildCommit, buildDate)
 		return
 	}
 
@@ -65,7 +73,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	slog.Info("loading docs", "version", version, "title", siteCfg.Title, "site_dir", siteDir)
+	slog.Info("loading docs", "version", version, "build_commit", buildCommit, "build_date", buildDate, "title", siteCfg.Title, "site_dir", siteDir)
 	if *dev {
 		slog.Info("dev mode enabled", "templates", "disk", "assets", "disk")
 	}
@@ -114,10 +122,11 @@ func main() {
 	}
 
 	cfg := server.Config{
-		SiteRoot: siteRoot,
-		Port:     *port,
-		DevMode:  *dev,
-		SiteCfg:  siteCfg,
+		SiteRoot:  siteRoot,
+		Port:      *port,
+		DevMode:   *dev,
+		SiteCfg:   siteCfg,
+		BuildTime: parseBuildTime(buildDate),
 	}
 	srv, err := server.New(cfg, staticFS, nav, idx, renderer)
 	if err != nil {
@@ -177,6 +186,17 @@ func setupLogger(format string) {
 		})
 	}
 	slog.SetDefault(slog.New(handler))
+}
+
+func parseBuildTime(value string) time.Time {
+	if value == "" || value == "unknown" {
+		return time.Time{}
+	}
+	t, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return time.Time{}
+	}
+	return t
 }
 
 func countNodes(node *navigation.NavNode) int {

@@ -3,6 +3,7 @@ tailwind_url_macos_arm  := "https://github.com/tailwindlabs/tailwindcss/releases
 tailwind_url_macos_x64  := "https://github.com/tailwindlabs/tailwindcss/releases/latest/download/tailwindcss-macos-x64"
 htmx_url                := "https://unpkg.com/htmx.org@latest/dist/htmx.min.js"
 mermaid_url             := "https://cdn.jsdelivr.net/npm/mermaid@latest/dist/mermaid.min.js"
+dyno_version            := `tr -d '\n' < VERSION`
 
 default:
     @just --list
@@ -32,13 +33,19 @@ assets-refresh:
     curl -sL "{{ mermaid_url }}" -o assets/mermaid.min.js
 
 release-macos: assets-refresh css
-    GOOS=darwin GOARCH=arm64 go build -o dyno-macos .
-    @echo "-> dyno-macos"
+    #!/usr/bin/env sh
+    LD_FLAGS="-X main.version={{ dyno_version }} -X main.buildCommit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) -X main.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    GOOS=darwin GOARCH=arm64 go build -ldflags "$LD_FLAGS" -o dyno-macos .
+    echo "-> dyno-macos"
 
 release-linux: assets-refresh css
-    GOOS=linux GOARCH=amd64 go build -o dyno-linux .
-    @echo "-> dyno-linux"
+    #!/usr/bin/env sh
+    LD_FLAGS="-X main.version={{ dyno_version }} -X main.buildCommit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) -X main.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    GOOS=linux GOARCH=amd64 go build -ldflags "$LD_FLAGS" -o dyno-linux .
+    echo "-> dyno-linux"
 
 release-windows: assets-refresh css
-    GOOS=windows GOARCH=amd64 go build -o dyno-windows.exe .
-    @echo "-> dyno-windows.exe"
+    #!/usr/bin/env sh
+    LD_FLAGS="-X main.version={{ dyno_version }} -X main.buildCommit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) -X main.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    GOOS=windows GOARCH=amd64 go build -ldflags "$LD_FLAGS" -o dyno-windows.exe .
+    echo "-> dyno-windows.exe"

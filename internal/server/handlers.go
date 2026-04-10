@@ -35,22 +35,31 @@ type PageData struct {
 	// EditURL is the GitHub edit link for this page, empty if not configured
 	EditURL string
 	// Prev/Next for bottom navigation
-	Prev *navigation.NavNode
-	Next *navigation.NavNode
+	Prev        *navigation.NavNode
+	Next        *navigation.NavNode
+	TailwindURL string
+	AppJSURL    string
+	HTMXURL     string
+	MermaidURL  string
+	FaviconURL  string
 }
 
 // SearchData is passed to search templates.
 type SearchData struct {
-	Query    string
-	Results  []search.SearchResult
-	Nav      *navigation.NavNode
-	IsHTMX   bool
-	LightCSS template.CSS
-	DarkCSS  template.CSS
-	Title    string
-	TOC      []markdown.TOCEntry
-	Site     *config.SiteConfig
-	BasePath string
+	Query       string
+	Results     []search.SearchResult
+	Nav         *navigation.NavNode
+	IsHTMX      bool
+	LightCSS    template.CSS
+	DarkCSS     template.CSS
+	Title       string
+	TOC         []markdown.TOCEntry
+	Site        *config.SiteConfig
+	BasePath    string
+	TailwindURL string
+	AppJSURL    string
+	HTMXURL     string
+	FaviconURL  string
 }
 
 func isHTMX(r *http.Request) bool {
@@ -116,6 +125,26 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	info, err := os.Stat(fsPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			s.notFound(w, r)
+			return
+		}
+		s.internalError(w, r, err)
+		return
+	}
+	if !isHTMX(r) {
+		pageETag := fmt.Sprintf(`W/"%x-%x"`, info.ModTime().UnixNano(), info.Size())
+		w.Header().Set("ETag", pageETag)
+		w.Header().Set("Last-Modified", info.ModTime().UTC().Format(http.TimeFormat))
+		w.Header().Set("Cache-Control", "no-cache")
+		if isConditionalRequestFresh(r, pageETag, info.ModTime()) {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+	}
+
 	res, err := s.getRenderedPage(fsPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -158,12 +187,17 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		EditURL:     editURL,
 		Prev:        prev,
 		Next:        next,
+		TailwindURL: s.assetURL("tailwind.css"),
+		AppJSURL:    s.assetURL("app.js"),
+		HTMXURL:     s.assetURL("htmx.min.js"),
+		MermaidURL:  s.assetURL("mermaid.min.js"),
+		FaviconURL:  s.faviconURL(),
 	}
 
 	if isHTMX(r) {
 		w.Header().Set("HX-Push-Url", node.FullPath)
-		if err := s.render(w, "page-content", data); err != nil {
-			slog.Error("template error", "template", "page-content", "err", err)
+		if err := s.render(w, "page-fragment", data); err != nil {
+			slog.Error("template error", "template", "page-fragment", "err", err)
 		}
 		return
 	}
@@ -181,15 +215,19 @@ func (s *Server) searchHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := SearchData{
-		Query:    q,
-		Results:  results,
-		Nav:      s.getNav(),
-		IsHTMX:   isHTMX(r),
-		LightCSS: template.CSS(s.renderer.LightCSS()),
-		DarkCSS:  template.CSS(s.renderer.DarkCSS()),
-		Title:    "Search",
-		Site:     s.siteCfg,
-		BasePath: s.basePath,
+		Query:       q,
+		Results:     results,
+		Nav:         s.getNav(),
+		IsHTMX:      isHTMX(r),
+		LightCSS:    template.CSS(s.renderer.LightCSS()),
+		DarkCSS:     template.CSS(s.renderer.DarkCSS()),
+		Title:       "Search",
+		Site:        s.siteCfg,
+		BasePath:    s.basePath,
+		TailwindURL: s.assetURL("tailwind.css"),
+		AppJSURL:    s.assetURL("app.js"),
+		HTMXURL:     s.assetURL("htmx.min.js"),
+		FaviconURL:  s.faviconURL(),
 	}
 
 	if isHTMX(r) {
@@ -213,6 +251,11 @@ func (s *Server) notFound(w http.ResponseWriter, r *http.Request) {
 		IsHTMX:      isHTMX(r),
 		LightCSS:    template.CSS(s.renderer.LightCSS()),
 		DarkCSS:     template.CSS(s.renderer.DarkCSS()),
+		TailwindURL: s.assetURL("tailwind.css"),
+		AppJSURL:    s.assetURL("app.js"),
+		HTMXURL:     s.assetURL("htmx.min.js"),
+		MermaidURL:  s.assetURL("mermaid.min.js"),
+		FaviconURL:  s.faviconURL(),
 	}
 	tmplName := "base.html"
 	if isHTMX(r) {
@@ -231,6 +274,11 @@ func (s *Server) internalError(w http.ResponseWriter, r *http.Request, err error
 		IsHTMX:      isHTMX(r),
 		LightCSS:    template.CSS(s.renderer.LightCSS()),
 		DarkCSS:     template.CSS(s.renderer.DarkCSS()),
+		TailwindURL: s.assetURL("tailwind.css"),
+		AppJSURL:    s.assetURL("app.js"),
+		HTMXURL:     s.assetURL("htmx.min.js"),
+		MermaidURL:  s.assetURL("mermaid.min.js"),
+		FaviconURL:  s.faviconURL(),
 	}
 	tmplName := "base.html"
 	if isHTMX(r) {
@@ -259,6 +307,11 @@ func (s *Server) apiProxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.URL == "" || req.Method == "" {
 		http.Error(w, "method and url required", http.StatusBadRequest)
+		return
+	}
+	if err := s.validateProxyTarget(r.Context(), req.URL); err != nil {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprintf(w, `<div class="api-error">Blocked target: %s</div>`, htmlEscapeStr(err.Error()))
 		return
 	}
 

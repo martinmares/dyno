@@ -24,11 +24,13 @@ type Server struct {
 	nav       *navigation.NavNode
 	idx       *search.Index
 	renderer  *markdown.Renderer
+	buildTime time.Time
 	tmpl      *template.Template // nil in dev mode (re-parsed per request)
 	tmplFS    fs.FS              // used in dev mode for live reloading
 	devMode   bool
 	mux       *http.ServeMux
 	pageCache map[string]pageCacheEntry
+	assetMeta map[string]assetMetadata
 }
 
 type pageCacheEntry struct {
@@ -59,10 +61,11 @@ func (s *Server) getIdx() *search.Index {
 
 // Config holds server configuration.
 type Config struct {
-	SiteRoot string
-	Port     string
-	DevMode  bool
-	SiteCfg  *config.SiteConfig
+	SiteRoot  string
+	Port      string
+	DevMode   bool
+	SiteCfg   *config.SiteConfig
+	BuildTime time.Time
 }
 
 func newFuncMap() template.FuncMap {
@@ -102,6 +105,7 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 		nav:       nav,
 		idx:       idx,
 		renderer:  renderer,
+		buildTime: cfg.BuildTime,
 		tmplFS:    tmplFS,
 		devMode:   cfg.DevMode,
 		mux:       http.NewServeMux(),
@@ -121,7 +125,13 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 	if err != nil {
 		return nil, err
 	}
-	s.mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(assetsFS))))
+	if !cfg.DevMode {
+		s.assetMeta, err = buildAssetManifest(assetsFS)
+		if err != nil {
+			return nil, err
+		}
+	}
+	s.mux.Handle("GET /assets/", s.assetHandler(assetsFS))
 
 	basePath := cfg.SiteCfg.GetBasePath() // e.g. "/docs" or ""
 	if basePath == "" {
