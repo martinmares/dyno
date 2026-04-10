@@ -7,8 +7,8 @@
   <ul class="divide-y divide-gray-100 dark:divide-gray-800 max-h-80 overflow-y-auto">
     {{ range .Results }}
     <li>
-      <a href="{{ .Path }}"
-         hx-get="{{ .Path }}"
+      <a href="{{ .Path }}?q={{ $.Query | urlquery }}"
+         hx-get="{{ .Path }}?q={{ $.Query | urlquery }}"
          hx-target="#page-content"
          hx-push-url="true"
          class="block px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors search-result-link">

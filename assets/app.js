@@ -207,12 +207,99 @@ function initTOCScrollSpy() {
   onScroll();
 }
 
+// ─── Search highlight on destination page ───────────────────────────────────
+
+function clearSearchHighlights() {
+  document.querySelectorAll('mark[data-search-highlight="1"]').forEach(function (mark) {
+    const parent = mark.parentNode;
+    if (!parent) return;
+    parent.replaceChild(document.createTextNode(mark.textContent), mark);
+    parent.normalize();
+  });
+}
+
+function getSearchQuery() {
+  const params = new URLSearchParams(window.location.search);
+  return (params.get('q') || '').trim();
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function shouldSkipHighlightNode(node) {
+  const parent = node.parentElement;
+  if (!parent) return true;
+  return Boolean(parent.closest('pre, code, script, style, svg, .mermaid, .d2-diagram, .api-widget'));
+}
+
+function applySearchHighlights() {
+  clearSearchHighlights();
+
+  const query = getSearchQuery();
+  if (!query) return;
+
+  const prose = document.querySelector('.prose');
+  if (!prose) return;
+
+  const pattern = new RegExp('(' + escapeRegExp(query) + ')', 'gi');
+  const walker = document.createTreeWalker(prose, NodeFilter.SHOW_TEXT, {
+    acceptNode: function (node) {
+      if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+      if (shouldSkipHighlightNode(node)) return NodeFilter.FILTER_REJECT;
+      if (!pattern.test(node.nodeValue)) return NodeFilter.FILTER_REJECT;
+      pattern.lastIndex = 0;
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+
+  const textNodes = [];
+  while (walker.nextNode()) {
+    textNodes.push(walker.currentNode);
+  }
+
+  let firstMark = null;
+  textNodes.forEach(function (node) {
+    const text = node.nodeValue;
+    pattern.lastIndex = 0;
+    if (!pattern.test(text)) return;
+    pattern.lastIndex = 0;
+
+    const fragment = document.createDocumentFragment();
+    let lastIndex = 0;
+    text.replace(pattern, function (match, _group, offset) {
+      if (offset > lastIndex) {
+        fragment.appendChild(document.createTextNode(text.slice(lastIndex, offset)));
+      }
+      const mark = document.createElement('mark');
+      mark.setAttribute('data-search-highlight', '1');
+      mark.textContent = match;
+      if (!firstMark) firstMark = mark;
+      fragment.appendChild(mark);
+      lastIndex = offset + match.length;
+      return match;
+    });
+
+    if (lastIndex < text.length) {
+      fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+    }
+    if (node.parentNode) {
+      node.parentNode.replaceChild(fragment, node);
+    }
+  });
+
+  if (firstMark) {
+    firstMark.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+}
+
 document.addEventListener('DOMContentLoaded', function () {
   initMermaid();
   updateActiveNavLink(window.location.pathname);
   initTOCScrollSpy();
   initCopyButtons();
   initLightbox();
+  applySearchHighlights();
 });
 
 // ─── HTMX hooks ───────────────────────────────────────────────────────────────
@@ -223,7 +310,10 @@ document.addEventListener('htmx:afterSwap', function (e) {
     initTOCScrollSpy();
     initCopyButtons();
     initLightbox();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    applySearchHighlights();
+    if (!getSearchQuery()) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   }
   if (e.target.id === 'page-content' || e.target.id === 'search-results-container') {
     updateActiveNavLink(window.location.pathname);

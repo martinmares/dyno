@@ -195,7 +195,11 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if isHTMX(r) {
-		w.Header().Set("HX-Push-Url", node.FullPath)
+		pushURL := node.FullPath
+		if rawQuery := r.URL.RawQuery; rawQuery != "" {
+			pushURL += "?" + rawQuery
+		}
+		w.Header().Set("HX-Push-Url", pushURL)
 		if err := s.render(w, "page-fragment", data); err != nil {
 			slog.Error("template error", "template", "page-fragment", "err", err)
 		}
