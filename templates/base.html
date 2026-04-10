@@ -18,10 +18,10 @@
 
   <link rel="stylesheet" href="{{ .TailwindURL }}" />
 </head>
-<body class="bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 antialiased transition-colors duration-200">
+<body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 antialiased transition-colors duration-200">
 
   <!-- Top navbar -->
-  <header class="fixed top-0 left-0 right-0 z-50 h-14 border-b border-gray-200 dark:border-gray-800 bg-white/90 dark:bg-gray-950/90 backdrop-blur flex items-center px-4 gap-4">
+  <header class="fixed top-0 left-0 right-0 z-50 h-14 border-b border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-gray-900/90 backdrop-blur flex items-center px-4 gap-4">
     <!-- Mobile sidebar toggle -->
     <button id="sidebar-toggle" class="lg:hidden p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Toggle sidebar">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -51,7 +51,7 @@
           id="search-input"
           type="search"
           placeholder="Search docs… (Ctrl+K)"
-          class="w-full pl-9 pr-4 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+          class="w-full pl-9 pr-4 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-brand-500"
           hx-get="/search"
           hx-trigger="input changed delay:300ms, search"
           hx-target="#search-results-container"
@@ -95,7 +95,7 @@
 
   <div class="flex pt-14 min-h-screen">
     <!-- Sidebar -->
-    <aside id="sidebar" class="fixed lg:sticky top-14 left-0 h-[calc(100vh-3.5rem)] w-64 shrink-0 overflow-y-auto border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 z-40 -translate-x-full lg:translate-x-0 transition-transform duration-200">
+    <aside id="sidebar" class="fixed lg:sticky top-14 left-0 h-[calc(100vh-3.5rem)] w-64 shrink-0 overflow-y-auto border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 z-40 -translate-x-full lg:translate-x-0 transition-transform duration-200">
       <nav class="p-4 space-y-1">
         {{ template "nav-tree" (dict "node" .Nav "current" .CurrentPath "depth" 0) }}
       </nav>
@@ -118,9 +118,9 @@
   </div>
 
   <!-- Footer -->
-  <footer class="border-t border-gray-200 dark:border-gray-800 mt-auto">
+  <footer class="border-t border-gray-200 dark:border-gray-700 mt-auto">
     <div class="max-w-screen-xl mx-auto px-6 py-4 flex items-center justify-between text-xs text-gray-400 dark:text-gray-500">
-      <span>{{ if .Site }}© {{ .Site.Copyright }}{{ if .Site.Version }} · v{{ .Site.Version }}{{ end }}{{ else }}dyno{{ end }}</span>
+      <span>© {{ if and .Site .Site.Copyright }}{{ .Site.Copyright }}{{ else }}Dyno{{ end }}{{ if .BuildVersion }} · v{{ .BuildVersion }}{{ if and .BuildCommit (ne .BuildCommit "dev") (ne .BuildCommit "unknown") }}+{{ .BuildCommit }}{{ end }}{{ end }}</span>
       <span>Built with <a href="https://github.com/mares/dyno" class="hover:text-brand-500 transition-colors">dyno</a></span>
     </div>
   </footer>
@@ -158,7 +158,7 @@
         </p>
       {{ end }}
       {{/* Children — indented with left border */}}
-      <div class="mt-0.5 ml-0 pl-2 border-l-2 border-gray-100 dark:border-gray-800">
+      <div class="mt-0.5 ml-0 pl-2 border-l-2 border-gray-100 dark:border-gray-700">
         {{ template "nav-tree" (dict "node" . "current" $current "depth" (add $depth 1)) }}
       </div>
     </div>

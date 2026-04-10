@@ -4,5 +4,5 @@ version: 0.1.0
 logo_text: dyno
 github_url: https://github.com/mares/dyno
 github_branch: main
-copyright: Dyno Contributors
+copyright: Dyno
 base_path: ""

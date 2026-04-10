@@ -176,6 +176,36 @@ graph LR
 ```
 ````
 
+**Environment placeholders in Markdown:**
+
+Uppercase placeholders are expanded before rendering from:
+- `./.env`
+- `./site/.env`
+- process environment variables
+
+Process environment variables win over both `.env` files.
+
+```markdown
+API base URL: {{HTTPBIN_URL}}
+
+```api
+{{HTTP_METHOD_FOR_GET}} {{HTTPBIN_URL}}/get
+```
+```
+
+Interactive API widget variables stay untouched when written in lowercase or mixed case:
+
+```markdown
+```api
+GET {{HTTPBIN_URL}}/anything/{{userId}}
+Authorization: Bearer {{token}}
+```
+```
+
+In that example:
+- `{{HTTPBIN_URL}}` is expanded before render
+- `{{userId}}` and `{{token}}` remain editable in the widget UI
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

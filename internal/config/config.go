@@ -1,8 +1,10 @@
 package config
 
 import (
+	"bufio"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -85,4 +87,63 @@ func Load(siteRoot string) (*SiteConfig, error) {
 	}
 	cfg.Defaults()
 	return cfg, nil
+}
+
+// LoadTemplateEnv loads optional siteRoot/.env values and overlays process env.
+// Process env wins, so container/pod configuration overrides file values.
+func LoadTemplateEnv(siteRoot string) (map[string]string, error) {
+	values := make(map[string]string)
+
+	envPaths := []string{
+		filepath.Join(siteRoot, ".env"),
+		filepath.Join(siteRoot, "site", ".env"),
+	}
+	for _, path := range envPaths {
+		if err := loadEnvFile(path, values); err != nil {
+			return nil, err
+		}
+	}
+
+	for _, entry := range os.Environ() {
+		key, value, ok := strings.Cut(entry, "=")
+		if ok {
+			values[key] = value
+		}
+	}
+
+	return values, nil
+}
+
+func loadEnvFile(path string, values map[string]string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		line = strings.TrimPrefix(line, "export ")
+		key, value, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
+		if key == "" {
+			continue
+		}
+		if unquoted, err := strconv.Unquote(value); err == nil {
+			value = unquoted
+		}
+		values[key] = value
+	}
+	return scanner.Err()
 }

@@ -22,7 +22,7 @@ První řádek je vždy `METHOD URL`. Další řádky jsou volitelné HTTP hlavi
 ## Jednoduché GET
 
 ```api
-GET https://httpbin.org/get
+GET {{HTTPBIN_URL}}/get
 ```
 
 ## GET s hlavičkami
@@ -53,6 +53,31 @@ Authorization: Bearer {{token}}
 GET https://httpbin.org/anything/{{userId}}
 Accept: application/json
 ```
+
+## Placeholdery z prostředí
+
+Když použiješ placeholder napsaný VELKÝMI PÍSMENY, dyno ho před renderem dosadí z:
+
+- `./.env`
+- `./site/.env`
+- environment proměnných procesu
+
+Environment procesu má nejvyšší prioritu. To je praktické třeba pro nasazení v PODu nebo přes CI/CD.
+
+```api
+{{HTTP_METHOD_FOR_GET}} {{HTTPBIN_URL}}/get
+```
+
+Například v `site/.env` může být:
+
+```env
+HTTP_METHOD_FOR_GET=GET
+HTTPBIN_URL=https://httpbin.org
+```
+
+Po renderu z toho vznikne normální API widget s konkrétní URL.
+
+Naopak placeholdery jako `{{token}}` nebo `{{userId}}` zůstávají interaktivní a čtenář je vyplňuje až v UI widgetu.
 
 > [!TIP]
 > Proxy běží server-side, takže CORS není problém. Funguje i pro lokální API (`http://localhost:8080`).

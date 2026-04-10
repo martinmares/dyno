@@ -76,3 +76,44 @@ func TestD2PageRenderUsesUniqueSVGIDs(t *testing.T) {
 		t.Fatal("root background rect found in D2 output")
 	}
 }
+
+func TestRendererAppliesUppercaseTemplateEnv(t *testing.T) {
+	r, err := markdown.NewRendererWithEnv(map[string]string{
+		"HTTP_SAMPLE_HOST":    "https://httpbin.org",
+		"HTTP_METHOD_FOR_GET": "GET",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	src := "```api\n{{HTTP_METHOD_FOR_GET}} {{ HTTP_SAMPLE_HOST }}/get\n```"
+	res, err := r.RenderString(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(res.HTML, "https://httpbin.org/get") {
+		t.Fatalf("expected env-expanded URL in output, got: %s", res.HTML)
+	}
+	if !strings.Contains(res.HTML, ">GET<") {
+		t.Fatalf("expected env-expanded method in output, got: %s", res.HTML)
+	}
+}
+
+func TestRendererDoesNotConsumeLiteralAPIExampleInsideOuterFence(t *testing.T) {
+	r, err := markdown.NewRenderer()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	src := "````markdown\n```api\nGET https://api.example.com/endpoint\nHeader-Name: value\n```\n````\n"
+	res, err := r.RenderString(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(res.HTML, "APIPLACEHOLDER") {
+		t.Fatalf("literal api example was consumed: %s", res.HTML)
+	}
+	if !strings.Contains(res.HTML, "```api") {
+		t.Fatalf("expected literal api fence in rendered HTML, got: %s", res.HTML)
+	}
+}

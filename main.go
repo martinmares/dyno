@@ -85,7 +85,13 @@ func main() {
 	}
 	slog.Info("navigation loaded", "pages", countNodes(nav))
 
-	renderer, err := markdown.NewRenderer()
+	templateEnv, err := config.LoadTemplateEnv(siteRoot)
+	if err != nil {
+		slog.Error("failed to load template env", "err", err)
+		os.Exit(1)
+	}
+
+	renderer, err := markdown.NewRendererWithEnv(templateEnv)
 	if err != nil {
 		slog.Error("failed to create renderer", "err", err)
 		os.Exit(1)
@@ -126,6 +132,8 @@ func main() {
 		Port:      *port,
 		DevMode:   *dev,
 		SiteCfg:   siteCfg,
+		Version:   version,
+		Commit:    buildCommit,
 		BuildTime: parseBuildTime(buildDate),
 	}
 	srv, err := server.New(cfg, staticFS, nav, idx, renderer)

@@ -39,9 +39,41 @@ GET /search?q=installation
 
 ### `GET /healthz`
 
-Health check endpoint for monitoring and load balancers.
+Backward-compatible readiness check.
 
 **Response:** `200 OK` with body `OK`
+
+---
+
+### `GET /livez`
+
+Liveness probe for Kubernetes or load balancers.
+
+**Response:** `200 OK` with body `OK`
+
+---
+
+### `GET /readyz`
+
+Readiness probe. Returns success only when navigation, renderer, templates, and search index are initialized.
+
+**Response:** `200 OK` with body `OK`
+
+---
+
+### `GET /metrics`
+
+Prometheus metrics endpoint.
+
+Exports:
+
+- HTTP request count and duration
+- page render cache hit/miss
+- search request count and duration
+- API proxy request count and duration
+- watcher reload count
+
+**Response:** Prometheus text exposition format
 
 ---
 

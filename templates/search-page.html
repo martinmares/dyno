@@ -12,8 +12,8 @@
   <style id="chroma-dark">{{ .DarkCSS }}</style>
   <link rel="stylesheet" href="{{ .TailwindURL }}" />
 </head>
-<body class="bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 antialiased">
-  <header class="fixed top-0 left-0 right-0 z-50 h-14 border-b border-gray-200 dark:border-gray-800 bg-white/90 dark:bg-gray-950/90 backdrop-blur flex items-center px-4 gap-4">
+<body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 antialiased">
+  <header class="fixed top-0 left-0 right-0 z-50 h-14 border-b border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-gray-900/90 backdrop-blur flex items-center px-4 gap-4">
     <button id="sidebar-toggle" class="lg:hidden p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg></button>
     <a href="{{ .BasePath }}/" class="flex items-center gap-2 font-bold text-lg text-brand-600 shrink-0">
       <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
@@ -23,7 +23,7 @@
       <div class="relative">
         <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
         <input id="search-input" type="search" placeholder="Search docs… (Ctrl+K)" value="{{ .Query }}"
-          class="w-full pl-9 pr-4 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
+          class="w-full pl-9 pr-4 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-brand-500"
           hx-get="/search" hx-trigger="input changed delay:300ms, search" hx-target="#search-results-container" name="q" autocomplete="off" />
       </div>
       <div id="search-results-container" class="absolute top-full left-0 right-0 mt-1 z-50 hidden"></div>
@@ -37,7 +37,7 @@
   </header>
 
   <div class="flex pt-14 min-h-screen">
-    <aside id="sidebar" class="fixed lg:sticky top-14 left-0 h-[calc(100vh-3.5rem)] w-64 shrink-0 overflow-y-auto border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 z-40 -translate-x-full lg:translate-x-0 transition-transform duration-200">
+    <aside id="sidebar" class="fixed lg:sticky top-14 left-0 h-[calc(100vh-3.5rem)] w-64 shrink-0 overflow-y-auto border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 z-40 -translate-x-full lg:translate-x-0 transition-transform duration-200">
       <nav class="p-4 space-y-1">
         {{ template "nav-tree" (dict "node" .Nav "current" "" "depth" 0) }}
       </nav>

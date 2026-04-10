@@ -21,6 +21,8 @@ type Server struct {
 	siteRoot  string
 	basePath  string // e.g. "/docs"
 	siteCfg   *config.SiteConfig
+	version   string
+	commit    string
 	nav       *navigation.NavNode
 	idx       *search.Index
 	renderer  *markdown.Renderer
@@ -31,6 +33,7 @@ type Server struct {
 	mux       *http.ServeMux
 	pageCache map[string]pageCacheEntry
 	assetMeta map[string]assetMetadata
+	metrics   *metrics
 }
 
 type pageCacheEntry struct {
@@ -45,6 +48,7 @@ func (s *Server) Reload(nav *navigation.NavNode, idx *search.Index) {
 	s.nav = nav
 	s.idx = idx
 	s.pageCache = make(map[string]pageCacheEntry)
+	s.metrics.watchReloads.Inc()
 }
 
 func (s *Server) getNav() *navigation.NavNode {
@@ -65,6 +69,8 @@ type Config struct {
 	Port      string
 	DevMode   bool
 	SiteCfg   *config.SiteConfig
+	Version   string
+	Commit    string
 	BuildTime time.Time
 }
 
@@ -102,6 +108,8 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 		siteRoot:  cfg.SiteRoot,
 		basePath:  cfg.SiteCfg.GetBasePath(),
 		siteCfg:   cfg.SiteCfg,
+		version:   cfg.Version,
+		commit:    cfg.Commit,
 		nav:       nav,
 		idx:       idx,
 		renderer:  renderer,
@@ -111,6 +119,7 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 		mux:       http.NewServeMux(),
 		pageCache: make(map[string]pageCacheEntry),
 	}
+	s.metrics = newMetrics()
 
 	if !cfg.DevMode {
 		// Production: parse once at startup
@@ -144,6 +153,9 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 	s.mux.HandleFunc("GET /search", s.searchHandler)
 	s.mux.HandleFunc("POST /api-proxy", s.apiProxyHandler)
 	s.mux.HandleFunc("GET /healthz", s.healthHandler)
+	s.mux.HandleFunc("GET /livez", s.livenessHandler)
+	s.mux.HandleFunc("GET /readyz", s.readinessHandler)
+	s.mux.Handle("GET /metrics", s.metrics.handler())
 
 	return s, nil
 }
@@ -160,9 +172,11 @@ func (s *Server) getRenderedPage(fsPath string) (*markdown.Result, error) {
 	cached, ok := s.pageCache[fsPath]
 	s.mu.RUnlock()
 	if ok && cached.modTime.Equal(modTime) {
+		s.metrics.pageRenderCache.WithLabelValues("hit").Inc()
 		resultCopy := *cached.result
 		return &resultCopy, nil
 	}
+	s.metrics.pageRenderCache.WithLabelValues("miss").Inc()
 
 	src, err := os.ReadFile(fsPath)
 	if err != nil {
@@ -202,7 +216,7 @@ func (s *Server) Handler() http.Handler {
 	if s.devMode {
 		cache = devCacheMiddleware
 	}
-	return recoveryMiddleware(loggingMiddleware(gzipMiddleware(cache(s.mux))))
+	return recoveryMiddleware(loggingMiddleware(metricsMiddleware(s.metrics, gzipMiddleware(cache(s.mux)))))
 }
 
 func (s *Server) redirectHandler(w http.ResponseWriter, r *http.Request) {
@@ -210,6 +224,20 @@ func (s *Server) redirectHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
+	s.readinessHandler(w, r)
+}
+
+func (s *Server) livenessHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("OK"))
+}
+
+func (s *Server) readinessHandler(w http.ResponseWriter, r *http.Request) {
+	ready := s.getNav() != nil && s.getIdx() != nil && s.renderer != nil
+	if !ready || (!s.devMode && s.tmpl == nil) {
+		http.Error(w, "NOT READY", http.StatusServiceUnavailable)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
 }

@@ -51,13 +51,19 @@ type Result struct {
 
 // Renderer wraps goldmark with our configuration.
 type Renderer struct {
-	md       goldmark.Markdown
-	lightCSS string
-	darkCSS  string
+	md          goldmark.Markdown
+	lightCSS    string
+	darkCSS     string
+	templateEnv map[string]string
 }
 
 // NewRenderer creates a configured Renderer and pre-generates chroma CSS.
 func NewRenderer() (*Renderer, error) {
+	return NewRendererWithEnv(nil)
+}
+
+// NewRendererWithEnv creates a configured Renderer with optional template env substitution.
+func NewRendererWithEnv(templateEnv map[string]string) (*Renderer, error) {
 	lightBuf := &bytes.Buffer{}
 
 	lightFmt := chromahtml.New(chromahtml.WithClasses(true))
@@ -102,9 +108,10 @@ func NewRenderer() (*Renderer, error) {
 	)
 
 	return &Renderer{
-		md:       md,
-		lightCSS: lightBuf.String(),
-		darkCSS:  darkBuf.String(),
+		md:          md,
+		lightCSS:    lightBuf.String(),
+		darkCSS:     darkBuf.String(),
+		templateEnv: templateEnv,
 	}, nil
 }
 
@@ -118,6 +125,7 @@ func (r *Renderer) DarkCSS() string { return r.darkCSS }
 // and extracts TOC entries and the page title.
 func (r *Renderer) Render(src []byte) (*Result, error) {
 	fm, body := parseFrontmatter(src)
+	body = r.applyTemplateEnv(body)
 
 	// API: replace ```api fences with placeholder tokens BEFORE goldmark.
 	apiBlocks := map[string]string{}
@@ -156,6 +164,7 @@ func (r *Renderer) Render(src []byte) (*Result, error) {
 }
 
 var frontmatterRe = regexp.MustCompile(`(?s)^---\r?\n(.*?)\r?\n---\r?\n?`)
+var envTemplateVarRe = regexp.MustCompile(`\{\{\s*([A-Z][A-Z0-9_]*)\s*\}\}`)
 
 // parseFrontmatter strips YAML front matter from src and returns it parsed + the remaining body.
 func parseFrontmatter(src []byte) (Frontmatter, []byte) {
@@ -166,6 +175,22 @@ func parseFrontmatter(src []byte) (Frontmatter, []byte) {
 	}
 	_ = yaml.Unmarshal(m[1], &fm)
 	return fm, src[len(m[0]):]
+}
+
+func (r *Renderer) applyTemplateEnv(src []byte) []byte {
+	if len(r.templateEnv) == 0 {
+		return src
+	}
+	return envTemplateVarRe.ReplaceAllFunc(src, func(match []byte) []byte {
+		subs := envTemplateVarRe.FindSubmatch(match)
+		if len(subs) != 2 {
+			return match
+		}
+		if value, ok := r.templateEnv[string(subs[1])]; ok {
+			return []byte(value)
+		}
+		return match
+	})
 }
 
 // RenderString is a convenience wrapper.
@@ -413,8 +438,8 @@ func transformCallouts(htmlStr string) string {
 
 // ── API widget ─────────────────────────────────────────────────────────────
 
-// apiFenceRe matches ```api ... ``` fenced code blocks.
-var apiFenceRe = regexp.MustCompile("(?ms)^```api\\s*\n(.*?)\n```")
+// apiFenceLineRe matches fenced code block delimiters.
+var apiFenceLineRe = regexp.MustCompile(`^([` + "`" + `~]{3,})(.*)$`)
 
 // apiFenceCounter is reset per Render call via replaceAPIWithPlaceholders.
 // templateVarRe finds {{varName}} placeholders in URLs/headers.
@@ -424,16 +449,80 @@ var templateVarRe = regexp.MustCompile(`\{\{(\w+)\}\}`)
 // stores the rendered HTML widget in blocks.
 func replaceAPIWithPlaceholders(src []byte, blocks map[string]string) []byte {
 	counter := 0
-	return apiFenceRe.ReplaceAllFunc(src, func(match []byte) []byte {
-		subs := apiFenceRe.FindSubmatch(match)
-		if len(subs) < 2 {
-			return match
+	lines := strings.SplitAfter(string(src), "\n")
+	var out strings.Builder
+
+	type fenceState struct {
+		marker string
+		length int
+		info   string
+		api    bool
+		buf    strings.Builder
+	}
+
+	var current *fenceState
+
+	for _, line := range lines {
+		trimmed := strings.TrimRight(line, "\r\n")
+		if current == nil {
+			if subs := apiFenceLineRe.FindStringSubmatch(trimmed); len(subs) == 3 {
+				marker := string(subs[1][0])
+				length := len(subs[1])
+				info := strings.TrimSpace(subs[2])
+				current = &fenceState{
+					marker: marker,
+					length: length,
+					info:   info,
+					api:    marker == "`" && length == 3 && info == "api",
+				}
+				if !current.api {
+					out.WriteString(line)
+				}
+				continue
+			}
+			out.WriteString(line)
+			continue
 		}
-		key := fmt.Sprintf("APIPLACEHOLDER%d", counter)
-		counter++
-		blocks[key] = renderAPIWidget(string(subs[1]))
-		return []byte("<div>" + key + "</div>")
-	})
+
+		if isClosingFence(trimmed, current.marker, current.length) {
+			if current.api {
+				key := fmt.Sprintf("APIPLACEHOLDER%d", counter)
+				counter++
+				blocks[key] = renderAPIWidget(strings.TrimSuffix(current.buf.String(), "\n"))
+				out.WriteString("<div>" + key + "</div>\n")
+			} else {
+				out.WriteString(line)
+			}
+			current = nil
+			continue
+		}
+
+		if current.api {
+			current.buf.WriteString(line)
+		} else {
+			out.WriteString(line)
+		}
+	}
+
+	if current != nil {
+		if current.api {
+			out.WriteString("```api\n")
+			out.WriteString(current.buf.String())
+		}
+	}
+
+	return []byte(out.String())
+}
+
+func isClosingFence(line, marker string, minLen int) bool {
+	trimmed := strings.TrimSpace(line)
+	if len(trimmed) < minLen {
+		return false
+	}
+	if strings.Trim(trimmed, marker) != "" {
+		return false
+	}
+	return strings.HasPrefix(trimmed, strings.Repeat(marker, minLen))
 }
 
 // restorePlaceholders swaps generic placeholder tokens back to their HTML.
