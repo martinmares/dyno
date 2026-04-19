@@ -12,7 +12,10 @@
          hx-target="#page-content"
          hx-push-url="true"
          class="block px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors search-result-link">
-        <div class="font-medium text-sm text-gray-900 dark:text-gray-100 mb-1">{{ .Title | safeHTML }}</div>
+        <div class="flex items-center gap-2 mb-1">
+          <span class="font-medium text-sm text-gray-900 dark:text-gray-100">{{ .Title | safeHTML }}</span>
+          {{ if .BookTitle }}<span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 shrink-0">{{ .BookTitle }}</span>{{ end }}
+        </div>
         <div class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">{{ .Snippet | safeHTML }}</div>
         <div class="text-xs text-brand-500 mt-1">{{ .Path }}</div>
       </a>

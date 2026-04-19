@@ -30,7 +30,7 @@
     </button>
 
     <!-- Logo / site title -->
-    <a href="{{ .BasePath }}/" class="flex items-center gap-2 font-bold text-lg text-brand-600 dark:text-brand-500 shrink-0">
+    <a href="{{ if .LibraryURL }}{{ .LibraryURL }}{{ else }}{{ .BasePath }}/{{ end }}" class="flex items-center gap-2 font-bold text-lg text-brand-600 dark:text-brand-500 shrink-0">
       {{ if and .Site .Site.LogoURL }}
         <img src="{{ .Site.LogoURL }}" class="w-6 h-6 object-contain" alt="{{ .Site.LogoText }}">
       {{ else }}
@@ -52,7 +52,7 @@
           type="search"
           placeholder="Search docs… (Ctrl+K)"
           class="w-full pl-9 pr-4 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-brand-500"
-          hx-get="/search"
+          hx-get="{{ .SearchURL }}"
           hx-trigger="input changed delay:300ms, search"
           hx-target="#search-results-container"
           hx-indicator="#search-spinner"

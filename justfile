@@ -32,6 +32,24 @@ assets-refresh:
     curl -sL "{{ htmx_url }}" -o assets/htmx.min.js
     curl -sL "{{ mermaid_url }}" -o assets/mermaid.min.js
 
+build-macos:
+    #!/usr/bin/env sh
+    LD_FLAGS="-X main.version={{ dyno_version }} -X main.buildCommit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) -X main.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    GOOS=darwin GOARCH=arm64 go build -ldflags "$LD_FLAGS" -o dyno-macos .
+    echo "-> dyno-macos"
+
+build-linux:
+    #!/usr/bin/env sh
+    LD_FLAGS="-X main.version={{ dyno_version }} -X main.buildCommit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) -X main.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    GOOS=linux GOARCH=amd64 go build -ldflags "$LD_FLAGS" -o dyno-linux .
+    echo "-> dyno-linux"
+
+build-windows:
+    #!/usr/bin/env sh
+    LD_FLAGS="-X main.version={{ dyno_version }} -X main.buildCommit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) -X main.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    GOOS=windows GOARCH=amd64 go build -ldflags "$LD_FLAGS" -o dyno-windows.exe .
+    echo "-> dyno-windows.exe"
+
 release-macos: assets-refresh css
     #!/usr/bin/env sh
     LD_FLAGS="-X main.version={{ dyno_version }} -X main.buildCommit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) -X main.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)"

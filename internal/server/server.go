@@ -17,9 +17,11 @@ import (
 
 // Server holds all dependencies and serves the documentation site.
 type Server struct {
-	mu        sync.RWMutex
-	siteRoot  string
-	basePath  string // e.g. "/docs"
+	mu         sync.RWMutex
+	siteRoot   string
+	basePath   string // e.g. "/docs"
+	searchPath string // e.g. "/docs/search" or "/search"
+	libraryURL string // non-empty when running as a book inside a LibraryServer
 	siteCfg   *config.SiteConfig
 	version   string
 	commit    string
@@ -65,19 +67,35 @@ func (s *Server) getIdx() *search.Index {
 
 // Config holds server configuration.
 type Config struct {
-	SiteRoot  string
-	Port      string
-	DevMode   bool
-	SiteCfg   *config.SiteConfig
-	Version   string
-	Commit    string
-	BuildTime time.Time
+	SiteRoot   string
+	Port       string
+	DevMode    bool
+	SiteCfg    *config.SiteConfig
+	Version    string
+	Commit     string
+	BuildTime  time.Time
+	LibraryURL string // set by LibraryServer: URL back to the dashboard
 }
 
 func newFuncMap() template.FuncMap {
 	return template.FuncMap{
 		"safeHTML": func(s string) template.HTML { return template.HTML(s) },
 		"add":      func(a, b int) int { return a + b },
+		"fmtNum": func(n int) string {
+			// Format integer with thousands separator: 12400 → "12,400"
+			s := fmt.Sprintf("%d", n)
+			if len(s) <= 3 {
+				return s
+			}
+			var out []byte
+			for i, c := range s {
+				if i > 0 && (len(s)-i)%3 == 0 {
+					out = append(out, ',')
+				}
+				out = append(out, byte(c))
+			}
+			return string(out)
+		},
 		"dict": func(values ...any) (map[string]any, error) {
 			if len(values)%2 != 0 {
 				return nil, fmt.Errorf("dict requires even number of arguments")
@@ -105,8 +123,9 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 	}
 
 	s := &Server{
-		siteRoot:  cfg.SiteRoot,
-		basePath:  cfg.SiteCfg.GetBasePath(),
+		siteRoot:   cfg.SiteRoot,
+		basePath:   cfg.SiteCfg.GetBasePath(),
+		libraryURL: cfg.LibraryURL,
 		siteCfg:   cfg.SiteCfg,
 		version:   cfg.Version,
 		commit:    cfg.Commit,
@@ -143,14 +162,19 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 	s.mux.Handle("GET /assets/", s.assetHandler(assetsFS))
 
 	basePath := cfg.SiteCfg.GetBasePath() // e.g. "/docs" or ""
+	searchPath := "/search"
+	if basePath != "" {
+		searchPath = basePath + "/search"
+	}
+	s.searchPath = searchPath
+
 	if basePath == "" {
-		// Root: pages served directly at /{path...}, no redirect needed
 		s.mux.HandleFunc("GET /{path...}", s.pageHandler)
 	} else {
 		s.mux.HandleFunc("GET /", s.redirectHandler)
 		s.mux.HandleFunc("GET "+basePath+"/{path...}", s.pageHandler)
 	}
-	s.mux.HandleFunc("GET /search", s.searchHandler)
+	s.mux.HandleFunc("GET "+searchPath, s.searchHandler)
 	s.mux.HandleFunc("POST /api-proxy", s.apiProxyHandler)
 	s.mux.HandleFunc("GET /healthz", s.healthHandler)
 	s.mux.HandleFunc("GET /livez", s.livenessHandler)

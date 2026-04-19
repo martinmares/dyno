@@ -34,10 +34,12 @@ type Index struct {
 
 // SearchResult is one search hit.
 type SearchResult struct {
-	Path    string
-	Title   string
-	Snippet string // Plain text with <mark> around matches
-	Score   float64
+	Path      string
+	Title     string
+	Snippet   string // Plain text with <mark> around matches
+	Score     float64
+	BookTitle string // Set by library mode to identify which book the result is from
+	BookSlug  string // Set by library mode for badge coloring
 }
 
 var stopWords = map[string]bool{

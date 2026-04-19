@@ -306,6 +306,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
 document.addEventListener('htmx:afterSwap', function (e) {
   if (e.target.id === 'page-content') {
+    // Update search URL from response header so search stays scoped to current book.
+    var searchURL = e.detail.xhr && e.detail.xhr.getResponseHeader('X-Search-URL');
+    if (searchURL) {
+      var input = document.getElementById('search-input');
+      if (input) input.setAttribute('hx-get', searchURL);
+    }
     initMermaid();
     initTOCScrollSpy();
     initCopyButtons();

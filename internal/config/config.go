@@ -22,8 +22,36 @@ type SiteConfig struct {
 	Copyright                    string   `yaml:"copyright"`
 	Favicon                      string   `yaml:"favicon"`   // URL or path under assets/
 	BasePath                     *string  `yaml:"base_path"` // e.g. "/docs" (default), "" or "/" for root
+	// Library mode fields (used when multiple --site flags are given)
+	Slug                         string   `yaml:"slug"`        // URL segment for this book, e.g. "monitoring"
+	Icon                         string   `yaml:"icon"`        // emoji or short text shown on library card
+	Color                        string   `yaml:"color"`       // accent hex color for library card, e.g. "#0ea5e9"
 	APIProxyAllowedHosts         []string `yaml:"api_proxy_allowed_hosts"`
 	APIProxyAllowPrivateNetworks *bool    `yaml:"api_proxy_allow_private_networks"`
+}
+
+// GetSlug returns the URL slug for this site in library mode.
+// Falls back to deriving a slug from dirName (e.g. "site-monitoring" → "monitoring").
+func (c *SiteConfig) GetSlug(dirName string) string {
+	if c.Slug != "" {
+		return c.Slug
+	}
+	// Strip common prefixes: "site-", "docs-", "site_", "docs_"
+	slug := dirName
+	for _, prefix := range []string{"site-", "docs-", "site_", "docs_"} {
+		if strings.HasPrefix(slug, prefix) {
+			slug = strings.TrimPrefix(slug, prefix)
+			break
+		}
+	}
+	// Lowercase, replace spaces/underscores with hyphens
+	slug = strings.ToLower(slug)
+	slug = strings.ReplaceAll(slug, "_", "-")
+	slug = strings.ReplaceAll(slug, " ", "-")
+	if slug == "" {
+		slug = dirName
+	}
+	return slug
 }
 
 // GetBasePath returns the normalized base path as a string.
@@ -66,6 +94,12 @@ func (c *SiteConfig) Defaults() {
 
 func (c *SiteConfig) AllowPrivateProxyTargets() bool {
 	return c.APIProxyAllowPrivateNetworks != nil && *c.APIProxyAllowPrivateNetworks
+}
+
+// Exists reports whether a dyno.yaml file exists in dir.
+func Exists(dir string) bool {
+	_, err := os.Stat(filepath.Join(dir, "dyno.yaml"))
+	return err == nil
 }
 
 // Load reads dyno.yaml from siteRoot. If the file doesn't exist, returns defaults.

@@ -42,8 +42,26 @@ type PageData struct {
 	HTMXURL      string
 	MermaidURL   string
 	FaviconURL   string
+	SearchURL    string
+	LibraryURL   string // non-empty in library mode: URL back to the dashboard
 	BuildVersion string
 	BuildCommit  string
+}
+
+// LibraryData is passed to the library dashboard template.
+type LibraryData struct {
+	Title       string // page <title>
+	LogoText    string // short name shown in navbar, e.g. "Dyno"
+	Subtitle    string
+	Books       []bookCardData
+	BasePath    string
+	TailwindURL string
+	AppJSURL    string
+	HTMXURL     string
+	MermaidURL  string
+	LightCSS    template.CSS
+	DarkCSS     template.CSS
+	IsHTMX      bool
 }
 
 // SearchData is passed to search templates.
@@ -62,6 +80,7 @@ type SearchData struct {
 	AppJSURL     string
 	HTMXURL      string
 	FaviconURL   string
+	SearchURL    string
 	BuildVersion string
 	BuildCommit  string
 }
@@ -196,6 +215,8 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		HTMXURL:      s.assetURL("htmx.min.js"),
 		MermaidURL:   s.assetURL("mermaid.min.js"),
 		FaviconURL:   s.faviconURL(),
+		SearchURL:    s.searchPath,
+		LibraryURL:   s.libraryURL,
 		BuildVersion: s.version,
 		BuildCommit:  s.commit,
 	}
@@ -206,6 +227,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 			pushURL += "?" + rawQuery
 		}
 		w.Header().Set("HX-Push-Url", pushURL)
+		w.Header().Set("X-Search-URL", s.searchPath)
 		if err := s.render(w, "page-fragment", data); err != nil {
 			slog.Error("template error", "template", "page-fragment", "err", err)
 		}
@@ -244,6 +266,7 @@ func (s *Server) searchHandler(w http.ResponseWriter, r *http.Request) {
 		AppJSURL:     s.assetURL("app.js"),
 		HTMXURL:      s.assetURL("htmx.min.js"),
 		FaviconURL:   s.faviconURL(),
+		SearchURL:    s.searchPath,
 		BuildVersion: s.version,
 		BuildCommit:  s.commit,
 	}
@@ -274,6 +297,7 @@ func (s *Server) notFound(w http.ResponseWriter, r *http.Request) {
 		HTMXURL:      s.assetURL("htmx.min.js"),
 		MermaidURL:   s.assetURL("mermaid.min.js"),
 		FaviconURL:   s.faviconURL(),
+		SearchURL:    s.searchPath,
 		BuildVersion: s.version,
 		BuildCommit:  s.commit,
 	}
@@ -299,6 +323,7 @@ func (s *Server) internalError(w http.ResponseWriter, r *http.Request, err error
 		HTMXURL:      s.assetURL("htmx.min.js"),
 		MermaidURL:   s.assetURL("mermaid.min.js"),
 		FaviconURL:   s.faviconURL(),
+		SearchURL:    s.searchPath,
 		BuildVersion: s.version,
 		BuildCommit:  s.commit,
 	}
