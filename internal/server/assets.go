@@ -70,6 +70,8 @@ func (s *Server) assetHandler(assetsFS fs.FS) http.Handler {
 	fileServer := http.StripPrefix("/assets/", http.FileServer(http.FS(assetsFS)))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s.devMode {
+			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+			w.Header().Set("Pragma", "no-cache")
 			fileServer.ServeHTTP(w, r)
 			return
 		}

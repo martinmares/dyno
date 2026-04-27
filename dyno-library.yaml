@@ -1,0 +1,20 @@
+  # dyno-library.yaml
+  title: My Library
+  work_dir: ~/tmp/dyno-wrk   # volitelné, alternativa k --work-dir
+
+  sites:
+    # lokální adresář
+    # - path: ./local-site
+    #   title: Local Docs
+    #   slug: local
+    #   icon: 📁
+    #   color: "#6366f1"
+
+    # git repo
+    - url: https://github.com/martinmares/simple-release-management
+      title: Simple Release Management
+      slug: srm
+      icon: 🚀
+      color: "#f97316"
+      branch: main
+      pull_interval: 10m

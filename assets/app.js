@@ -207,6 +207,58 @@ function initTOCScrollSpy() {
   onScroll();
 }
 
+// ─── Task filters ───────────────────────────────────────────────────────────
+
+function initTaskFilters() {
+  document.querySelectorAll('[data-task-root]:not([data-task-init])').forEach(function (root) {
+    root.setAttribute('data-task-init', '1');
+
+    const input = root.querySelector('[data-task-filter]');
+    const rows = Array.from(root.querySelectorAll('[data-task-row]'));
+    const pageGroups = Array.from(root.querySelectorAll('[data-task-page-group]'));
+    const empty = root.querySelector('.tasks-empty');
+
+    if (!input || !rows.length) return;
+
+    function normalizeTaskFilterText(value) {
+      return (value || '')
+        .toLocaleLowerCase('cs-CZ')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+    }
+
+    rows.forEach(function (row) {
+      row.setAttribute('data-task-search-normalized', normalizeTaskFilterText(row.getAttribute('data-task-search') || ''));
+    });
+
+    function applyFilter() {
+      const query = normalizeTaskFilterText(input.value.trim());
+      let visibleRows = 0;
+
+      rows.forEach(function (row) {
+        const haystack = (row.getAttribute('data-task-search-normalized') || '');
+        const show = !query || haystack.indexOf(query) !== -1;
+        row.hidden = !show;
+        if (show) visibleRows += 1;
+      });
+
+      pageGroups.forEach(function (group) {
+        const hasVisible = Array.from(group.querySelectorAll('[data-task-row]')).some(function (row) {
+          return !row.hidden;
+        });
+        group.hidden = !hasVisible;
+      });
+
+      if (empty) {
+        empty.hidden = visibleRows !== 0;
+      }
+    }
+
+    input.addEventListener('input', applyFilter);
+    applyFilter();
+  });
+}
+
 // ─── Search highlight on destination page ───────────────────────────────────
 
 function clearSearchHighlights() {
@@ -297,6 +349,7 @@ document.addEventListener('DOMContentLoaded', function () {
   initMermaid();
   updateActiveNavLink(window.location.pathname);
   initTOCScrollSpy();
+  initTaskFilters();
   initCopyButtons();
   initLightbox();
   applySearchHighlights();
@@ -314,6 +367,7 @@ document.addEventListener('htmx:afterSwap', function (e) {
     }
     initMermaid();
     initTOCScrollSpy();
+    initTaskFilters();
     initCopyButtons();
     initLightbox();
     applySearchHighlights();
@@ -620,3 +674,211 @@ document.addEventListener('click', function (e) {
     apiSend(widget);
   }
 });
+
+// ── Ego-graph toggle ──────────────────────────────────────────────────────
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('.backlinks-graph-btn');
+  if (!btn) return;
+  var container = document.getElementById('ego-graph-container');
+  if (!container) return;
+  if (!container.hidden) {
+    container.hidden = true;
+    container.innerHTML = '';
+    return;
+  }
+  var url = btn.getAttribute('data-ego-url');
+  if (!url) return;
+  container.hidden = false;
+  container.innerHTML = '<div style="padding:1rem;color:#9ca3af;font-size:0.8rem">Načítám graf…</div>';
+  fetch(url).then(function(r) { return r.text(); }).then(function(html) {
+    container.innerHTML = html;
+  }).catch(function() {
+    container.innerHTML = '<div style="padding:1rem;color:#ef4444;font-size:0.8rem">Chyba při načítání grafu.</div>';
+  });
+});
+
+// ── Canvas site graph ─────────────────────────────────────────────────────
+function initSiteGraph(container) {
+  var dataUrl = container.getAttribute('data-graph-data-url');
+  if (!dataUrl) return;
+
+  var dark = document.documentElement.classList.contains('dark');
+  var bg = dark ? '#111827' : '#ffffff';
+  var nodeFill = dark ? '#1e3a5f' : '#dbeafe';
+  var nodeStroke = dark ? '#3b82f6' : '#2563eb';
+  var nodeText = dark ? '#93c5fd' : '#1d4ed8';
+  var edgeColor = dark ? '#374151' : '#d1d5db';
+
+  container.innerHTML = '<canvas id="site-graph-canvas" style="width:100%;height:600px;display:block;border-radius:0.5rem;background:' + bg + '"></canvas>';
+  var canvas = document.getElementById('site-graph-canvas');
+  var W = canvas.offsetWidth; var H = 600;
+  canvas.width = W; canvas.height = H;
+  var ctx = canvas.getContext('2d');
+
+  fetch(dataUrl).then(function(r) { return r.json(); }).then(function(data) {
+    var nodes = data.nodes || [];
+    var edges = data.edges || [];
+    if (nodes.length === 0) {
+      ctx.fillStyle = nodeText;
+      ctx.font = '14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Žádné stránky nenalezeny.', W/2, H/2);
+      return;
+    }
+
+    // Assign random initial positions
+    var pos = {};
+    nodes.forEach(function(n) {
+      pos[n.id] = { x: Math.random() * (W - 80) + 40, y: Math.random() * (H - 80) + 40, vx: 0, vy: 0 };
+    });
+
+    // Build adjacency for degree (node size)
+    var degree = {};
+    nodes.forEach(function(n) { degree[n.id] = 0; });
+    edges.forEach(function(e) {
+      degree[e.source] = (degree[e.source] || 0) + 1;
+      degree[e.target] = (degree[e.target] || 0) + 1;
+    });
+
+    // Force-directed simulation
+    var alpha = 1.0;
+    var REPEL = 1800, ATTRACT = 0.04, CENTER = 0.008, DAMPING = 0.85;
+
+    function tick() {
+      if (alpha < 0.005) return;
+      alpha *= 0.97;
+
+      // Repulsion between all pairs (O(n²) — ok for <300 nodes)
+      for (var i = 0; i < nodes.length; i++) {
+        for (var j = i + 1; j < nodes.length; j++) {
+          var a = pos[nodes[i].id], b = pos[nodes[j].id];
+          var dx = b.x - a.x, dy = b.y - a.y;
+          var d2 = dx*dx + dy*dy + 1;
+          var f = REPEL / d2;
+          a.vx -= f * dx; a.vy -= f * dy;
+          b.vx += f * dx; b.vy += f * dy;
+        }
+      }
+      // Attraction along edges
+      edges.forEach(function(e) {
+        var a = pos[e.source], b = pos[e.target];
+        if (!a || !b) return;
+        var dx = b.x - a.x, dy = b.y - a.y;
+        a.vx += dx * ATTRACT; a.vy += dy * ATTRACT;
+        b.vx -= dx * ATTRACT; b.vy -= dy * ATTRACT;
+      });
+      // Center gravity
+      nodes.forEach(function(n) {
+        var p = pos[n.id];
+        p.vx += (W/2 - p.x) * CENTER;
+        p.vy += (H/2 - p.y) * CENTER;
+        p.vx *= DAMPING; p.vy *= DAMPING;
+        p.x = Math.max(20, Math.min(W-20, p.x + p.vx));
+        p.y = Math.max(20, Math.min(H-20, p.y + p.vy));
+      });
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      // Edges
+      ctx.strokeStyle = edgeColor;
+      ctx.lineWidth = 1;
+      edges.forEach(function(e) {
+        var a = pos[e.source], b = pos[e.target];
+        if (!a || !b) return;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      });
+
+      // Nodes
+      nodes.forEach(function(n) {
+        var p = pos[n.id];
+        var r = Math.min(5 + (degree[n.id] || 0), 14);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, 2*Math.PI);
+        ctx.fillStyle = nodeFill;
+        ctx.fill();
+        ctx.strokeStyle = nodeStroke;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      });
+
+      // Labels for high-degree nodes only
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'center';
+      nodes.forEach(function(n) {
+        if ((degree[n.id] || 0) < 2) return;
+        var p = pos[n.id];
+        ctx.fillStyle = nodeText;
+        var label = n.label.length > 20 ? n.label.slice(0, 18) + '…' : n.label;
+        ctx.fillText(label, p.x, p.y - Math.min(5 + (degree[n.id] || 0), 14) - 3);
+      });
+    }
+
+    var raf;
+    function loop() {
+      tick(); draw();
+      if (alpha >= 0.005) raf = requestAnimationFrame(loop);
+    }
+    loop();
+
+    // Click to navigate
+    canvas.addEventListener('click', function(e) {
+      var rect = canvas.getBoundingClientRect();
+      var mx = (e.clientX - rect.left) * (W / rect.width);
+      var my = (e.clientY - rect.top) * (H / rect.height);
+      for (var i = 0; i < nodes.length; i++) {
+        var n = nodes[i]; var p = pos[n.id];
+        var r = Math.min(5 + (degree[n.id] || 0), 14) + 4;
+        var dx = mx - p.x, dy = my - p.y;
+        if (dx*dx + dy*dy <= r*r) {
+          window.location.href = n.url;
+          return;
+        }
+      }
+    });
+
+    // Tooltip
+    var tooltip = document.createElement('div');
+    tooltip.style.cssText = 'position:fixed;background:#1f2937;color:#f9fafb;padding:4px 8px;border-radius:4px;font-size:12px;pointer-events:none;display:none;z-index:9999';
+    document.body.appendChild(tooltip);
+    canvas.addEventListener('mousemove', function(e) {
+      var rect = canvas.getBoundingClientRect();
+      var mx = (e.clientX - rect.left) * (W / rect.width);
+      var my = (e.clientY - rect.top) * (H / rect.height);
+      var found = false;
+      for (var i = 0; i < nodes.length; i++) {
+        var n = nodes[i]; var p = pos[n.id];
+        var r = Math.min(5 + (degree[n.id] || 0), 14) + 4;
+        if ((mx-p.x)*(mx-p.x)+(my-p.y)*(my-p.y) <= r*r) {
+          tooltip.style.display = 'block';
+          tooltip.style.left = (e.clientX + 12) + 'px';
+          tooltip.style.top = (e.clientY - 8) + 'px';
+          tooltip.textContent = n.label;
+          canvas.style.cursor = 'pointer';
+          found = true; break;
+        }
+      }
+      if (!found) { tooltip.style.display = 'none'; canvas.style.cursor = 'default'; }
+    });
+    canvas.addEventListener('mouseleave', function() { tooltip.style.display = 'none'; });
+  }).catch(function() {
+    ctx.fillStyle = '#ef4444';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Chyba při načítání dat grafu.', W/2, H/2);
+  });
+}
+
+function initGraphPages() {
+  var el = document.querySelector('.graph-page[data-graph-data-url]');
+  if (el) initSiteGraph(el);
+}
+
+document.addEventListener('DOMContentLoaded', initGraphPages);
+document.addEventListener('htmx:afterSwap', initGraphPages);

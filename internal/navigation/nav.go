@@ -9,6 +9,7 @@ import (
 	"strings"
 	"unicode"
 
+	"golang.org/x/text/unicode/norm"
 	"gopkg.in/yaml.v3"
 )
 
@@ -61,7 +62,6 @@ func titleFromFrontmatter(path string) string {
 	return fm.Title
 }
 
-
 // titleFromSlug converts a filesystem name to a display title.
 // "01-getting-started" → "Getting Started"
 func titleFromSlug(name string) string {
@@ -82,16 +82,44 @@ func titleFromSlug(name string) string {
 	return strings.Join(words, " ")
 }
 
-// slugFromName returns the slug portion of a filename (strips numeric prefix, keeps hyphen form).
-func slugFromName(name string) string {
-	return numericPrefix.ReplaceAllString(name, "")
+// SlugFromName returns the slug portion of a filename (strips numeric prefix, keeps hyphen form).
+func SlugFromName(name string) string {
+	name = numericPrefix.ReplaceAllString(name, "")
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return ""
+	}
+
+	decomposed := norm.NFD.String(strings.ToLower(name))
+	var b strings.Builder
+	prevDash := false
+	for _, r := range decomposed {
+		switch {
+		case unicode.Is(unicode.Mn, r):
+			continue
+		case unicode.IsLetter(r) || unicode.IsDigit(r):
+			b.WriteRune(r)
+			prevDash = false
+		default:
+			if !prevDash && b.Len() > 0 {
+				b.WriteByte('-')
+				prevDash = true
+			}
+		}
+	}
+
+	slug := strings.Trim(b.String(), "-")
+	if slug == "" {
+		return "page"
+	}
+	return slug
 }
 
-// BuildTree walks siteRoot/site/ and builds a NavNode tree.
+// BuildTree walks contentDir and builds a NavNode tree.
 // basePath is the URL prefix, e.g. "/docs" or "" for root.
-// The returned root node represents the site/ directory itself.
-func BuildTree(siteRoot, basePath string) (*NavNode, error) {
-	siteDir := filepath.Join(siteRoot, "site")
+// The returned root node represents the content directory itself.
+func BuildTree(contentDir, basePath string) (*NavNode, error) {
+	siteDir := contentDir
 
 	root := &NavNode{
 		Title:    "Home",
@@ -137,11 +165,11 @@ func BuildTree(siteRoot, basePath string) (*NavNode, error) {
 		}
 
 		if d.IsDir() {
-			slug := slugFromName(name)
+			slug := SlugFromName(name)
 			// Build URL path from parts
 			urlParts := make([]string, len(parts))
 			for i, p := range parts {
-				urlParts[i] = slugFromName(p)
+				urlParts[i] = SlugFromName(p)
 			}
 			fullPath := basePath + "/" + strings.Join(urlParts, "/") + "/"
 
@@ -165,16 +193,16 @@ func BuildTree(siteRoot, basePath string) (*NavNode, error) {
 		}
 
 		baseName := strings.TrimSuffix(name, ".md")
-		slug := slugFromName(baseName)
+		slug := SlugFromName(baseName)
 
 		// Build URL path
 		urlParts := make([]string, len(parts))
 		for i, p := range parts {
 			if i == len(parts)-1 {
 				// Last part is the file
-				urlParts[i] = slugFromName(strings.TrimSuffix(p, ".md"))
+				urlParts[i] = SlugFromName(strings.TrimSuffix(p, ".md"))
 			} else {
-				urlParts[i] = slugFromName(p)
+				urlParts[i] = SlugFromName(p)
 			}
 		}
 

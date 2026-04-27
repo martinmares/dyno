@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -13,29 +14,37 @@ import (
 	"github.com/mares/dyno/internal/markdown"
 	"github.com/mares/dyno/internal/navigation"
 	"github.com/mares/dyno/internal/search"
+	"github.com/mares/dyno/internal/tasks"
 )
 
 // Server holds all dependencies and serves the documentation site.
 type Server struct {
 	mu         sync.RWMutex
 	siteRoot   string
+	contentDir string
 	basePath   string // e.g. "/docs"
-	searchPath string // e.g. "/docs/search" or "/search"
+	searchPath      string // e.g. "/docs/_search"
+	tasksPath       string // e.g. "/docs/_tasks"
+	sectionTaskPath string // e.g. "/docs/_tasks/section"
+	graphPath       string // e.g. "/docs/_graph"
 	libraryURL string // non-empty when running as a book inside a LibraryServer
-	siteCfg   *config.SiteConfig
-	version   string
-	commit    string
-	nav       *navigation.NavNode
-	idx       *search.Index
-	renderer  *markdown.Renderer
-	buildTime time.Time
-	tmpl      *template.Template // nil in dev mode (re-parsed per request)
-	tmplFS    fs.FS              // used in dev mode for live reloading
-	devMode   bool
-	mux       *http.ServeMux
-	pageCache map[string]pageCacheEntry
-	assetMeta map[string]assetMetadata
-	metrics   *metrics
+	siteCfg    *config.SiteConfig
+	version    string
+	commit     string
+	nav        *navigation.NavNode
+	idx        *search.Index
+	taskIndex  *tasks.Index
+	backlinks  navigation.BacklinkIndex
+	taskHTML   string
+	renderer   *markdown.Renderer
+	buildTime  time.Time
+	tmpl       *template.Template // nil in dev mode (re-parsed per request)
+	tmplFS     fs.FS              // used in dev mode for live reloading
+	devMode    bool
+	mux        *http.ServeMux
+	pageCache  map[string]pageCacheEntry
+	assetMeta  map[string]assetMetadata
+	metrics    *metrics
 }
 
 type pageCacheEntry struct {
@@ -49,6 +58,14 @@ func (s *Server) Reload(nav *navigation.NavNode, idx *search.Index) {
 	defer s.mu.Unlock()
 	s.nav = nav
 	s.idx = idx
+	if taskIndex, err := tasks.BuildIndex("", s.siteCfg.Title, s.contentDir, nav); err == nil {
+		s.taskIndex = taskIndex
+		s.taskHTML = taskIndex.RenderSummary("tasks-summary")
+	} else {
+		s.taskIndex = &tasks.Index{}
+		s.taskHTML = `<div class="tasks-empty">No tasks were found in this site.</div>`
+	}
+	s.backlinks = navigation.BuildBacklinks(nav, s.basePath)
 	s.pageCache = make(map[string]pageCacheEntry)
 	s.metrics.watchReloads.Inc()
 }
@@ -65,9 +82,20 @@ func (s *Server) getIdx() *search.Index {
 	return s.idx
 }
 
+func (s *Server) renderTasks(query, anchorID string) (string, error) {
+	s.mu.RLock()
+	taskIndex := s.taskIndex
+	s.mu.RUnlock()
+	if taskIndex == nil {
+		return "", nil
+	}
+	return taskIndex.Render(query, anchorID)
+}
+
 // Config holds server configuration.
 type Config struct {
 	SiteRoot   string
+	ContentDir string
 	Port       string
 	DevMode    bool
 	SiteCfg    *config.SiteConfig
@@ -81,6 +109,9 @@ func newFuncMap() template.FuncMap {
 	return template.FuncMap{
 		"safeHTML": func(s string) template.HTML { return template.HTML(s) },
 		"add":      func(a, b int) int { return a + b },
+		"isAgentsDoc": func(path string) bool {
+			return filepath.Base(path) == "AGENTS.md"
+		},
 		"fmtNum": func(n int) string {
 			// Format integer with thousands separator: 12400 → "12,400"
 			s := fmt.Sprintf("%d", n)
@@ -124,19 +155,27 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 
 	s := &Server{
 		siteRoot:   cfg.SiteRoot,
+		contentDir: cfg.ContentDir,
 		basePath:   cfg.SiteCfg.GetBasePath(),
 		libraryURL: cfg.LibraryURL,
-		siteCfg:   cfg.SiteCfg,
-		version:   cfg.Version,
-		commit:    cfg.Commit,
-		nav:       nav,
-		idx:       idx,
-		renderer:  renderer,
-		buildTime: cfg.BuildTime,
-		tmplFS:    tmplFS,
-		devMode:   cfg.DevMode,
-		mux:       http.NewServeMux(),
-		pageCache: make(map[string]pageCacheEntry),
+		siteCfg:    cfg.SiteCfg,
+		version:    cfg.Version,
+		commit:     cfg.Commit,
+		nav:        nav,
+		idx:        idx,
+		renderer:   renderer,
+		buildTime:  cfg.BuildTime,
+		tmplFS:     tmplFS,
+		devMode:    cfg.DevMode,
+		mux:        http.NewServeMux(),
+		pageCache:  make(map[string]pageCacheEntry),
+	}
+	if taskIndex, err := tasks.BuildIndex("", cfg.SiteCfg.Title, cfg.ContentDir, nav); err == nil {
+		s.taskIndex = taskIndex
+		s.taskHTML = taskIndex.RenderSummary("tasks-summary")
+	} else {
+		s.taskIndex = &tasks.Index{}
+		s.taskHTML = `<div class="tasks-empty">No tasks were found in this site.</div>`
 	}
 	s.metrics = newMetrics()
 
@@ -162,11 +201,22 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 	s.mux.Handle("GET /assets/", s.assetHandler(assetsFS))
 
 	basePath := cfg.SiteCfg.GetBasePath() // e.g. "/docs" or ""
-	searchPath := "/search"
+	searchPath := "/_search"
+	tasksPath := "/_tasks"
 	if basePath != "" {
-		searchPath = basePath + "/search"
+		searchPath = basePath + "/_search"
+		tasksPath = basePath + "/_tasks"
+	}
+	sectionTaskPath := "/_tasks/section"
+	graphPath := "/_graph"
+	if basePath != "" {
+		sectionTaskPath = basePath + "/_tasks/section"
+		graphPath = basePath + "/_graph"
 	}
 	s.searchPath = searchPath
+	s.tasksPath = tasksPath
+	s.sectionTaskPath = sectionTaskPath
+	s.graphPath = graphPath
 
 	if basePath == "" {
 		s.mux.HandleFunc("GET /{path...}", s.pageHandler)
@@ -175,11 +225,17 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 		s.mux.HandleFunc("GET "+basePath+"/{path...}", s.pageHandler)
 	}
 	s.mux.HandleFunc("GET "+searchPath, s.searchHandler)
+	s.mux.HandleFunc("GET "+tasksPath, s.tasksHandler)
+	s.mux.HandleFunc("GET "+sectionTaskPath, s.sectionTasksHandler)
+	s.mux.HandleFunc("GET "+graphPath, s.graphHandler)
+	s.mux.HandleFunc("GET "+graphPath+"/_neighbours", s.graphNeighboursHandler)
+	s.mux.HandleFunc("GET "+graphPath+"/{pagepath...}", s.egoGraphHandler)
 	s.mux.HandleFunc("POST /api-proxy", s.apiProxyHandler)
 	s.mux.HandleFunc("GET /healthz", s.healthHandler)
 	s.mux.HandleFunc("GET /livez", s.livenessHandler)
 	s.mux.HandleFunc("GET /readyz", s.readinessHandler)
 	s.mux.Handle("GET /metrics", s.metrics.handler())
+	s.backlinks = navigation.BuildBacklinks(s.nav, s.basePath)
 
 	return s, nil
 }
@@ -206,7 +262,7 @@ func (s *Server) getRenderedPage(fsPath string) (*markdown.Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	res, err := s.renderer.Render(src)
+	res, err := s.renderer.RenderWithOptions(src, markdown.RenderOptions{TaskRenderer: s.renderTasks})
 	if err != nil {
 		return nil, err
 	}

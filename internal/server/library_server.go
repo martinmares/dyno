@@ -79,6 +79,10 @@ func NewLibrary(cfg LibraryConfig, staticFS fs.FS, books []*library.Book, render
 
 	// Dashboard
 	base := cfg.BasePath
+	searchPath := "/_search"
+	if base != "" {
+		searchPath = base + "/_search"
+	}
 	if base == "" {
 		ls.mux.HandleFunc("GET /{$}", ls.dashboardHandler)
 	} else {
@@ -87,7 +91,10 @@ func NewLibrary(cfg LibraryConfig, staticFS fs.FS, books []*library.Book, render
 		ls.mux.HandleFunc("GET "+base, ls.dashboardHandler)
 	}
 
-	ls.mux.HandleFunc("GET /search", ls.searchHandler)
+	ls.mux.HandleFunc("GET /_search", ls.searchHandler)
+	if searchPath != "/_search" {
+		ls.mux.HandleFunc("GET "+searchPath, ls.searchHandler)
+	}
 	ls.mux.HandleFunc("GET /healthz", ls.healthHandler)
 	ls.mux.HandleFunc("GET /livez", ls.healthHandler)
 	ls.mux.HandleFunc("GET /readyz", ls.healthHandler)
@@ -103,6 +110,7 @@ func NewLibrary(cfg LibraryConfig, staticFS fs.FS, books []*library.Book, render
 		}
 		bookCfg := Config{
 			SiteRoot:   book.SiteRoot,
+			ContentDir: book.ContentDir,
 			Port:       "",
 			DevMode:    cfg.DevMode,
 			SiteCfg:    book.Cfg,
@@ -130,6 +138,16 @@ func NewLibrary(cfg LibraryConfig, staticFS fs.FS, books []*library.Book, render
 	}
 
 	return ls, nil
+}
+
+// ReloadBook swaps the nav/search index for a single book atomically (used by git auto-pull).
+func (ls *LibraryServer) ReloadBook(book *library.Book) {
+	srv, ok := ls.servers[book.Slug]
+	if !ok {
+		slog.Warn("git reload: unknown book slug", "slug", book.Slug)
+		return
+	}
+	srv.Reload(book.Nav, book.Idx)
 }
 
 // Handler returns the HTTP handler with middleware applied.
@@ -204,9 +222,10 @@ func (ls *LibraryServer) dashboardHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	// Reuse asset URLs from any book server.
-	appJSURL, tailwindURL, htmxURL, mermaidURL := "/assets/app.js", "/assets/tailwind.css", "/assets/htmx.min.js", "/assets/mermaid.min.js"
+	appJSURL, appCSSURL, tailwindURL, htmxURL, mermaidURL := "/assets/app.js", "/assets/app.css", "/assets/tailwind.css", "/assets/htmx.min.js", "/assets/mermaid.min.js"
 	for _, srv := range ls.servers {
 		appJSURL = srv.assetURL("app.js")
+		appCSSURL = srv.assetURL("app.css")
 		tailwindURL = srv.assetURL("tailwind.css")
 		htmxURL = srv.assetURL("htmx.min.js")
 		mermaidURL = srv.assetURL("mermaid.min.js")
@@ -219,7 +238,9 @@ func (ls *LibraryServer) dashboardHandler(w http.ResponseWriter, r *http.Request
 		Subtitle:    ls.subtitle,
 		Books:       cards,
 		BasePath:    ls.basePath,
+		SearchURL:   strings.TrimRight(ls.basePath, "/") + "/search",
 		AppJSURL:    appJSURL,
+		AppCSSURL:   appCSSURL,
 		TailwindURL: tailwindURL,
 		HTMXURL:     htmxURL,
 		MermaidURL:  mermaidURL,
@@ -251,20 +272,24 @@ func (ls *LibraryServer) searchHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Build asset URLs
 	appJSURL := "/assets/app.js"
+	appCSSURL := "/assets/app.css"
 	tailwindURL := "/assets/tailwind.css"
 	for _, srv := range ls.servers {
 		appJSURL = srv.assetURL("app.js")
+		appCSSURL = srv.assetURL("app.css")
 		tailwindURL = srv.assetURL("tailwind.css")
 		break
 	}
 
 	data := SearchData{
-		Query:    q,
-		Results:  results,
-		IsHTMX:   r.Header.Get("HX-Request") == "true",
-		Title:    "Search",
-		BasePath: ls.basePath,
-		AppJSURL: appJSURL,
+		Query:       q,
+		Results:     results,
+		IsHTMX:      r.Header.Get("HX-Request") == "true",
+		Title:       "Search",
+		BasePath:    ls.basePath,
+		SearchURL:   strings.TrimRight(ls.basePath, "/") + "/search",
+		AppJSURL:    appJSURL,
+		AppCSSURL:   appCSSURL,
 		TailwindURL: tailwindURL,
 	}
 

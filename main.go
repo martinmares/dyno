@@ -16,11 +16,14 @@ import (
 
 	charmlog "github.com/charmbracelet/log"
 	"github.com/mares/dyno/internal/config"
+	"github.com/mares/dyno/internal/gitrepo"
 	"github.com/mares/dyno/internal/library"
+	"github.com/mares/dyno/internal/libraryconfig"
 	"github.com/mares/dyno/internal/markdown"
 	"github.com/mares/dyno/internal/navigation"
 	"github.com/mares/dyno/internal/search"
 	"github.com/mares/dyno/internal/server"
+	"github.com/mares/dyno/internal/sitepath"
 	"github.com/mares/dyno/internal/watcher"
 	"github.com/spf13/cobra"
 )
@@ -39,25 +42,31 @@ var (
 
 func main() {
 	var (
-		sites     []string
-		port      string
-		dev       bool
-		watch     bool
-		logFormat string
+		sites       []string
+		gitRepos    []string
+		workDir     string
+		libraryFile string
+		port        string
+		dev         bool
+		watch       bool
+		logFormat   string
 	)
 
 	root := &cobra.Command{
-		Use:   "dyno",
-		Short: "Self-hosted documentation server",
-		Long:  "dyno serves Markdown documentation as a beautiful, searchable web site.",
-		Version: fmt.Sprintf("%s (commit %s, built %s)", version, buildCommit, buildDate),
+		Use:          "dyno",
+		Short:        "Self-hosted documentation server",
+		Long:         "dyno serves Markdown documentation as a beautiful, searchable web site.",
+		Version:      fmt.Sprintf("%s (commit %s, built %s)", version, buildCommit, buildDate),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return run(sites, port, dev, watch, logFormat)
+			return run(sites, gitRepos, workDir, libraryFile, port, dev, watch, logFormat)
 		},
 	}
 
-	root.Flags().StringArrayVarP(&sites, "site", "s", []string{"./site"}, "Site directory (repeat for library mode)")
+	root.Flags().StringArrayVarP(&sites, "site", "s", []string{"./site"}, "Content directory (repeat for library mode)")
+	root.Flags().StringArrayVar(&gitRepos, "git-repo-site", nil, "Git repo URL to clone and serve as a site (repeat for library mode)")
+	root.Flags().StringVar(&workDir, "work-dir", "", "Writable directory for git clones (required with --git-repo-site)")
+	root.Flags().StringVar(&libraryFile, "library", "", "Path to dyno-library.yaml with repo metadata and overrides")
 	root.Flags().StringVarP(&port, "port", "p", "3000", "Port to listen on")
 	root.Flags().BoolVar(&dev, "dev", false, "Dev mode: reload templates and assets from disk on every request")
 	root.Flags().BoolVar(&watch, "watch", false, "Watch site for changes and reload navigation/search (single-site only)")
@@ -68,8 +77,117 @@ func main() {
 	}
 }
 
-func run(sites []string, port string, dev, watch bool, logFormat string) error {
+func run(sites, gitRepos []string, workDir, libraryFile, port string, dev, watch bool, logFormat string) error {
 	setupLogger(logFormat)
+
+	// gitConfigs maps resolvedDir → gitrepo.Config for auto-pull wiring.
+	gitConfigs := map[string]gitrepo.Config{}
+	// cfgOverrides maps resolvedDir → SiteConfig fallback from dyno-library.yaml.
+	cfgOverrides := map[string]*config.SiteConfig{}
+
+	// Track whether the user explicitly passed --site flags (vs default).
+	hasExplicitSites := len(sites) > 0 && !(len(sites) == 1 && sites[0] == "./site")
+
+	// Load dyno-library.yaml if provided.
+	if libraryFile != "" {
+		libFile, err := libraryconfig.Load(libraryFile)
+		if err != nil {
+			return fmt.Errorf("--library: %w", err)
+		}
+
+		// Resolve work_dir: CLI --work-dir takes precedence over yaml work_dir.
+		if workDir == "" && libFile.WorkDir != "" {
+			workDir = libFile.WorkDir
+		}
+
+		// Process sites from the library file (in order).
+		// They are prepended before CLI --site / --git-repo-site so file order is preserved.
+		var libSites []string
+		for _, entry := range libFile.Sites {
+			if entry.IsGit() {
+				// Defer git clone until workDir is resolved — collect into gitRepos.
+				found := false
+				for _, r := range gitRepos {
+					if r == entry.URL {
+						found = true
+						break
+					}
+				}
+				if !found {
+					gitRepos = append([]string{entry.URL}, append(gitRepos[:0:0], gitRepos...)...)
+					// store override keyed by URL temporarily; resolved to cloneDir below
+				}
+				// Store entry by URL for later cloneDir resolution.
+				cfgOverrides["__url__"+entry.URL] = siteEntryToSiteConfig(entry)
+			} else {
+				libSites = append(libSites, entry.Path)
+				cfgOverrides[entry.Path] = siteEntryToSiteConfig(entry)
+			}
+		}
+
+		// Prepend library sites before CLI sites.
+		// Drop default "./site" if no explicit --site was given.
+		if !hasExplicitSites {
+			sites = append(libSites, gitRepos...) // will be replaced by resolved dirs below
+			sites = libSites
+		} else {
+			sites = append(libSites, sites...)
+		}
+	}
+
+	// Clone git repos and append their local paths to sites.
+	if len(gitRepos) > 0 {
+		if workDir == "" {
+			return fmt.Errorf("--work-dir is required when using --git-repo-site or git repos in --library")
+		}
+		absWorkDir, err := filepath.Abs(workDir)
+		if err != nil {
+			return fmt.Errorf("invalid --work-dir: %w", err)
+		}
+		for _, repoURL := range gitRepos {
+			// Retrieve override that was stored temporarily by URL.
+			override := cfgOverrides["__url__"+repoURL]
+			delete(cfgOverrides, "__url__"+repoURL)
+
+			var branch string
+			var pullInterval time.Duration
+			if override != nil {
+				branch = override.GitBranch
+				if override.GitPullInterval != "" {
+					pullInterval, err = gitrepo.ParseInterval(override.GitPullInterval)
+					if err != nil {
+						return fmt.Errorf("pull_interval for %q: %w", repoURL, err)
+					}
+				}
+			}
+			cfg := gitrepo.Config{
+				RepoURL:      repoURL,
+				Branch:       branch,
+				PullInterval: pullInterval,
+				WorkDir:      absWorkDir,
+			}
+			cloneDir, err := gitrepo.CloneOrUpdate(cfg)
+			if err != nil {
+				return fmt.Errorf("git clone %q: %w", repoURL, err)
+			}
+			sites = append(sites, cloneDir)
+			gitConfigs[cloneDir] = cfg
+			if override != nil {
+				cfgOverrides[cloneDir] = override
+			}
+		}
+	}
+
+	// Drop default "./site" if library or git repos provided anything.
+	if !hasExplicitSites && (libraryFile != "" || len(gitRepos) > 0) {
+		filtered := sites[:0]
+		for _, s := range sites {
+			if s != "./site" {
+				filtered = append(filtered, s)
+			}
+		}
+		sites = filtered
+	}
 
 	if len(sites) > 1 && watch {
 		slog.Warn("--watch is not supported in library mode, ignoring")
@@ -79,14 +197,11 @@ func run(sites []string, port string, dev, watch bool, logFormat string) error {
 	// Resolve all site paths to absolute.
 	absSites := make([]string, 0, len(sites))
 	for _, s := range sites {
-		abs, err := filepath.Abs(s)
+		paths, err := sitepath.Resolve(s)
 		if err != nil {
 			return fmt.Errorf("invalid site path %q: %w", s, err)
 		}
-		if _, err := os.Stat(abs); os.IsNotExist(err) {
-			return fmt.Errorf("site directory not found: %s", abs)
-		}
-		absSites = append(absSites, abs)
+		absSites = append(absSites, paths.ContentDir)
 	}
 
 	if dev {
@@ -95,8 +210,12 @@ func run(sites []string, port string, dev, watch bool, logFormat string) error {
 
 	// Shared renderer — all books use the same Goldmark/D2/Mermaid setup.
 	// Template env is loaded from the first site (global env applies to all).
-	firstSiteRoot := resolveSiteRoot(absSites[0])
-	templateEnv, err := config.LoadTemplateEnv(firstSiteRoot)
+	firstPaths, err := sitepath.Resolve(absSites[0])
+	if err != nil {
+		return err
+	}
+	firstSiteRoot := firstPaths.RootDir
+	templateEnv, err := config.LoadTemplateEnvForContent(firstSiteRoot, absSites[0])
 	if err != nil {
 		return fmt.Errorf("failed to load template env: %w", err)
 	}
@@ -108,25 +227,46 @@ func run(sites []string, port string, dev, watch bool, logFormat string) error {
 	staticFS := resolveStaticFS(dev, firstSiteRoot)
 
 	if len(absSites) == 1 {
-		return runSingle(absSites[0], port, dev, watch, renderer, staticFS)
+		return runSingleWithGit(absSites[0], port, dev, watch, renderer, staticFS, gitConfigs[absSites[0]], cfgOverrides[absSites[0]])
 	}
-	return runLibrary(absSites, port, dev, renderer, staticFS)
-}
-
-// resolveSiteRoot: if siteDir has a site/ subdir, it is the root; otherwise parent is root.
-func resolveSiteRoot(siteDir string) string {
-	if _, err := os.Stat(filepath.Join(siteDir, "site")); err == nil {
-		return siteDir
-	}
-	return filepath.Dir(siteDir)
+	return runLibraryWithGit(absSites, port, dev, renderer, staticFS, gitConfigs, cfgOverrides)
 }
 
 func runSingle(siteDir, port string, dev, watch bool, renderer *markdown.Renderer, staticFS fs.FS) error {
-	siteRoot := resolveSiteRoot(siteDir)
+	return runSingleWithGit(siteDir, port, dev, watch, renderer, staticFS, gitrepo.Config{}, nil)
+}
 
-	siteCfg, err := config.Load(siteRoot)
+func runSingleWithGit(siteDir, port string, dev, watch bool, renderer *markdown.Renderer, staticFS fs.FS, gitCfg gitrepo.Config, cfgOverride *config.SiteConfig) error {
+	paths, err := sitepath.Resolve(siteDir)
+	if err != nil {
+		return err
+	}
+	siteRoot := paths.RootDir
+	contentDir := paths.ContentDir
+
+	siteCfg, err := config.LoadForContent(siteRoot, contentDir)
 	if err != nil {
 		return fmt.Errorf("failed to load dyno.yaml: %w", err)
+	}
+
+	// Apply external override (dyno-library.yaml) as fallback — dyno.yaml wins.
+	if cfgOverride != nil {
+		siteCfg.MergeDefaults(*cfgOverride)
+	}
+
+	// Merge dyno.yaml git settings into gitCfg (CLI values take precedence).
+	if gitCfg.RepoURL != "" {
+		if gitCfg.Branch == "" && siteCfg.GitBranch != "" {
+			gitCfg.Branch = siteCfg.GitBranch
+		}
+		if gitCfg.PullInterval == 0 && siteCfg.GitPullInterval != "" {
+			interval, err := gitrepo.ParseInterval(siteCfg.GitPullInterval)
+			if err != nil {
+				slog.Warn("invalid git_pull_interval in dyno.yaml, using default", "err", err)
+			} else {
+				gitCfg.PullInterval = interval
+			}
+		}
 	}
 
 	slog.Info("loading docs",
@@ -136,7 +276,7 @@ func runSingle(siteDir, port string, dev, watch bool, renderer *markdown.Rendere
 		"site_dir", siteDir,
 	)
 
-	nav, err := navigation.BuildTree(siteRoot, siteCfg.GetBasePath())
+	nav, err := navigation.BuildTree(contentDir, siteCfg.GetBasePath())
 	if err != nil {
 		return fmt.Errorf("failed to build navigation tree: %w", err)
 	}
@@ -151,13 +291,14 @@ func runSingle(siteDir, port string, dev, watch bool, renderer *markdown.Rendere
 	slog.Info("search indexed", "documents", idx.DocCount())
 
 	cfg := server.Config{
-		SiteRoot:  siteRoot,
-		Port:      port,
-		DevMode:   dev,
-		SiteCfg:   siteCfg,
-		Version:   version,
-		Commit:    buildCommit,
-		BuildTime: parseBuildTime(buildDate),
+		SiteRoot:   siteRoot,
+		ContentDir: contentDir,
+		Port:       port,
+		DevMode:    dev,
+		SiteCfg:    siteCfg,
+		Version:    version,
+		Commit:     buildCommit,
+		BuildTime:  parseBuildTime(buildDate),
 	}
 	srv, err := server.New(cfg, staticFS, nav, idx, renderer)
 	if err != nil {
@@ -168,21 +309,54 @@ func runSingle(siteDir, port string, dev, watch bool, renderer *markdown.Rendere
 		plainText := func(src string) (string, error) {
 			return renderer.ToPlainText([]byte(src))
 		}
-		if err := watcher.Watch(siteRoot, siteCfg.GetBasePath(), srv, plainText); err != nil {
+		if err := watcher.Watch(contentDir, siteCfg.GetBasePath(), srv, plainText); err != nil {
 			return fmt.Errorf("failed to start watcher: %w", err)
 		}
-		slog.Info("watcher enabled", "site_dir", filepath.Join(siteRoot, "site"))
+		slog.Info("watcher enabled", "content_dir", contentDir)
+	}
+
+	// Start auto-pull if this site was cloned from a git repo.
+	if gitCfg.RepoURL != "" {
+		plainText := func(src string) (string, error) {
+			return renderer.ToPlainText([]byte(src))
+		}
+		gitrepo.StartAutoPull(gitCfg, siteDir, func() {
+			nav, err := navigation.BuildTree(contentDir, siteCfg.GetBasePath())
+			if err != nil {
+				slog.Error("git reload: build nav failed", "err", err)
+				return
+			}
+			idx, err := search.BuildIndex(nav, plainText)
+			if err != nil {
+				slog.Error("git reload: build index failed", "err", err)
+				return
+			}
+			srv.Reload(nav, idx)
+		})
+		interval := gitCfg.PullInterval
+		if interval == 0 {
+			interval = 5 * time.Minute
+		}
+		slog.Info("git auto-pull enabled", "repo", gitCfg.RepoURL, "interval", interval)
 	}
 
 	return serve(srv, port)
 }
 
 func runLibrary(siteDirs []string, port string, dev bool, renderer *markdown.Renderer, staticFS fs.FS) error {
+	return runLibraryWithGit(siteDirs, port, dev, renderer, staticFS, nil, nil)
+}
+
+func runLibraryWithGit(siteDirs []string, port string, dev bool, renderer *markdown.Renderer, staticFS fs.FS, gitConfigs map[string]gitrepo.Config, cfgOverrides map[string]*config.SiteConfig) error {
 	slog.Info("library mode", "books", len(siteDirs))
 
 	// Load global basePath from first site's dyno.yaml (or use default).
-	firstRoot := resolveSiteRoot(siteDirs[0])
-	globalCfg, err := config.Load(firstRoot)
+	firstPaths, err := sitepath.Resolve(siteDirs[0])
+	if err != nil {
+		return err
+	}
+	firstRoot := firstPaths.RootDir
+	globalCfg, err := config.LoadForContent(firstRoot, siteDirs[0])
 	if err != nil {
 		return fmt.Errorf("failed to load global config: %w", err)
 	}
@@ -194,7 +368,11 @@ func runLibrary(siteDirs []string, port string, dev bool, renderer *markdown.Ren
 
 	books := make([]*library.Book, 0, len(siteDirs))
 	for _, siteDir := range siteDirs {
-		book, err := library.Load(siteDir, globalBasePath, plainText)
+		var override *config.SiteConfig
+		if cfgOverrides != nil {
+			override = cfgOverrides[siteDir]
+		}
+		book, err := library.Load(siteDir, globalBasePath, plainText, override)
 		if err != nil {
 			return fmt.Errorf("failed to load book %q: %w", siteDir, err)
 		}
@@ -216,6 +394,29 @@ func runLibrary(siteDirs []string, port string, dev bool, renderer *markdown.Ren
 		return fmt.Errorf("failed to create library server: %w", err)
 	}
 
+	// Start auto-pull for any git-cloned books.
+	for _, siteDir := range siteDirs {
+		gitCfg, ok := gitConfigs[siteDir]
+		if !ok || gitCfg.RepoURL == "" {
+			continue
+		}
+		siteDir := siteDir // capture
+		override := cfgOverrides[siteDir]
+		gitrepo.StartAutoPull(gitCfg, siteDir, func() {
+			book, err := library.Load(siteDir, globalBasePath, plainText, override)
+			if err != nil {
+				slog.Error("git reload: load book failed", "dir", siteDir, "err", err)
+				return
+			}
+			libSrv.ReloadBook(book)
+		})
+		interval := gitCfg.PullInterval
+		if interval == 0 {
+			interval = 5 * time.Minute
+		}
+		slog.Info("git auto-pull enabled", "repo", gitCfg.RepoURL, "interval", interval)
+	}
+
 	return serveLibrary(libSrv, port)
 }
 
@@ -223,12 +424,54 @@ func resolveStaticFS(dev bool, siteRoot string) fs.FS {
 	if !dev {
 		return embeddedFS
 	}
-	sourceRoot := siteRoot
-	if _, err := os.Stat(filepath.Join(sourceRoot, "templates")); os.IsNotExist(err) {
-		exe, _ := os.Executable()
-		sourceRoot = filepath.Dir(exe)
+
+	candidates := []string{}
+	if wd, err := os.Getwd(); err == nil {
+		candidates = append(candidates, wd)
 	}
-	return os.DirFS(sourceRoot)
+	candidates = append(candidates, siteRoot)
+	if exe, err := os.Executable(); err == nil {
+		candidates = append(candidates, filepath.Dir(exe))
+	}
+
+	for _, candidate := range candidates {
+		if hasStaticSource(candidate) {
+			return os.DirFS(candidate)
+		}
+	}
+	return embeddedFS
+}
+
+func hasStaticSource(root string) bool {
+	if root == "" {
+		return false
+	}
+	if info, err := os.Stat(filepath.Join(root, "templates")); err != nil || !info.IsDir() {
+		return false
+	}
+	if info, err := os.Stat(filepath.Join(root, "assets")); err != nil || !info.IsDir() {
+		return false
+	}
+	return true
+}
+
+func siteEntryToSiteConfig(e libraryconfig.SiteEntry) *config.SiteConfig {
+	cfg := &config.SiteConfig{
+		Title:           e.Title,
+		Description:     e.Description,
+		LogoText:        e.LogoText,
+		Slug:            e.Slug,
+		Icon:            e.Icon,
+		Color:           e.Color,
+		GitHubURL:       e.GitHubURL,
+		GitHubBranch:    e.Branch,
+		GitPullInterval: e.PullInterval,
+		GitBranch:       e.Branch,
+	}
+	if e.BasePath != "" {
+		cfg.BasePath = &e.BasePath
+	}
+	return cfg
 }
 
 func serveLibrary(srv *server.LibraryServer, port string) error {

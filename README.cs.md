@@ -17,9 +17,17 @@ Samostatně hostovaný dokumentační server — něco jako GitBook nebo Notion,
 - **Kotevní odkazy** — nadpisy s přímými odkazy
 - **Adresáře assetů** — adresáře s prefixem `_` (např. `_images/`) servírují soubory, ale nezobrazují se v sidebaru
 - **Konfigurovatelný base path** — server lze spustit pod libovolnou URL cestou (`/docs`, `/moje/docs` nebo `/`)
+- **Režim knihovny** — více dokumentačních webů pod jednou instancí dyno pomocí opakovaného `--site`
+- **Git-backed weby** — `--git-repo-site <url>` naklonuje repozitář a servíruje ho; automaticky pulluje v konfigurovatelném intervalu
+- **Konfigurační soubor knihovny** — `--library dyno-library.yaml` popisuje více webů (lokální nebo git) s přepsáním metadat
+- **Zpětné odkazy** — každá stránka zobrazuje, které jiné stránky na ni odkazují
+- **Graf závislostí** — D2 graf (±1 hop) pro každou stránku, dostupný přes ikonu grafu v navbaru
+- **Úkoly** — sbírá `- [ ]` / `- [x]` položky ze všech stránek; zobrazení za sekci i globálně
 - **Hot reload** — příznak `--watch` přenačte navigaci a vyhledávací index při změně souborů
 - **Dev režim** — příznak `--dev` načítá šablony z disku bez nutnosti rebuildu
 - **Jediný binární soubor** — vše je embedováno, žádný Node.js, žádný build pipeline
+- **Předkompilované CSS** — Tailwind je zkompilován do lokálních assetů místo načítání z CDN
+- **Volitelný MCP companion** — `dyno-mcp` zpřístupňuje dokumentaci AI agentům přes `stdio` nebo HTTP
 
 ## Struktura projektu
 
@@ -37,7 +45,9 @@ Samostatně hostovaný dokumentační server — něco jako GitBook nebo Notion,
 
 ## Konfigurace
 
-Soubor `dyno.yaml` v kořenovém adresáři projektu:
+### `dyno.yaml`
+
+Konfigurační soubor webu v kořenovém adresáři:
 
 ```yaml
 title: Moje dokumentace
@@ -47,22 +57,75 @@ logo_text: MujProjekt
 github_url: https://github.com/org/repo
 github_branch: main
 copyright: Moje organizace
-base_path: /docs   # nebo "" pro root
+base_path: /docs        # nebo "" pro root
+# Git auto-pull (při použití --git-repo-site)
+git_pull_interval: 5m   # nebo "false" pro vypnutí
+git_branch: main
+api_proxy_allowed_hosts:
+  - api.example.com
+api_proxy_allow_private_networks: false
 ```
 
 Všechna pole jsou volitelná — dyno funguje i bez konfiguračního souboru.
 
+### `dyno-library.yaml`
+
+Popisuje kolekci webů pro režim knihovny. Použití s `--library`:
+
+```yaml
+title: Moje knihovna
+work_dir: ~/tmp/dyno-wrk   # zapisovatelný adresář pro git klony (přepsáno pomocí --work-dir)
+
+sites:
+  # lokální adresář
+  - path: ./local-site
+    title: Lokální dokumentace
+    slug: local
+    icon: 📁
+    color: "#6366f1"
+
+  # git repozitář
+  - url: https://github.com/org/devops
+    title: DevOps Handbook
+    slug: devops
+    icon: 🚀
+    color: "#f97316"
+    branch: main
+    pull_interval: 10m
+
+  - url: https://github.com/org/go-cookbook
+    title: Go Cookbook
+    slug: go
+    icon: 🐹
+    color: "#0ea5e9"
+```
+
+Každý záznam používá buď `path` (lokální adresář) nebo `url` (git repozitář), nikdy obojí. Pole metadat (`title`, `slug`, `icon`, `color`, …) jsou záložní hodnoty — `dyno.yaml` uvnitř webu vždy vyhraje.
+
+**Priorita:** `dyno.yaml` uvnitř webu > záznam v `dyno-library.yaml` > výchozí hodnoty.
+
 ## Sestavení
 
 Vyžaduje **Go 1.22+**.
+
+### Vývoj
+
+```bash
+just css          # jednorázový build produkčního CSS
+just css-watch    # průběžný rebuild CSS při editaci šablon
+go run . --site ./site --dev --watch
+go run . --site /cesta/k/wiki --dev --watch
+go run . --version
+go run ./cmd/dyno-mcp serve --transport stdio --site ./site
+```
 
 ### macOS
 
 ```bash
 git clone https://github.com/mares/dyno
 cd dyno
-go build -o dyno .
-./dyno --dir /cesta/k/dokumentaci
+just release-macos
+./dyno --site /cesta/k/dokumentaci
 ```
 
 Nebo přímo nainstalovat:
@@ -76,8 +139,8 @@ go install github.com/mares/dyno@latest
 ```bash
 git clone https://github.com/mares/dyno
 cd dyno
-go build -o dyno .
-./dyno --dir /cesta/k/dokumentaci
+just release-linux
+./dyno --site /cesta/k/dokumentaci
 ```
 
 Cross-kompilace z macOS/Windows:
@@ -92,7 +155,7 @@ GOOS=linux GOARCH=amd64 go build -o dyno-linux-amd64 .
 git clone https://github.com/mares/dyno
 cd dyno
 go build -o dyno.exe .
-.\dyno.exe --dir C:\cesta\k\dokumentaci
+.\dyno.exe --site C:\cesta\k\dokumentaci
 ```
 
 Cross-kompilace z macOS/Linux:
@@ -107,24 +170,44 @@ GOOS=windows GOARCH=amd64 go build -o dyno-windows-amd64.exe .
 dyno [příznaky]
 
 Příznaky:
-  -p, --port string   Port (výchozí "3000")
-  -d, --dir string    Adresář obsahující složku site/ (výchozí ".")
-      --dev           Načítá šablony z disku při každém požadavku
-      --watch         Sleduje site/ a přenačítá navigaci a vyhledávání
-      --version       Vypíše verzi a skončí
+  -p, --port string             Port (výchozí "3000")
+  -s, --site stringArray        Adresář s obsahem (opakovat pro režim knihovny) (výchozí ["./site"])
+      --git-repo-site string    URL git repozitáře ke klonování a servírování (opakovatelné)
+      --work-dir string         Zapisovatelný adresář pro git klony (povinné s --git-repo-site)
+      --library string          Cesta k dyno-library.yaml se seznamem webů a metadaty
+      --dev                     Dev režim: načítá šablony z disku při každém požadavku
+      --watch                   Sleduje web a přenačítá navigaci a vyhledávání (pouze single-site)
+      --log-format string       Formát logů: text nebo json (výchozí "text")
+      --version                 Vypíše verzi a skončí
 ```
+
+`--site` vždy ukazuje přímo na adresář s obsahem, například `./site` nebo `/cesta/k/wiki`.
+
+Pokud adresář sekce nemá `index.md`, dyno zobrazí syntetickou úvodní stránku s odkazy na podstránky.
 
 ### Příklady
 
 ```bash
-# Spustit v aktuálním adresáři
-dyno
+# Jeden web
+dyno --site ./site
 
-# Spustit konkrétní adresář na portu 8080
-dyno --dir /cesta/k/dokumentaci --port 8080
+# Wiki adresář přímo
+dyno --site /cesta/k/wiki --port 8080
 
-# Vývojový režim s live reload
-dyno --dev --watch
+# Režim knihovny (více lokálních webů)
+dyno --site ./site --site ./site-demo-go
+
+# Git repozitář (automaticky naklonován, auto-pull každých 5 minut)
+dyno --git-repo-site https://github.com/org/docs --work-dir ~/tmp/dyno-wrk
+
+# Knihovna z konfiguračního souboru (lokální + git weby)
+dyno --library dyno-library.yaml
+
+# Kombinace: soubor knihovny + extra lokální web
+dyno --library dyno-library.yaml --site ./muj-extra-web
+
+# Vývojový režim s live reload (pouze single-site)
+dyno --site ./site --dev --watch
 ```
 
 ## Psaní obsahu
@@ -158,6 +241,53 @@ graph LR
   A --> B --> C
 ```
 ````
+
+**Proměnné prostředí v Markdownu:**
+
+Velkými písmeny psané placeholdery jsou expandovány před renderováním z:
+- `./.env`
+- `./site/.env`
+- proměnných prostředí procesu
+
+Proměnné prostředí procesu mají přednost před oběma `.env` soubory.
+
+```markdown
+API base URL: {{HTTPBIN_URL}}
+```
+
+## dyno-mcp
+
+`dyno-mcp` je samostatný binární soubor, který zpřístupňuje dokumentaci dyno AI agentům přes MCP, zatímco hlavní `dyno` webový server zůstává zaměřen na doručování HTML.
+
+### Použití dyno-mcp
+
+```bash
+dyno-mcp serve [příznaky]
+```
+
+Příznaky:
+- `-s, --site` opakovatelné, stejná sémantika jako u `dyno`
+- `--transport stdio|http`
+- `--listen 127.0.0.1:8090` pro HTTP režim
+- `--path /mcp` pro HTTP režim
+- `--public-base-url https://docs.example.com`
+- `--auth-token ...` nebo `DYNO_MCP_AUTH_TOKEN`
+- `--allow-origin https://chat.example.com` opakovatelné v HTTP režimu
+
+Příklady:
+
+```bash
+# Lokální stdio MCP pro jeden web
+go run ./cmd/dyno-mcp serve --transport stdio --site ./site
+
+# Vzdálený HTTP MCP endpoint
+go run ./cmd/dyno-mcp serve \
+  --transport http \
+  --site ./site \
+  --listen 127.0.0.1:8090 \
+  --path /mcp \
+  --public-base-url https://docs.example.com
+```
 
 ## Licence
 

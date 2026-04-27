@@ -22,8 +22,8 @@ func TestEndToEndSmokeFlow(t *testing.T) {
 	}))
 	defer upstream.Close()
 
-	writeTestFile(t, filepath.Join(srv.siteRoot, "site", "guides", "api-widget.md"), "# API Widget\n\n## Syntaxe\n\nText about dyno.\n\n```api\nGET "+upstream.URL+"/get\n```\n")
-	nav, err := navigation.BuildTree(srv.siteRoot, srv.basePath)
+	writeTestFile(t, filepath.Join(srv.contentDir, "guides", "api-widget.md"), "# API Widget\n\n## Syntaxe\n\nText about dyno.\n\n```api\nGET "+upstream.URL+"/get\n```\n")
+	nav, err := navigation.BuildTree(srv.contentDir, srv.basePath)
 	if err != nil {
 		t.Fatal(err)
 	}

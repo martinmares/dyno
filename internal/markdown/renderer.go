@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	htmpl "html/template"
 	"io"
 	"log/slog"
 	"regexp"
@@ -47,6 +48,14 @@ type Result struct {
 	TOC         []TOCEntry
 	Title       string
 	Frontmatter Frontmatter
+}
+
+// TaskRenderer renders a custom ```tasks block into HTML.
+type TaskRenderer func(query, anchorID string) (string, error)
+
+// RenderOptions control optional render-time integrations.
+type RenderOptions struct {
+	TaskRenderer TaskRenderer
 }
 
 // Renderer wraps goldmark with our configuration.
@@ -124,6 +133,11 @@ func (r *Renderer) DarkCSS() string { return r.darkCSS }
 // Render converts Markdown source to HTML, transforms mermaid blocks,
 // and extracts TOC entries and the page title.
 func (r *Renderer) Render(src []byte) (*Result, error) {
+	return r.RenderWithOptions(src, RenderOptions{})
+}
+
+// RenderWithOptions converts Markdown source to HTML with optional integrations.
+func (r *Renderer) RenderWithOptions(src []byte, opts RenderOptions) (*Result, error) {
 	fm, body := parseFrontmatter(src)
 	body = r.applyTemplateEnv(body)
 
@@ -137,6 +151,12 @@ func (r *Renderer) Render(src []byte) (*Result, error) {
 	d2SVGs := map[string]string{}
 	preprocessed = replaceD2WithPlaceholders(preprocessed, d2SVGs)
 
+	// Tasks: replace ```tasks fences with placeholder tokens before goldmark,
+	// then resolve them back to HTML after the markdown pass using the current
+	// site-specific resolver.
+	taskBlocks := map[string]taskPlaceholder{}
+	preprocessed = replaceTasksWithPlaceholders(preprocessed, taskBlocks)
+
 	// Mermaid: replace ```mermaid with <pre class="mermaid"> before goldmark.
 	preprocessed = extractMermaidBlocks(preprocessed)
 
@@ -148,6 +168,8 @@ func (r *Renderer) Render(src []byte) (*Result, error) {
 	// Restore placeholders: D2 SVGs, then API widgets.
 	htmlStr := restoreD2Placeholders(buf.String(), d2SVGs)
 	htmlStr = restorePlaceholders(htmlStr, apiBlocks)
+	htmlStr = restoreTasksPlaceholders(htmlStr, taskBlocks, opts.TaskRenderer)
+	htmlStr = annotateTaskLists(htmlStr)
 	htmlStr = transformCallouts(addAnchorLinks(htmlStr))
 	toc := extractTOC(htmlStr)
 	title := extractTitle(htmlStr)
@@ -209,6 +231,7 @@ func (r *Renderer) ToPlainText(src []byte) (string, error) {
 
 // d2FenceRe matches ```d2 ... ``` fenced code blocks in Markdown source.
 var d2FenceRe = regexp.MustCompile("(?ms)^```d2\\s*\n(.*?)\n```")
+var tasksFenceRe = regexp.MustCompile("(?ms)^```tasks\\s*\n(.*?)\n```")
 var nestedD2SVGRe = regexp.MustCompile(`(?s)\A<svg\b([^>]*)>\s*<svg\b([^>]*)>(.*)</svg>\s*</svg>\z`)
 var d2BackgroundRectRe = regexp.MustCompile(`(?s)\A(<svg\b[^>]*>)\s*<rect\b[^>]*stroke-width="0"[^>]*/>(.*)\z`)
 
@@ -216,6 +239,9 @@ var d2BackgroundRectRe = regexp.MustCompile(`(?s)\A(<svg\b[^>]*>)\s*<rect\b[^>]*
 // container div. CSS shows/hides each via the html.dark class, matching the
 // site's theme toggle. Two separate renders avoids any media-query or CSS
 // nesting issues with inline SVG.
+// RenderD2 compiles D2 source to dual-theme SVG HTML. Used externally for graph generation.
+func RenderD2(src string) (string, error) { return renderD2(src) }
+
 func renderD2(src string) (string, error) {
 	ruler, err := textmeasure.NewRuler()
 	if err != nil {
@@ -314,6 +340,61 @@ func restoreD2Placeholders(html string, svgs map[string]string) string {
 	return html
 }
 
+// replaceTasksWithPlaceholders replaces ```tasks fences with opaque tokens and
+// stores the raw query block in blocks.
+type taskPlaceholder struct {
+	Query    string
+	AnchorID string
+}
+
+func replaceTasksWithPlaceholders(src []byte, blocks map[string]taskPlaceholder) []byte {
+	counter := 0
+	return tasksFenceRe.ReplaceAllFunc(src, func(match []byte) []byte {
+		subs := tasksFenceRe.FindSubmatch(match)
+		if len(subs) < 2 {
+			return match
+		}
+		key := fmt.Sprintf("TASKPLACEHOLDER%d", counter)
+		anchorID := fmt.Sprintf("tasks-%d", counter)
+		counter++
+		blocks[key] = taskPlaceholder{
+			Query:    strings.TrimSpace(string(subs[1])),
+			AnchorID: anchorID,
+		}
+		return []byte("<div>" + key + "</div>")
+	})
+}
+
+// restoreTasksPlaceholders swaps placeholder tokens back to rendered task HTML.
+func restoreTasksPlaceholders(html string, blocks map[string]taskPlaceholder, render TaskRenderer) string {
+	if render == nil {
+		for key := range blocks {
+			html = strings.ReplaceAll(html, "<div>"+key+"</div>", "")
+		}
+		return html
+	}
+	for key, block := range blocks {
+		rendered, err := render(block.Query, block.AnchorID)
+		if err != nil {
+			rendered = `<div class="callout callout-danger"><div class="callout-title">🚨 Tasks render error</div><div class="callout-body"><p>` + templateHTMLEscape(err.Error()) + `</p></div></div>`
+		}
+		html = strings.ReplaceAll(html, "<div>"+key+"</div>", rendered)
+	}
+	return html
+}
+
+var taskListItemRe = regexp.MustCompile(`(?s)<li>\s*(<input[^>]*type="checkbox"[^>]*>)`)
+
+func annotateTaskLists(htmlStr string) string {
+	return taskListItemRe.ReplaceAllString(htmlStr, `<li class="task-list-item">$1`)
+}
+
+func templateHTMLEscape(s string) string {
+	var b strings.Builder
+	htmpl.HTMLEscape(&b, []byte(s))
+	return b.String()
+}
+
 // mermaidFenceRe matches ```mermaid ... ``` fenced code blocks in Markdown source.
 var mermaidFenceRe = regexp.MustCompile("(?ms)^```mermaid\\s*\n(.*?)\n```")
 
@@ -344,8 +425,8 @@ var (
 	tagRe        = regexp.MustCompile(`<[^>]+>`)
 )
 
-// addAnchorLinks injects a # anchor link to the left of every heading that has an id.
-// The anchor is placed before the text content so it appears on the left side.
+// addAnchorLinks injects a permalink anchor for every heading that has an id.
+// The anchor is appended after the heading content so CSS can place it inline.
 func addAnchorLinks(htmlStr string) string {
 	return allHeadingRe.ReplaceAllStringFunc(htmlStr, func(match string) string {
 		subs := allHeadingRe.FindStringSubmatch(match)

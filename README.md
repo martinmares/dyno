@@ -17,10 +17,17 @@ A self-hosted documentation server — think GitBook or Notion, but as a single 
 - **Anchor links** — deep-linkable headings
 - **Asset directories** — prefix a directory with `_` (e.g. `_images/`) to serve files without showing them in the sidebar
 - **Configurable base path** — run under any URL prefix (e.g. `/docs`, `/myapp/docs`, or `/`)
+- **Library mode** — serve multiple documentation sites under one dyno instance with repeated `--site`
+- **Git-backed sites** — `--git-repo-site <url>` clones a repo and serves it; auto-pulls on a configurable interval
+- **Library config file** — `--library dyno-library.yaml` describes multiple sites (local or git) with metadata overrides
+- **Backlinks** — every page shows which other pages link to it
+- **Ego-graph** — D2 dependency graph (±1 hop) for each page, accessible via the graph icon in the navbar
+- **Tasks** — collects `- [ ]` / `- [x]` task items across all pages; section-scoped and global views
 - **Hot reload** — `--watch` flag reloads navigation and search index on file changes
 - **Dev mode** — `--dev` flag reloads templates from disk without rebuilding
 - **Single binary** — everything embedded, no Node.js, no build pipeline
 - **Prebuilt production CSS** — Tailwind is compiled into local assets instead of loaded from a CDN
+- **Optional MCP companion** — `dyno-mcp` exposes the same docs to AI agents over `stdio` or HTTP
 
 ## Project layout
 
@@ -38,7 +45,9 @@ A self-hosted documentation server — think GitBook or Notion, but as a single 
 
 ## Configuration
 
-`dyno.yaml` in the project root:
+### `dyno.yaml`
+
+Per-site configuration file in the site root:
 
 ```yaml
 title: My Docs
@@ -48,7 +57,10 @@ logo_text: MyProject
 github_url: https://github.com/org/repo
 github_branch: main
 copyright: My Organization
-base_path: /docs   # or "" for root
+base_path: /docs        # or "" for root
+# Git auto-pull (when site is cloned via --git-repo-site)
+git_pull_interval: 5m   # or "false" to disable
+git_branch: main
 api_proxy_allowed_hosts:
   - api.example.com
 api_proxy_allow_private_networks: false
@@ -59,6 +71,42 @@ All fields are optional — dyno works with no config file at all.
 `api_proxy_allowed_hosts` limits the interactive API widget to an explicit host allowlist.
 `api_proxy_allow_private_networks` controls whether the widget may call loopback/private targets; default is `true` for compatibility.
 
+### `dyno-library.yaml`
+
+Describes a collection of sites for library mode. Use with `--library`:
+
+```yaml
+title: My Library
+work_dir: ~/tmp/dyno-wrk   # writable dir for git clones (overridden by --work-dir)
+
+sites:
+  # local directory
+  - path: ./local-site
+    title: Local Docs
+    slug: local
+    icon: 📁
+    color: "#6366f1"
+
+  # git repo
+  - url: https://github.com/org/devops
+    title: DevOps Handbook
+    slug: devops
+    icon: 🚀
+    color: "#f97316"
+    branch: main
+    pull_interval: 10m
+
+  - url: https://github.com/org/go-cookbook
+    title: Go Cookbook
+    slug: go
+    icon: 🐹
+    color: "#0ea5e9"
+```
+
+Each entry uses either `path` (local directory) or `url` (git repo), never both. Metadata fields (`title`, `slug`, `icon`, `color`, …) are fallbacks — `dyno.yaml` inside the site always wins.
+
+**Priority:** `dyno.yaml` inside site > `dyno-library.yaml` entry > defaults.
+
 ## Building
 
 Requires **Go 1.22+**.
@@ -68,8 +116,10 @@ Requires **Go 1.22+**.
 ```bash
 just css          # build production CSS once
 just css-watch    # rebuild CSS while editing templates
-go run . --dev --watch
+go run . --site ./site --dev --watch
+go run . --site /path/to/wiki --dev --watch
 go run . --version
+go run ./cmd/dyno-mcp serve --transport stdio --site ./site
 ```
 
 ### macOS
@@ -78,7 +128,7 @@ go run . --version
 git clone https://github.com/mares/dyno
 cd dyno
 just release-macos
-./dyno --dir /path/to/your/docs
+./dyno --site /path/to/your/docs
 ```
 
 Or install directly:
@@ -93,7 +143,7 @@ go install github.com/mares/dyno@latest
 git clone https://github.com/mares/dyno
 cd dyno
 just release-linux
-./dyno --dir /path/to/your/docs
+./dyno --site /path/to/your/docs
 ```
 
 Cross-compile from macOS/Windows:
@@ -108,7 +158,7 @@ GOOS=linux GOARCH=amd64 go build -o dyno-linux-amd64 .
 git clone https://github.com/mares/dyno
 cd dyno
 go build -o dyno.exe .
-.\dyno.exe --dir C:\path\to\your\docs
+.\dyno.exe --site C:\path\to\your\docs
 ```
 
 Cross-compile from macOS/Linux:
@@ -123,25 +173,44 @@ GOOS=windows GOARCH=amd64 go build -o dyno-windows-amd64.exe .
 dyno [flags]
 
 Flags:
-  -p, --port string   Port to listen on (default "3000")
-  -d, --dir string    Directory containing site/ folder (default ".")
-      --dev           Reload templates from disk on every request
-      --watch         Watch site/ for changes and reload navigation/search
-      --log-format    Log format: text or json (default "text")
-      --version       Print version and exit
+  -p, --port string             Port to listen on (default "3000")
+  -s, --site stringArray        Content directory (repeat for library mode) (default ["./site"])
+      --git-repo-site string    Git repo URL to clone and serve as a site (repeatable)
+      --work-dir string         Writable directory for git clones (required with --git-repo-site)
+      --library string          Path to dyno-library.yaml with site list and metadata
+      --dev                     Dev mode: reload templates and assets from disk on every request
+      --watch                   Watch site for changes and reload navigation/search (single-site only)
+      --log-format string       Log format: text or json (default "text")
+      --version                 Print version and exit
 ```
+
+`--site` always points directly to the content directory, for example `./site` or `/path/to/wiki`.
+
+If a section directory has no `index.md`, dyno serves a synthetic landing page with links to child pages.
 
 ### Examples
 
 ```bash
-# Serve the current directory
-dyno
+# Serve one site
+dyno --site ./site
 
-# Serve a specific directory on port 8080
-dyno --dir /path/to/docs --port 8080
+# Serve a wiki directory directly
+dyno --site /path/to/wiki --port 8080
 
-# Development mode with live reload
-dyno --dev --watch
+# Library mode (multiple local sites)
+dyno --site ./site --site ./site-demo-go
+
+# Serve a git repo (cloned automatically, auto-pulled every 5 min)
+dyno --git-repo-site https://github.com/org/docs --work-dir ~/tmp/dyno-wrk
+
+# Library from a config file (local + git sites)
+dyno --library dyno-library.yaml
+
+# Mix: library file + extra local site
+dyno --library dyno-library.yaml --site ./my-extra-site
+
+# Development mode with live reload (single-site only)
+dyno --site ./site --dev --watch
 ```
 
 ## Writing content
@@ -205,6 +274,76 @@ Authorization: Bearer {{token}}
 In that example:
 - `{{HTTPBIN_URL}}` is expanded before render
 - `{{userId}}` and `{{token}}` remain editable in the widget UI
+
+## dyno-mcp
+
+`dyno-mcp` is a separate binary that exposes dyno documentation to AI agents over MCP while keeping the main `dyno` web server focused on HTML delivery.
+
+Current design goals:
+- one shared engine for both transports
+- read-only tools only
+- works in both single-site and library mode
+- returns public dyno URLs so AI clients can surface clickable links back to the HTML docs
+- exposes both MCP tools and MCP resources
+
+### dyno-mcp usage
+
+```bash
+dyno-mcp serve [flags]
+```
+
+Flags:
+- `-s, --site` repeatable, same semantics as `dyno`
+- `--transport stdio|http`
+- `--listen 127.0.0.1:8090` for HTTP mode
+- `--path /mcp` for HTTP mode
+- `--public-base-url https://docs.example.com`
+- `--auth-token ...` or `DYNO_MCP_AUTH_TOKEN`
+- `--allow-origin https://chat.example.com` repeatable in HTTP mode
+
+Examples:
+
+```bash
+# Local stdio MCP for one site
+go run ./cmd/dyno-mcp serve --transport stdio --site ./site
+
+# Remote HTTP MCP endpoint for one site
+go run ./cmd/dyno-mcp serve \
+  --transport http \
+  --site ./site \
+  --listen 127.0.0.1:8090 \
+  --path /mcp \
+  --public-base-url https://docs.example.com
+
+# Library mode MCP over HTTP
+go run ./cmd/dyno-mcp serve \
+  --transport http \
+  --site ./site \
+  --site ./site-demo-go/site \
+  --listen 127.0.0.1:8090 \
+  --path /mcp \
+  --public-base-url https://docs.example.com
+```
+
+Implemented MCP tools:
+- `list_books`
+- `search_docs`
+- `get_page`
+- `get_navigation`
+- `list_pages`
+- `get_page_section`
+
+Implemented MCP resources:
+- `dyno://book/{slug}` — book metadata as JSON
+- `dyno://book/{slug}/navigation` — navigation as JSON
+- `dyno://book/{slug}/page?path=...` — raw Markdown for a page
+
+HTTP compatibility notes:
+- `POST` endpoint only for now; `GET` returns `405`
+- returns `MCP-Protocol-Version: 2025-03-26`
+- rejects unsupported `MCP-Protocol-Version` request headers with `400`
+- when `--auth-token` or `DYNO_MCP_AUTH_TOKEN` is set, every HTTP request must send `Authorization: Bearer ...`
+- when `Origin` is present, it must match one of the repeatable `--allow-origin` values
 
 ## License
 

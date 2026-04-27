@@ -6,8 +6,11 @@ import (
 	"html/template"
 	"io"
 	"log/slog"
+	"html"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -33,19 +36,28 @@ type PageData struct {
 	Site        *config.SiteConfig
 	BasePath    string
 	// EditURL is the GitHub edit link for this page, empty if not configured
-	EditURL string
+	EditURL    string
+	IsAgentDoc bool
 	// Prev/Next for bottom navigation
-	Prev         *navigation.NavNode
-	Next         *navigation.NavNode
-	TailwindURL  string
-	AppJSURL     string
-	HTMXURL      string
-	MermaidURL   string
-	FaviconURL   string
-	SearchURL    string
-	LibraryURL   string // non-empty in library mode: URL back to the dashboard
-	BuildVersion string
-	BuildCommit  string
+	Prev           *navigation.NavNode
+	Next           *navigation.NavNode
+	TailwindURL    string
+	AppCSSURL      string
+	AppJSURL       string
+	HTMXURL        string
+	MermaidURL     string
+	FaviconURL     string
+	SearchURL      string
+	TasksURL        string
+	SectionTasksURL string // URL for section-scoped task view (current folder)
+	HasTasksBlock   bool
+	TasksAnchorURL  string
+	Backlinks      []navigation.Backlink // pages that link to this page
+	GraphURL       string                // URL for the site link graph page
+	EgoGraphURL    string                // URL for ego-graph of current page
+	LibraryURL     string                // non-empty in library mode: URL back to the dashboard
+	BuildVersion   string
+	BuildCommit    string
 }
 
 // LibraryData is passed to the library dashboard template.
@@ -55,7 +67,9 @@ type LibraryData struct {
 	Subtitle    string
 	Books       []bookCardData
 	BasePath    string
+	SearchURL   string
 	TailwindURL string
+	AppCSSURL   string
 	AppJSURL    string
 	HTMXURL     string
 	MermaidURL  string
@@ -77,10 +91,13 @@ type SearchData struct {
 	Site         *config.SiteConfig
 	BasePath     string
 	TailwindURL  string
+	AppCSSURL    string
 	AppJSURL     string
 	HTMXURL      string
 	FaviconURL   string
 	SearchURL    string
+	TasksURL     string
+	GraphURL     string
 	BuildVersion string
 	BuildCommit  string
 }
@@ -107,7 +124,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 	// Also tries prefixing the first path segment with "_" to support asset
 	// directories like "_images/" referenced as "images/" in Markdown.
 	if rawPath != "" && !strings.HasSuffix(rawPath, "/") {
-		staticPath := filepath.Join(s.siteRoot, "site", filepath.FromSlash(rawPath))
+		staticPath := filepath.Join(s.contentDir, filepath.FromSlash(rawPath))
 		if info, err := os.Stat(staticPath); err == nil && !info.IsDir() {
 			http.ServeFile(w, r, staticPath)
 			return
@@ -122,7 +139,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 			candidate := make([]string, len(parts))
 			copy(candidate, parts)
 			candidate[i] = "_" + candidate[i]
-			altPath := filepath.Join(s.siteRoot, "site", filepath.Join(candidate...))
+			altPath := filepath.Join(s.contentDir, filepath.Join(candidate...))
 			if info, err := os.Stat(altPath); err == nil && !info.IsDir() {
 				http.ServeFile(w, r, altPath)
 				return
@@ -143,6 +160,10 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fsPath := node.FSPath
+	if fsPath == "" && node.IsDir {
+		s.renderSyntheticIndex(w, r, node)
+		return
+	}
 	if fsPath == "" {
 		s.notFound(w, r)
 		return
@@ -178,6 +199,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res.HTML = rewriteAbsoluteLinks(res.HTML, s.basePath)
+	res.HTML = rewriteMDLinks(res.HTML, node.FullPath)
 
 	title := res.Title
 	if title == "" {
@@ -196,29 +218,40 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := PageData{
-		Title:        title,
-		Breadcrumbs:  navigation.Breadcrumbs(s.getNav(), node.FullPath),
-		ContentHTML:  template.HTML(res.HTML),
-		Nav:          s.getNav(),
-		CurrentPath:  node.FullPath,
-		TOC:          res.TOC,
-		LightCSS:     template.CSS(s.renderer.LightCSS()),
-		DarkCSS:      template.CSS(s.renderer.DarkCSS()),
-		IsHTMX:       isHTMX(r),
-		Site:         s.siteCfg,
-		BasePath:     s.basePath,
-		EditURL:      editURL,
-		Prev:         prev,
-		Next:         next,
-		TailwindURL:  s.assetURL("tailwind.css"),
-		AppJSURL:     s.assetURL("app.js"),
-		HTMXURL:      s.assetURL("htmx.min.js"),
-		MermaidURL:   s.assetURL("mermaid.min.js"),
-		FaviconURL:   s.faviconURL(),
-		SearchURL:    s.searchPath,
-		LibraryURL:   s.libraryURL,
-		BuildVersion: s.version,
-		BuildCommit:  s.commit,
+		Title:         title,
+		Breadcrumbs:   navigation.Breadcrumbs(s.getNav(), node.FullPath),
+		ContentHTML:   template.HTML(res.HTML),
+		Nav:           s.getNav(),
+		CurrentPath:   node.FullPath,
+		TOC:           res.TOC,
+		LightCSS:      template.CSS(s.renderer.LightCSS()),
+		DarkCSS:       template.CSS(s.renderer.DarkCSS()),
+		IsHTMX:        isHTMX(r),
+		Site:          s.siteCfg,
+		BasePath:      s.basePath,
+		EditURL:       editURL,
+		IsAgentDoc:    filepath.Base(node.FSPath) == "AGENTS.md",
+		Prev:          prev,
+		Next:          next,
+		TailwindURL:   s.assetURL("tailwind.css"),
+		AppCSSURL:     s.assetURL("app.css"),
+		AppJSURL:      s.assetURL("app.js"),
+		HTMXURL:       s.assetURL("htmx.min.js"),
+		MermaidURL:    s.assetURL("mermaid.min.js"),
+		FaviconURL:    s.faviconURL(),
+		SearchURL:       s.searchPath,
+		TasksURL:        s.tasksPath,
+		GraphURL:        s.graphPath,
+		SectionTasksURL: s.sectionTaskPath + "?path=" + node.FullPath,
+		HasTasksBlock:   s.taskIndex.HasTasksBlock(node.FullPath),
+		Backlinks:       s.backlinks[node.FullPath],
+		EgoGraphURL:     s.graphPath + strings.TrimPrefix(node.FullPath, s.basePath),
+		LibraryURL:      s.libraryURL,
+		BuildVersion:  s.version,
+		BuildCommit:   s.commit,
+	}
+	if data.HasTasksBlock {
+		data.TasksAnchorURL = node.FullPath + "#tasks-0-filter"
 	}
 
 	if isHTMX(r) {
@@ -234,6 +267,77 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := s.render(w, "base.html", data); err != nil {
+		slog.Error("template error", "template", "base.html", "err", err)
+	}
+}
+
+func (s *Server) renderSyntheticIndex(w http.ResponseWriter, r *http.Request, node *navigation.NavNode) {
+	title := node.Title
+	if title == "" || title == "Home" {
+		if s.siteCfg != nil && s.siteCfg.Title != "" {
+			title = s.siteCfg.Title
+		} else {
+			title = "Overview"
+		}
+	}
+
+	var list strings.Builder
+	list.WriteString(`<ul>`)
+	for _, child := range node.Children {
+		list.WriteString(`<li><a href="`)
+		list.WriteString(child.FullPath)
+		list.WriteString(`">`)
+		list.WriteString(template.HTMLEscapeString(child.Title))
+		list.WriteString(`</a></li>`)
+	}
+	list.WriteString(`</ul>`)
+
+	body := `<p class="synthetic-index-note">` +
+		`This section has no <code>index.md</code>, so this overview was generated automatically.` +
+		`</p>`
+	if len(node.Children) > 0 {
+		body += `<h2>Pages in this section</h2>` + list.String()
+	} else {
+		body += `<p>No child pages were found in this section.</p>`
+	}
+
+	data := PageData{
+		Title:         title,
+		Breadcrumbs:   navigation.Breadcrumbs(s.getNav(), node.FullPath),
+		ContentHTML:   template.HTML(body),
+		Nav:           s.getNav(),
+		CurrentPath:   node.FullPath,
+		TOC:           nil,
+		LightCSS:      template.CSS(s.renderer.LightCSS()),
+		DarkCSS:       template.CSS(s.renderer.DarkCSS()),
+		IsHTMX:        isHTMX(r),
+		Site:          s.siteCfg,
+		BasePath:      s.basePath,
+		IsAgentDoc:    false,
+		TailwindURL:   s.assetURL("tailwind.css"),
+		AppCSSURL:     s.assetURL("app.css"),
+		AppJSURL:      s.assetURL("app.js"),
+		HTMXURL:       s.assetURL("htmx.min.js"),
+		MermaidURL:    s.assetURL("mermaid.min.js"),
+		FaviconURL:    s.faviconURL(),
+		SearchURL:     s.searchPath,
+		TasksURL:      s.tasksPath,
+		GraphURL:      s.graphPath,
+		HasTasksBlock: false,
+		LibraryURL:    s.libraryURL,
+		BuildVersion:  s.version,
+		BuildCommit:   s.commit,
+	}
+
+	if isHTMX(r) {
+		w.Header().Set("HX-Push-Url", node.FullPath)
+		w.Header().Set("X-Search-URL", s.searchPath)
+		if err := s.render(w, "page-fragment", data); err != nil {
+			slog.Error("template error", "template", "page-fragment", "err", err)
+		}
+		return
+	}
 	if err := s.render(w, "base.html", data); err != nil {
 		slog.Error("template error", "template", "base.html", "err", err)
 	}
@@ -263,10 +367,13 @@ func (s *Server) searchHandler(w http.ResponseWriter, r *http.Request) {
 		Site:         s.siteCfg,
 		BasePath:     s.basePath,
 		TailwindURL:  s.assetURL("tailwind.css"),
+		AppCSSURL:    s.assetURL("app.css"),
 		AppJSURL:     s.assetURL("app.js"),
 		HTMXURL:      s.assetURL("htmx.min.js"),
 		FaviconURL:   s.faviconURL(),
 		SearchURL:    s.searchPath,
+		TasksURL:     s.tasksPath,
+		GraphURL:     s.graphPath,
 		BuildVersion: s.version,
 		BuildCommit:  s.commit,
 	}
@@ -286,20 +393,24 @@ func (s *Server) searchHandler(w http.ResponseWriter, r *http.Request) {
 func (s *Server) notFound(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 	data := PageData{
-		Title:        "Page Not Found",
-		ContentHTML:  template.HTML(`<div class="text-center py-16"><h1 class="text-4xl font-bold text-gray-400">404</h1><p class="mt-4 text-gray-500">Page not found.</p></div>`),
-		Nav:          s.getNav(),
-		IsHTMX:       isHTMX(r),
-		LightCSS:     template.CSS(s.renderer.LightCSS()),
-		DarkCSS:      template.CSS(s.renderer.DarkCSS()),
-		TailwindURL:  s.assetURL("tailwind.css"),
-		AppJSURL:     s.assetURL("app.js"),
-		HTMXURL:      s.assetURL("htmx.min.js"),
-		MermaidURL:   s.assetURL("mermaid.min.js"),
-		FaviconURL:   s.faviconURL(),
-		SearchURL:    s.searchPath,
-		BuildVersion: s.version,
-		BuildCommit:  s.commit,
+		Title:         "Page Not Found",
+		ContentHTML:   template.HTML(`<div class="text-center py-16"><h1 class="text-4xl font-bold text-gray-400">404</h1><p class="mt-4 text-gray-500">Page not found.</p></div>`),
+		Nav:           s.getNav(),
+		IsHTMX:        isHTMX(r),
+		LightCSS:      template.CSS(s.renderer.LightCSS()),
+		DarkCSS:       template.CSS(s.renderer.DarkCSS()),
+		TailwindURL:   s.assetURL("tailwind.css"),
+		AppCSSURL:     s.assetURL("app.css"),
+		AppJSURL:      s.assetURL("app.js"),
+		HTMXURL:       s.assetURL("htmx.min.js"),
+		MermaidURL:    s.assetURL("mermaid.min.js"),
+		FaviconURL:    s.faviconURL(),
+		SearchURL:     s.searchPath,
+		TasksURL:      s.tasksPath,
+		GraphURL:      s.graphPath,
+		HasTasksBlock: false,
+		BuildVersion:  s.version,
+		BuildCommit:   s.commit,
 	}
 	tmplName := "base.html"
 	if isHTMX(r) {
@@ -312,26 +423,453 @@ func (s *Server) internalError(w http.ResponseWriter, r *http.Request, err error
 	slog.Error("internal error", "err", err, "path", r.URL.Path)
 	w.WriteHeader(http.StatusInternalServerError)
 	data := PageData{
-		Title:        "Internal Error",
-		ContentHTML:  template.HTML(`<div class="text-center py-16"><h1 class="text-4xl font-bold text-red-400">500</h1><p class="mt-4 text-gray-500">Internal server error.</p></div>`),
-		Nav:          s.getNav(),
-		IsHTMX:       isHTMX(r),
-		LightCSS:     template.CSS(s.renderer.LightCSS()),
-		DarkCSS:      template.CSS(s.renderer.DarkCSS()),
-		TailwindURL:  s.assetURL("tailwind.css"),
-		AppJSURL:     s.assetURL("app.js"),
-		HTMXURL:      s.assetURL("htmx.min.js"),
-		MermaidURL:   s.assetURL("mermaid.min.js"),
-		FaviconURL:   s.faviconURL(),
-		SearchURL:    s.searchPath,
-		BuildVersion: s.version,
-		BuildCommit:  s.commit,
+		Title:         "Internal Error",
+		ContentHTML:   template.HTML(`<div class="text-center py-16"><h1 class="text-4xl font-bold text-red-400">500</h1><p class="mt-4 text-gray-500">Internal server error.</p></div>`),
+		Nav:           s.getNav(),
+		IsHTMX:        isHTMX(r),
+		LightCSS:      template.CSS(s.renderer.LightCSS()),
+		DarkCSS:       template.CSS(s.renderer.DarkCSS()),
+		TailwindURL:   s.assetURL("tailwind.css"),
+		AppCSSURL:     s.assetURL("app.css"),
+		AppJSURL:      s.assetURL("app.js"),
+		HTMXURL:       s.assetURL("htmx.min.js"),
+		MermaidURL:    s.assetURL("mermaid.min.js"),
+		FaviconURL:    s.faviconURL(),
+		SearchURL:     s.searchPath,
+		TasksURL:      s.tasksPath,
+		GraphURL:      s.graphPath,
+		HasTasksBlock: false,
+		BuildVersion:  s.version,
+		BuildCommit:   s.commit,
 	}
 	tmplName := "base.html"
 	if isHTMX(r) {
 		tmplName = "page-content"
 	}
 	_ = s.render(w, tmplName, data)
+}
+
+func (s *Server) tasksHandler(w http.ResponseWriter, r *http.Request) {
+	data := PageData{
+		Title:         "Task list summary",
+		Breadcrumbs:   []navigation.NavNode{{Title: "Home", FullPath: s.basePath + "/"}, {Title: "Task list summary", FullPath: s.tasksPath}},
+		ContentHTML:   template.HTML(s.taskHTML),
+		Nav:           s.getNav(),
+		IsHTMX:        isHTMX(r),
+		LightCSS:      template.CSS(s.renderer.LightCSS()),
+		DarkCSS:       template.CSS(s.renderer.DarkCSS()),
+		Site:          s.siteCfg,
+		BasePath:      s.basePath,
+		TailwindURL:   s.assetURL("tailwind.css"),
+		AppCSSURL:     s.assetURL("app.css"),
+		AppJSURL:      s.assetURL("app.js"),
+		HTMXURL:       s.assetURL("htmx.min.js"),
+		MermaidURL:    s.assetURL("mermaid.min.js"),
+		FaviconURL:    s.faviconURL(),
+		SearchURL:     s.searchPath,
+		TasksURL:      s.tasksPath,
+		GraphURL:      s.graphPath,
+		HasTasksBlock: false,
+		BuildVersion:  s.version,
+		BuildCommit:   s.commit,
+	}
+
+	if isHTMX(r) {
+		w.Header().Set("HX-Push-Url", s.tasksPath)
+		if err := s.render(w, "page-fragment", data); err != nil {
+			slog.Error("template error", "template", "page-fragment", "err", err)
+		}
+		return
+	}
+	if err := s.render(w, "base.html", data); err != nil {
+		slog.Error("template error", "template", "base.html", "err", err)
+	}
+}
+
+func (s *Server) sectionTasksHandler(w http.ResponseWriter, r *http.Request) {
+	pagePath := r.URL.Query().Get("path")
+	// Derive section prefix: parent folder of the given page path
+	sectionPrefix := path.Dir(pagePath)
+	if sectionPrefix == "." || sectionPrefix == "" {
+		sectionPrefix = s.basePath
+	}
+	sectionLabel := path.Base(sectionPrefix)
+	if sectionLabel == "." || sectionLabel == "" {
+		sectionLabel = "Site"
+	}
+	selfURL := s.sectionTaskPath + "?path=" + pagePath
+	contentHTML := s.taskIndex.RenderSection(sectionPrefix, "tasks-section")
+	data := PageData{
+		Title:           "Tasks — " + sectionLabel,
+		Breadcrumbs:     []navigation.NavNode{{Title: "Home", FullPath: s.basePath + "/"}, {Title: "All tasks", FullPath: s.tasksPath}, {Title: sectionLabel + " tasks", FullPath: selfURL}},
+		ContentHTML:     template.HTML(contentHTML),
+		Nav:             s.getNav(),
+		IsHTMX:          isHTMX(r),
+		LightCSS:        template.CSS(s.renderer.LightCSS()),
+		DarkCSS:         template.CSS(s.renderer.DarkCSS()),
+		Site:            s.siteCfg,
+		BasePath:        s.basePath,
+		TailwindURL:     s.assetURL("tailwind.css"),
+		AppCSSURL:       s.assetURL("app.css"),
+		AppJSURL:        s.assetURL("app.js"),
+		HTMXURL:         s.assetURL("htmx.min.js"),
+		MermaidURL:      s.assetURL("mermaid.min.js"),
+		FaviconURL:      s.faviconURL(),
+		SearchURL:       s.searchPath,
+		TasksURL:        s.tasksPath,
+		GraphURL:        s.graphPath,
+		SectionTasksURL: selfURL,
+		HasTasksBlock:   false,
+		BuildVersion:    s.version,
+		BuildCommit:     s.commit,
+	}
+	if isHTMX(r) {
+		w.Header().Set("HX-Push-Url", selfURL)
+		if err := s.render(w, "page-fragment", data); err != nil {
+			slog.Error("template error", "template", "page-fragment", "err", err)
+		}
+		return
+	}
+	if err := s.render(w, "base.html", data); err != nil {
+		slog.Error("template error", "template", "base.html", "err", err)
+	}
+}
+
+// graphHandler renders a dependency table for the whole site.
+func (s *Server) graphHandler(w http.ResponseWriter, r *http.Request) {
+	contentHTML := template.HTML(buildDepsTable(s.getNav(), s.backlinks, s.graphPath))
+	selfURL := s.graphPath
+	data := PageData{
+		Title:        "Závislosti stránek",
+		Breadcrumbs:  []navigation.NavNode{{Title: "Home", FullPath: s.basePath + "/"}, {Title: "Závislosti stránek", FullPath: selfURL}},
+		ContentHTML:  contentHTML,
+		Nav:          s.getNav(),
+		IsHTMX:       isHTMX(r),
+		LightCSS:     template.CSS(s.renderer.LightCSS()),
+		DarkCSS:      template.CSS(s.renderer.DarkCSS()),
+		Site:         s.siteCfg,
+		BasePath:     s.basePath,
+		TailwindURL:  s.assetURL("tailwind.css"),
+		AppCSSURL:    s.assetURL("app.css"),
+		AppJSURL:     s.assetURL("app.js"),
+		HTMXURL:      s.assetURL("htmx.min.js"),
+		MermaidURL:   s.assetURL("mermaid.min.js"),
+		FaviconURL:   s.faviconURL(),
+		SearchURL:    s.searchPath,
+		TasksURL:     s.tasksPath,
+		GraphURL:     s.graphPath,
+		BuildVersion: s.version,
+		BuildCommit:  s.commit,
+	}
+	if isHTMX(r) {
+		w.Header().Set("HX-Push-Url", selfURL)
+		if err := s.render(w, "page-fragment", data); err != nil {
+			slog.Error("template error", "template", "page-fragment", "err", err)
+		}
+		return
+	}
+	if err := s.render(w, "base.html", data); err != nil {
+		slog.Error("template error", "template", "base.html", "err", err)
+	}
+}
+
+// egoGraphHandler renders a D2 ego-graph (±1 hop) as a full page.
+// Route: GET /_graph/{page-path...} where page-path mirrors the page URL segments.
+func (s *Server) egoGraphHandler(w http.ResponseWriter, r *http.Request) {
+	// Reconstruct the page URL from the path suffix after /_graph
+	suffix := strings.TrimPrefix(r.URL.Path, s.graphPath)
+	pagePath := suffix // e.g. /bss/crm/crm → we need full page URL: basePath+suffix
+	if !strings.HasPrefix(pagePath, s.basePath) {
+		pagePath = s.basePath + pagePath
+	}
+	pagePath = strings.TrimRight(pagePath, "/")
+
+	// Find node in nav
+	var centerNode *navigation.NavNode
+	navigation.WalkNodes(s.getNav(), func(n *navigation.NavNode) {
+		if strings.TrimRight(n.FullPath, "/") == pagePath {
+			centerNode = n
+		}
+	})
+	if centerNode == nil {
+		s.notFound(w, r)
+		return
+	}
+
+	// Build outgoing links: pages this page links to
+	outgoing := map[string]navigation.Backlink{}
+	for target, sources := range s.backlinks {
+		for _, src := range sources {
+			if strings.TrimRight(src.FullPath, "/") == pagePath {
+				outgoing[target] = navigation.Backlink{Title: src.Title, FullPath: target}
+			}
+		}
+	}
+	// Find titles for outgoing targets
+	navigation.WalkNodes(s.getNav(), func(n *navigation.NavNode) {
+		if bl, ok := outgoing[n.FullPath]; ok {
+			bl.Title = n.Title
+			outgoing[n.FullPath] = bl
+		}
+	})
+
+	incoming := s.backlinks[centerNode.FullPath]
+
+	// Build ±1 hop ego-graph
+	type egoNode struct{ url, title string }
+	nodes := map[string]egoNode{pagePath: {pagePath, centerNode.Title}}
+	for _, bl := range incoming {
+		nodes[bl.FullPath] = egoNode{bl.FullPath, bl.Title}
+	}
+	for url, bl := range outgoing {
+		nodes[url] = egoNode{url, bl.Title}
+	}
+
+	var d2 strings.Builder
+	d2.WriteString("direction: right\n\n")
+	for _, n := range nodes {
+		label := `"` + strings.ReplaceAll(n.title, `"`, `'`) + `"`
+		id := egoNodeID(n.url)
+		fmt.Fprintf(&d2, "%s: %s {\n  link: %s\n}\n", id, label, n.url)
+	}
+	d2.WriteString("\n")
+	for _, bl := range incoming {
+		fmt.Fprintf(&d2, "%s -> %s\n", egoNodeID(bl.FullPath), egoNodeID(pagePath))
+	}
+	for url := range outgoing {
+		fmt.Fprintf(&d2, "%s -> %s\n", egoNodeID(pagePath), egoNodeID(url))
+	}
+
+	svg, err := markdown.RenderD2(d2.String())
+	if err != nil {
+		s.internalError(w, r, fmt.Errorf("ego-graph render: %w", err))
+		return
+	}
+
+	// Build neighbour list with HTMX [+] expand buttons
+	neighboursURL := s.graphPath + "/_neighbours"
+	var content strings.Builder
+	content.WriteString(svg)
+	if len(nodes) > 1 {
+		content.WriteString(`<div class="ego-neighbours">`)
+		content.WriteString(`<p class="ego-neighbours-heading">Sousedé</p>`)
+		for url, n := range nodes {
+			if url == pagePath {
+				continue
+			}
+			expandID := "nb-" + egoNodeID(url)
+			nbURL := neighboursURL + "?path=" + url + "&exclude=" + pagePath
+			content.WriteString(`<div class="ego-nb-row">`)
+			content.WriteString(`<a class="ego-nb-title" href="` + html.EscapeString(url) + `" hx-get="` + html.EscapeString(url) + `" hx-target="#page-content" hx-push-url="true">` + html.EscapeString(n.title) + `</a>`)
+			content.WriteString(`<button class="ego-nb-expand" hx-get="` + html.EscapeString(nbURL) + `" hx-target="#` + expandID + `" hx-swap="innerHTML" hx-indicator="#` + expandID + `-ind" onclick="this.style.display='none'">+</button>`)
+			content.WriteString(`<span id="` + expandID + `-ind" class="htmx-indicator ego-nb-loading">…</span>`)
+			content.WriteString(`<div id="` + expandID + `" class="ego-nb-children"></div>`)
+			content.WriteString(`</div>`)
+		}
+		content.WriteString(`</div>`)
+	}
+
+	selfURL := s.graphPath + suffix
+	data := PageData{
+		Title: "Graf — " + centerNode.Title,
+		Breadcrumbs: []navigation.NavNode{
+			{Title: "Home", FullPath: s.basePath + "/"},
+			{Title: centerNode.Title, FullPath: centerNode.FullPath},
+			{Title: "Graf", FullPath: selfURL},
+		},
+		ContentHTML:  template.HTML(content.String()),
+		Nav:          s.getNav(),
+		IsHTMX:       isHTMX(r),
+		LightCSS:     template.CSS(s.renderer.LightCSS()),
+		DarkCSS:      template.CSS(s.renderer.DarkCSS()),
+		Site:         s.siteCfg,
+		BasePath:     s.basePath,
+		TailwindURL:  s.assetURL("tailwind.css"),
+		AppCSSURL:    s.assetURL("app.css"),
+		AppJSURL:     s.assetURL("app.js"),
+		HTMXURL:      s.assetURL("htmx.min.js"),
+		MermaidURL:   s.assetURL("mermaid.min.js"),
+		FaviconURL:   s.faviconURL(),
+		SearchURL:    s.searchPath,
+		TasksURL:     s.tasksPath,
+		GraphURL:     s.graphPath,
+		BuildVersion: s.version,
+		BuildCommit:  s.commit,
+	}
+	if isHTMX(r) {
+		w.Header().Set("HX-Push-Url", selfURL)
+		if err := s.render(w, "page-fragment", data); err != nil {
+			slog.Error("template error", "template", "page-fragment", "err", err)
+		}
+		return
+	}
+	if err := s.render(w, "base.html", data); err != nil {
+		slog.Error("template error", "template", "base.html", "err", err)
+	}
+}
+
+// graphNeighboursHandler returns an HTML fragment listing neighbours of a node.
+// Used by HTMX [+] expand in ego-graph.
+func (s *Server) graphNeighboursHandler(w http.ResponseWriter, r *http.Request) {
+	pagePath := r.URL.Query().Get("path")
+	exclude := r.URL.Query().Get("exclude")
+
+	// Collect neighbours: incoming + outgoing
+	type nb struct{ url, title string }
+	seen := map[string]bool{pagePath: true}
+	if exclude != "" {
+		seen[exclude] = true
+	}
+	var neighbours []nb
+
+	for _, bl := range s.backlinks[pagePath] {
+		if !seen[bl.FullPath] {
+			seen[bl.FullPath] = true
+			neighbours = append(neighbours, nb{bl.FullPath, bl.Title})
+		}
+	}
+	for target, sources := range s.backlinks {
+		for _, src := range sources {
+			if src.FullPath == pagePath && !seen[target] {
+				seen[target] = true
+				title := path.Base(target)
+				navigation.WalkNodes(s.getNav(), func(n *navigation.NavNode) {
+					if n.FullPath == target {
+						title = n.Title
+					}
+				})
+				neighbours = append(neighbours, nb{target, title})
+			}
+		}
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if len(neighbours) == 0 {
+		fmt.Fprint(w, `<span class="ego-nb-empty">žádní další sousedé</span>`)
+		return
+	}
+	idx := s.getIdx()
+	var b strings.Builder
+	b.WriteString(`<table class="ego-nb-table"><thead><tr><th class="ego-nb-th ego-nb-th-num">#</th><th class="ego-nb-th">Nadpis</th><th class="ego-nb-th">Podkapitoly</th></tr></thead><tbody>`)
+	for i, n := range neighbours {
+		var headingsStr string
+		if idx != nil {
+			if hh := idx.Headings(n.url); len(hh) > 0 {
+				headingsStr = strings.Join(hh, ", ")
+			}
+		}
+		b.WriteString(`<tr class="ego-nb-tr">`)
+		b.WriteString(`<td class="ego-nb-td ego-nb-td-num">` + fmt.Sprintf("%d", i+1) + `</td>`)
+		b.WriteString(`<td class="ego-nb-td"><a class="ego-nb-child" href="` + html.EscapeString(n.url) + `" hx-get="` + html.EscapeString(n.url) + `" hx-target="#page-content" hx-push-url="true">` + html.EscapeString(n.title) + `</a></td>`)
+		b.WriteString(`<td class="ego-nb-td ego-nb-td-section">` + html.EscapeString(headingsStr) + `</td>`)
+		b.WriteString(`</tr>`)
+	}
+	b.WriteString(`</tbody></table>`)
+	fmt.Fprint(w, b.String())
+}
+
+func egoNodeID(urlPath string) string {
+	s := strings.Trim(urlPath, "/")
+	s = strings.ReplaceAll(s, "/", "_")
+	s = strings.ReplaceAll(s, "-", "_")
+	if s == "" {
+		return "root"
+	}
+	return s
+}
+
+// buildDepsTable builds an HTML dependency table for all pages.
+func buildDepsTable(root *navigation.NavNode, bl navigation.BacklinkIndex, graphPath string) string {
+	// Collect all pages and build outgoing index
+	type row struct {
+		node     *navigation.NavNode
+		incoming []navigation.Backlink
+		outgoing []navigation.Backlink
+	}
+
+	// Build outgoing map: page → pages it links to
+	outgoingMap := map[string][]navigation.Backlink{}
+	for target, sources := range bl {
+		for _, src := range sources {
+			outgoingMap[src.FullPath] = append(outgoingMap[src.FullPath], navigation.Backlink{
+				Title: "", FullPath: target,
+			})
+		}
+	}
+	// Fill in titles for outgoing targets
+	titleMap := map[string]string{}
+	navigation.WalkNodes(root, func(n *navigation.NavNode) {
+		if n.FSPath != "" {
+			titleMap[n.FullPath] = n.Title
+		}
+	})
+	for src, targets := range outgoingMap {
+		for i, t := range targets {
+			if title, ok := titleMap[t.FullPath]; ok {
+				targets[i].Title = title
+			}
+		}
+		outgoingMap[src] = targets
+	}
+
+	var rows []row
+	navigation.WalkNodes(root, func(n *navigation.NavNode) {
+		if n.FSPath == "" || n.IsDir {
+			return
+		}
+		inc := bl[n.FullPath]
+		out := outgoingMap[n.FullPath]
+		if len(inc) == 0 && len(out) == 0 {
+			return // skip isolated pages
+		}
+		rows = append(rows, row{n, inc, out})
+	})
+
+	if len(rows) == 0 {
+		return `<div class="tasks-empty">Žádné závislosti nebyly nalezeny.</div>`
+	}
+
+	var b strings.Builder
+	b.WriteString(`<div class="deps-table-wrap">`)
+	b.WriteString(`<p class="deps-summary">Stránky s alespoň jednou vazbou — kliknutím na název otevřete ego-graf.</p>`)
+	b.WriteString(`<table class="deps-table">`)
+	b.WriteString(`<thead><tr><th>Stránka</th><th>Odkazuje na</th><th>Odkazují sem</th></tr></thead>`)
+	b.WriteString(`<tbody>`)
+	for _, row := range rows {
+		egoURL := graphPath + strings.TrimRight(row.node.FullPath, "/")[len(strings.TrimRight(graphPath, "/"))-len(graphPath):]
+		// ego URL: graphPath + page path relative to basePath
+		// simpler: graphPath + "/" + slug-path from node
+		egoURL = graphPath + row.node.FullPath[strings.Index(row.node.FullPath[1:], "/")+1:]
+		b.WriteString(`<tr>`)
+		b.WriteString(`<td><a class="deps-page-link" href="` + html.EscapeString(egoURL) + `" hx-get="` + html.EscapeString(egoURL) + `" hx-target="#page-content" hx-push-url="true">`)
+		b.WriteString(html.EscapeString(row.node.Title))
+		b.WriteString(`</a></td>`)
+		// Outgoing
+		b.WriteString(`<td>`)
+		for i, t := range row.outgoing {
+			if i > 0 {
+				b.WriteString(`, `)
+			}
+			title := t.Title
+			if title == "" {
+				title = path.Base(t.FullPath)
+			}
+			b.WriteString(`<a class="deps-link" href="` + html.EscapeString(t.FullPath) + `" hx-get="` + html.EscapeString(t.FullPath) + `" hx-target="#page-content" hx-push-url="true">` + html.EscapeString(title) + `</a>`)
+		}
+		b.WriteString(`</td>`)
+		// Incoming
+		b.WriteString(`<td>`)
+		for i, t := range row.incoming {
+			if i > 0 {
+				b.WriteString(`, `)
+			}
+			b.WriteString(`<a class="deps-link" href="` + html.EscapeString(t.FullPath) + `" hx-get="` + html.EscapeString(t.FullPath) + `" hx-target="#page-content" hx-push-url="true">` + html.EscapeString(t.Title) + `</a>`)
+		}
+		b.WriteString(`</td>`)
+		b.WriteString(`</tr>`)
+	}
+	b.WriteString(`</tbody></table></div>`)
+	return b.String()
 }
 
 // ── API proxy ──────────────────────────────────────────────────────────────
@@ -469,11 +1007,52 @@ func rewriteAbsoluteLinks(htmlStr, basePath string) string {
 	}
 	return absLinkRe.ReplaceAllStringFunc(htmlStr, func(match string) string {
 		subs := absLinkRe.FindStringSubmatch(match)
-		attr, path := subs[1], subs[2]
+		attr, rawPath := subs[1], subs[2]
 		// Don't double-prefix
-		if strings.HasPrefix(path, basePath+"/") || path == basePath {
+		if strings.HasPrefix(rawPath, basePath+"/") || rawPath == basePath {
 			return match
 		}
-		return attr + `="` + basePath + path + `"`
+		return attr + `="` + basePath + rawPath + `"`
+	})
+}
+
+// mdLinkRe matches href="..." where the href ends with .md
+var mdLinkRe = regexp.MustCompile(`href="([^"]*\.md)"`)
+
+// rewriteMDLinks converts .md file links (Obsidian-style) to dyno page URLs.
+// Relative links are resolved against pageURL (e.g. "/docs/wiki/bss/orders").
+// Each path segment is slug-normalized to match what navigation.BuildTree produces.
+func rewriteMDLinks(htmlStr, pageURL string) string {
+	return mdLinkRe.ReplaceAllStringFunc(htmlStr, func(match string) string {
+		subs := mdLinkRe.FindStringSubmatch(match)
+		href := subs[1]
+
+		// URL-decode to get the real path (Goldmark percent-encodes non-ASCII)
+		decoded, err := url.PathUnescape(href)
+		if err != nil {
+			decoded = href
+		}
+		// Strip .md suffix
+		decoded = strings.TrimSuffix(decoded, ".md")
+
+		// Resolve relative paths against the parent dir of pageURL
+		var resolved string
+		if strings.HasPrefix(decoded, "/") {
+			resolved = decoded
+		} else {
+			base := path.Dir(pageURL)
+			resolved = path.Join(base, decoded)
+		}
+
+		// Slug-normalize each segment to match navigation.BuildTree output
+		segments := strings.Split(resolved, "/")
+		for i, seg := range segments {
+			if seg != "" {
+				segments[i] = navigation.SlugFromName(seg)
+			}
+		}
+		resolved = strings.Join(segments, "/")
+
+		return `href="` + resolved + `"`
 	})
 }

@@ -14,9 +14,10 @@ import (
 
 // Document is a single indexed page.
 type Document struct {
-	Path  string // URL path
-	Title string
-	Body  string // Plain text, for snippet extraction
+	Path     string // URL path
+	Title    string
+	Body     string   // Plain text, for snippet extraction
+	Headings []string // H2/H3 headings extracted from markdown source
 }
 
 // Posting records one occurrence of a token in a document.
@@ -90,6 +91,22 @@ func (idx *Index) Add(doc Document) {
 	}
 }
 
+// extractHeadings returns H2/H3 headings from raw markdown source (max 4).
+func extractHeadings(src string) []string {
+	var out []string
+	for _, line := range strings.Split(src, "\n") {
+		if strings.HasPrefix(line, "## ") {
+			out = append(out, strings.TrimPrefix(line, "## "))
+		} else if strings.HasPrefix(line, "### ") {
+			out = append(out, strings.TrimPrefix(line, "### "))
+		}
+		if len(out) >= 4 {
+			break
+		}
+	}
+	return out
+}
+
 // BuildIndex walks all .md files in the nav tree, renders them to plain text,
 // and adds them to a new Index.
 func BuildIndex(tree *navigation.NavNode, plainText func(path string) (string, error)) (*Index, error) {
@@ -107,9 +124,10 @@ func BuildIndex(tree *navigation.NavNode, plainText func(path string) (string, e
 			return
 		}
 		idx.Add(Document{
-			Path:  node.FullPath,
-			Title: node.Title,
-			Body:  body,
+			Path:     node.FullPath,
+			Title:    node.Title,
+			Body:     body,
+			Headings: extractHeadings(string(src)),
 		})
 	})
 	// Also index dir nodes that have an index.md (FSPath set on dir node)
@@ -126,9 +144,10 @@ func BuildIndex(tree *navigation.NavNode, plainText func(path string) (string, e
 			return
 		}
 		idx.Add(Document{
-			Path:  node.FullPath,
-			Title: node.Title,
-			Body:  body,
+			Path:     node.FullPath,
+			Title:    node.Title,
+			Body:     body,
+			Headings: extractHeadings(string(src)),
 		})
 	})
 	return idx, nil
@@ -146,6 +165,18 @@ func (idx *Index) DocCount() int {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
 	return len(idx.docs)
+}
+
+// Headings returns H2/H3 headings for the document at the given URL path.
+func (idx *Index) Headings(urlPath string) []string {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+	for _, doc := range idx.docs {
+		if doc.Path == urlPath {
+			return doc.Headings
+		}
+	}
+	return nil
 }
 
 // Search returns the top results for a query string.

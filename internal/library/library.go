@@ -8,15 +8,17 @@ import (
 	"github.com/mares/dyno/internal/config"
 	"github.com/mares/dyno/internal/navigation"
 	"github.com/mares/dyno/internal/search"
+	"github.com/mares/dyno/internal/sitepath"
 )
 
 // Book represents a single documentation site within a library collection.
 type Book struct {
-	SiteRoot string
-	Cfg      *config.SiteConfig
-	Slug     string // URL segment, e.g. "monitoring"
-	Nav      *navigation.NavNode
-	Idx      *search.Index
+	SiteRoot   string
+	ContentDir string
+	Cfg        *config.SiteConfig
+	Slug       string // URL segment, e.g. "monitoring"
+	Nav        *navigation.NavNode
+	Idx        *search.Index
 
 	// Stats computed at load time
 	PageCount int
@@ -40,28 +42,30 @@ func (b *Book) TopLevel(maxItems int) []*navigation.NavNode {
 
 // Load reads config, navigation and search index for a single site directory.
 // basePath is the global base_path (e.g. "/docs"); each book gets basePath+"/"+slug.
-func Load(siteDir string, globalBasePath string, plainText func(string) (string, error)) (*Book, error) {
-	// Determine siteRoot: if siteDir itself has a site/ subdir, that's the root.
-	// Otherwise the parent is the root and siteDir is the content dir.
-	siteRoot := siteDir
-	if _, err := os.Stat(filepath.Join(siteDir, "site")); os.IsNotExist(err) {
-		siteRoot = filepath.Dir(siteDir)
-	}
-
-	// Load book config: prefer dyno.yaml in siteDir itself, fall back to siteRoot.
-	cfgDir := siteRoot
-	if config.Exists(siteDir) {
-		cfgDir = siteDir
-	}
-	cfg, err := config.Load(cfgDir)
+// override, if non-nil, supplies fallback values for fields missing in dyno.yaml.
+func Load(siteDir string, globalBasePath string, plainText func(string) (string, error), override *config.SiteConfig) (*Book, error) {
+	paths, err := sitepath.Resolve(siteDir)
 	if err != nil {
 		return nil, err
+	}
+	siteRoot := paths.RootDir
+	contentDir := paths.ContentDir
+
+	// Load book config: prefer dyno.yaml in siteDir itself, fall back to siteRoot.
+	cfg, err := config.LoadForContent(siteRoot, contentDir)
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply external override (dyno-library.yaml) as fallback — dyno.yaml wins.
+	if override != nil {
+		cfg.MergeDefaults(*override)
 	}
 
 	slug := cfg.GetSlug(filepath.Base(siteDir))
 	bookBasePath := strings.TrimRight(globalBasePath, "/") + "/" + slug
 
-	nav, err := navigation.BuildTree(siteRoot, bookBasePath)
+	nav, err := navigation.BuildTree(contentDir, bookBasePath)
 	if err != nil {
 		return nil, err
 	}
@@ -74,12 +78,13 @@ func Load(siteDir string, globalBasePath string, plainText func(string) (string,
 	pages, words := collectStats(nav)
 
 	return &Book{
-		SiteRoot:  siteRoot,
-		Cfg:       cfg,
-		Slug:      slug,
-		Nav:       nav,
-		Idx:       idx,
-		PageCount: pages,
+		SiteRoot:   siteRoot,
+		ContentDir: contentDir,
+		Cfg:        cfg,
+		Slug:       slug,
+		Nav:        nav,
+		Idx:        idx,
+		PageCount:  pages,
 		WordCount:  words,
 	}, nil
 }

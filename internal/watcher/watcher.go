@@ -14,15 +14,15 @@ type Reloader interface {
 	Reload(nav *navigation.NavNode, idx *search.Index)
 }
 
-// Watch watches siteRoot/site/ for changes and calls srv.Reload() on any event.
+// Watch watches contentDir for changes and calls srv.Reload() on any event.
 // plainText converts Markdown source to plain text for search indexing.
-func Watch(siteRoot, basePath string, srv Reloader, plainText func(string) (string, error)) error {
+func Watch(contentDir, basePath string, srv Reloader, plainText func(string) (string, error)) error {
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err
 	}
 
-	if err := w.Add(siteRoot + "/site"); err != nil {
+	if err := w.Add(contentDir); err != nil {
 		return err
 	}
 
@@ -44,7 +44,7 @@ func Watch(siteRoot, basePath string, srv Reloader, plainText func(string) (stri
 					timer.Stop()
 				}
 				timer = time.AfterFunc(300*time.Millisecond, func() {
-					rebuild(siteRoot, basePath, srv, plainText)
+					rebuild(contentDir, basePath, srv, plainText)
 				})
 
 			case err, ok := <-w.Errors:
@@ -59,8 +59,8 @@ func Watch(siteRoot, basePath string, srv Reloader, plainText func(string) (stri
 	return nil
 }
 
-func rebuild(siteRoot, basePath string, srv Reloader, plainText func(string) (string, error)) {
-	nav, err := navigation.BuildTree(siteRoot, basePath)
+func rebuild(contentDir, basePath string, srv Reloader, plainText func(string) (string, error)) {
+	nav, err := navigation.BuildTree(contentDir, basePath)
 	if err != nil {
 		slog.Error("watch rebuild nav failed", "err", err)
 		return
