@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="cs" class="">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ .Title }}{{ if .Site }} — {{ .Site.Title }}{{ end }}</title>
+  {{ if .FaviconURL }}<link rel="icon" href="{{ .FaviconURL }}">{{ else if and .Site .Site.LogoURL }}<link rel="icon" href="{{ .Site.LogoURL }}">{{ else }}<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230284c7'%3E%3Cpath d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/%3E%3C/svg%3E">{{ end }}
+
+  <style>{{ .LightCSS }}</style>
+  <style>{{ .DarkCSS }}</style>
+  <link rel="stylesheet" href="{{ .TailwindURL }}" />
+  <link rel="stylesheet" href="{{ .AppCSSURL }}" />
+
+  <!-- CodeMirror (local assets) -->
+  <link rel="stylesheet" href="/assets/codemirror.min.css">
+  <link rel="stylesheet" href="/assets/codemirror-dracula.min.css">
+  <script src="/assets/codemirror.min.js"></script>
+  <script src="/assets/codemirror-shell.min.js"></script>
+  <script src="/assets/codemirror-go.min.js"></script>
+  <script src="/assets/codemirror-yaml.min.js"></script>
+  <script src="/assets/codemirror-javascript.min.js"></script>
+  <script src="/assets/codemirror-python.min.js"></script>
+  <script src="/assets/codemirror-xml.min.js"></script>
+  <script src="/assets/codemirror-overlay.min.js"></script>
+  <script src="/assets/codemirror-markdown.min.js"></script>
+  <script src="/assets/codemirror-continuelist.min.js"></script>
+
+  <style>
+    html, body { height: 100%; overflow: hidden; }
+    #editor-root { display: flex; flex-direction: column; height: 100vh; }
+    #editor-toolbar { flex-shrink: 0; }
+    #editor-panes { flex: 1; display: flex; min-height: 0; }
+    #editor-pane { flex: 1; display: flex; flex-direction: column; min-width: 0; border-right: 1px solid #e5e7eb; }
+    html.dark #editor-pane { border-right-color: #374151; }
+    #preview-pane { flex: 1; overflow-y: auto; min-width: 0; }
+    .CodeMirror { flex: 1; height: 100%; font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace; font-size: 0.875rem; line-height: 1.7; padding: 0 2rem; }
+    .CodeMirror-scroll { height: 100%; }
+    #editor-pane .CodeMirror-wrap { flex: 1; display: flex; flex-direction: column; }
+    #save-status { transition: opacity 0.3s; }
+
+    /* Light theme overrides — better contrast for markdown */
+    .CodeMirror.cm-s-default { background: #fafafa; color: #1e293b; }
+    .cm-s-default .cm-header { color: #0f172a; font-weight: 700; }
+    .cm-s-default .cm-strong { color: #0f172a; font-weight: 700; }
+    .cm-s-default .cm-em { color: #475569; font-style: italic; }
+    .cm-s-default .cm-link { color: #2563eb; }
+    .cm-s-default .cm-url { color: #2563eb; }
+    .cm-s-default .cm-comment { color: #64748b; }
+    .cm-s-default .cm-string { color: #0369a1; }
+    /* Inline code and code blocks */
+    .cm-s-default .cm-formatting-code,
+    .cm-s-default .cm-inline-code { color: #0369a1; background: #e0f2fe; border-radius: 2px; padding: 0 2px; }
+    .cm-s-default .cm-formatting-code-block { color: #6d28d9; }
+    .cm-s-default .cm-variable-2 { color: #0f172a; }
+
+    /* Dark theme — editor pane background */
+    html.dark #editor-pane { background: #1a1b26 !important; }
+    html.dark .CodeMirror.cm-s-dracula,
+    html.dark .CodeMirror.cm-s-dracula .CodeMirror-scroll,
+    html.dark .CodeMirror.cm-s-dracula .CodeMirror-gutters { background: #1a1b26 !important; }
+
+    /* Dark theme (dracula) — minimal overrides, let the theme do its job */
+    .cm-s-dracula .cm-header { color: #f8f8f2; font-weight: 700; }
+    .cm-s-dracula .cm-em { color: #ffb86c; font-style: italic; }
+    .cm-s-dracula .cm-strong { color: #ff79c6; font-weight: 700; }
+    .cm-s-dracula .cm-link, .cm-s-dracula .cm-url { color: #8be9fd; }
+    .cm-s-dracula .cm-formatting-code-block { color: #50fa7b; }
+    /* Inline code */
+    .cm-s-dracula .cm-inline-code { color: #f1fa8c; }
+    /* Fenced block lines via JS lineClass */
+    .cm-s-dracula .cm-code-fence-line { background: rgba(80,250,123,0.08) !important; }
+    .cm-s-dracula .cm-code-block-line { background: rgba(255,255,255,0.03) !important; }
+  </style>
+</head>
+<body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 antialiased">
+
+<div id="editor-root">
+  <!-- Toolbar -->
+  <div id="editor-toolbar" class="h-14 border-b border-gray-200 dark:border-gray-700 bg-white/95 dark:bg-gray-900/95 flex items-center gap-3 px-4">
+    <!-- Back to page -->
+    <a href="{{ .PageURL }}"
+       class="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors shrink-0">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+      </svg>
+      Zpět
+    </a>
+
+    <div class="w-px h-5 bg-gray-200 dark:bg-gray-700 shrink-0"></div>
+
+    <!-- Title -->
+    <span class="text-sm font-medium text-gray-700 dark:text-gray-300 truncate flex-1">
+      {{ .Title }}
+    </span>
+
+    <!-- Save status -->
+    <span id="save-status" class="text-xs text-gray-400 dark:text-gray-500 shrink-0 opacity-0">Uloženo</span>
+
+    <!-- Save button -->
+    <button id="save-btn"
+      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium transition-colors shrink-0">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M17 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V7l-4-4z"/>
+        <path stroke-linecap="round" stroke-linejoin="round" d="M17 3v4H7V3"/>
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 17h6"/>
+      </svg>
+      Uložit <kbd class="ml-1 text-xs opacity-70">Ctrl+S</kbd>
+    </button>
+  </div>
+
+  <!-- Editor + Preview panes -->
+  <div id="editor-panes">
+    <!-- Editor pane -->
+    <div id="editor-pane">
+      <textarea id="cm-source">{{ .Source }}</textarea>
+    </div>
+
+    <!-- Preview pane -->
+    <div id="preview-pane" class="p-6 overflow-y-auto">
+      <div id="preview-content"
+           class="prose prose-gray dark:prose-invert max-w-none
+                  prose-headings:scroll-mt-20
+                  prose-a:text-brand-600 dark:prose-a:text-brand-400
+                  prose-code:before:content-none prose-code:after:content-none
+                  prose-blockquote:not-italic">
+        {{ .PreviewHTML }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="{{ .AppJSURL }}"></script>
+<script>
+(function() {
+  // Read theme from localStorage (same key as app.js)
+  const stored = localStorage.getItem('dyno-theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const isDark = stored === 'dark' || (stored === null && prefersDark);
+
+  // findModeByName is part of CodeMirror meta.js (not included in the standalone build).
+  // Markdown mode calls it to resolve fenced block language names to MIME types.
+  // We provide a minimal implementation backed by our own language map.
+  // Register minimal modes for diagram languages (no real highlighting, just a distinct token colour)
+  // Simple line-by-line tokeniser for diagram languages.
+  // Colours: label/key → keyword (purple dracula / blue light), value → string, comments → comment.
+  CodeMirror.defineMode('dyno-diagram', function() {
+    return {
+      token: function(stream) {
+        if (stream.match(/^\s*#.*/)) { return 'comment'; }
+        if (stream.match(/^[A-Za-z0-9_.\-"' ]+(?=\s*[:{}→>])/)) { return 'keyword'; }
+        if (stream.match(/:\s*.+/)) { return 'string'; }
+        stream.next();
+        return 'variable-2';
+      }
+    };
+  });
+  CodeMirror.defineMIME('text/x-d2', 'dyno-diagram');
+  CodeMirror.defineMIME('text/x-mermaid', 'dyno-diagram');
+
+  const _langMimeMap = {
+    'bash': 'text/x-sh', 'sh': 'text/x-sh', 'shell': 'text/x-sh', 'zsh': 'text/x-sh',
+    'go': 'text/x-go',
+    'yaml': 'text/x-yaml', 'yml': 'text/x-yaml',
+    'javascript': 'text/javascript', 'js': 'text/javascript',
+    'typescript': 'text/typescript', 'ts': 'text/typescript',
+    'python': 'text/x-python', 'py': 'text/x-python',
+    'html': 'text/html',
+    'xml': 'application/xml',
+    'json': 'application/json',
+    'sql': 'text/x-sql',
+    'd2': 'text/x-d2',
+    'mermaid': 'text/x-mermaid',
+  };
+  CodeMirror.findModeByName = function(name) {
+    const mime = _langMimeMap[name.toLowerCase()];
+    return mime ? { mime: mime } : null;
+  };
+
+  const cm = CodeMirror.fromTextArea(document.getElementById('cm-source'), {
+    mode: {
+      name: 'markdown',
+      fencedCodeBlockHighlighting: true,
+      highlightFormatting: true,
+    },
+    theme: isDark ? 'dracula' : 'default',
+    lineWrapping: true,
+    lineNumbers: false,
+    extraKeys: {
+      'Enter': 'newlineAndIndentContinueMarkdownList',
+      'Ctrl-S': save,
+      'Cmd-S': save,
+    },
+  });
+
+  // Make editor fill the pane height
+  cm.setSize('100%', '100%');
+
+  // Highlight fenced code block lines via lineClass
+  function updateCodeBlockLines() {
+    const count = cm.lineCount();
+    let inBlock = false;
+    for (let i = 0; i < count; i++) {
+      const txt = cm.getLine(i);
+      const isFence = /^```/.test(txt);
+      if (isFence) {
+        cm.addLineClass(i, 'wrap', 'cm-code-fence-line');
+        cm.removeLineClass(i, 'wrap', 'cm-code-block-line');
+        inBlock = !inBlock;
+      } else if (inBlock) {
+        cm.addLineClass(i, 'wrap', 'cm-code-block-line');
+        cm.removeLineClass(i, 'wrap', 'cm-code-fence-line');
+      } else {
+        cm.removeLineClass(i, 'wrap', 'cm-code-block-line');
+        cm.removeLineClass(i, 'wrap', 'cm-code-fence-line');
+      }
+    }
+  }
+  updateCodeBlockLines();
+  cm.on('change', function() { updateCodeBlockLines(); });
+
+  // Scroll sync: editor → preview via heading anchors
+  const previewPane = document.getElementById('preview-pane');
+
+  // Extract headings from editor source: [{line, text}, ...]
+  function editorHeadings() {
+    const out = [];
+    const count = cm.lineCount();
+    for (let i = 0; i < count; i++) {
+      const txt = cm.getLine(i);
+      const m = txt.match(/^#{1,6}\s+(.+)/);
+      if (m) out.push({ line: i, text: m[1].trim() });
+    }
+    return out;
+  }
+
+  // Find preview <h1-h6> elements matching heading text
+  function previewHeadingEls() {
+    return Array.from(document.getElementById('preview-content').querySelectorAll('h1,h2,h3,h4,h5,h6'));
+  }
+
+  let syncingScroll = false;
+  cm.on('scroll', function() {
+    if (syncingScroll) return;
+    const info = cm.getScrollInfo();
+    const topLine = cm.lineAtHeight(info.top, 'local');
+
+    const eHeadings = editorHeadings();
+    if (eHeadings.length === 0) {
+      // Fallback: percentage sync when no headings
+      const ratio = info.top / Math.max(1, info.height - info.clientHeight);
+      syncingScroll = true;
+      previewPane.scrollTop = ratio * Math.max(0, previewPane.scrollHeight - previewPane.clientHeight);
+      requestAnimationFrame(() => { syncingScroll = false; });
+      return;
+    }
+
+    // Find the last heading at or above the top visible line
+    let anchor = eHeadings[0];
+    for (const h of eHeadings) {
+      if (h.line <= topLine) anchor = h;
+      else break;
+    }
+
+    // Find next heading to compute how far between anchors we are
+    const anchorIdx = eHeadings.indexOf(anchor);
+    const nextHeading = eHeadings[anchorIdx + 1];
+    const blockStart = anchor.line;
+    const blockEnd = nextHeading ? nextHeading.line : cm.lineCount();
+    const ratio = blockEnd > blockStart
+      ? Math.min(1, (topLine - blockStart) / (blockEnd - blockStart))
+      : 0;
+
+    // Find matching element in preview
+    const pEls = previewHeadingEls();
+    const pEl = pEls.find(el => el.textContent.trim() === anchor.text);
+    if (!pEl) return;
+
+    const nextPEl = pEls[pEls.indexOf(pEl) + 1];
+    const pElTop = pEl.offsetTop;
+    const pElBottom = nextPEl ? nextPEl.offsetTop : previewPane.scrollHeight;
+    const targetScroll = pElTop + ratio * (pElBottom - pElTop);
+
+    syncingScroll = true;
+    previewPane.scrollTop = targetScroll - 24; // 24px top margin
+    requestAnimationFrame(() => { syncingScroll = false; });
+  });
+
+  // Live preview with debounce
+  let previewTimer = null;
+  cm.on('change', function() {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(updatePreview, 500);
+  });
+
+  function updatePreview() {
+    const src = cm.getValue();
+    const fd = new FormData();
+    fd.append('source', src);
+    fetch('{{ .PreviewURL }}', { method: 'POST', body: fd })
+      .then(r => r.text())
+      .then(html => {
+        document.getElementById('preview-content').innerHTML = html;
+      })
+      .catch(console.error);
+  }
+
+  // Save
+  const saveStatus = document.getElementById('save-status');
+  let saveTimer = null;
+
+  function save() {
+    const src = cm.getValue();
+    const fd = new FormData();
+    fd.append('source', src);
+    fd.append('fs_path', '{{ .FSPath }}');
+    fetch('{{ .SaveURL }}', { method: 'POST', body: fd })
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok) {
+          saveStatus.textContent = 'Uloženo';
+          saveStatus.style.opacity = '1';
+          clearTimeout(saveTimer);
+          saveTimer = setTimeout(() => { saveStatus.style.opacity = '0'; }, 2000);
+        }
+      })
+      .catch(console.error);
+  }
+
+  document.getElementById('save-btn').addEventListener('click', save);
+
+  // Sync theme changes to CodeMirror
+  const observer = new MutationObserver(function() {
+    const dark = document.documentElement.classList.contains('dark');
+    cm.setOption('theme', dark ? 'dracula' : 'default');
+  });
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+})();
+</script>
+</body>
+</html>

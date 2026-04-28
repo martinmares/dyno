@@ -48,6 +48,7 @@ func main() {
 		libraryFile string
 		port        string
 		dev         bool
+		edit        bool
 		watch       bool
 		logFormat   string
 	)
@@ -59,7 +60,7 @@ func main() {
 		Version:      fmt.Sprintf("%s (commit %s, built %s)", version, buildCommit, buildDate),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return run(sites, gitRepos, workDir, libraryFile, port, dev, watch, logFormat)
+			return run(sites, gitRepos, workDir, libraryFile, port, dev, edit, watch, logFormat)
 		},
 	}
 
@@ -69,6 +70,7 @@ func main() {
 	root.Flags().StringVar(&libraryFile, "library", "", "Path to dyno-library.yaml with repo metadata and overrides")
 	root.Flags().StringVarP(&port, "port", "p", "3000", "Port to listen on")
 	root.Flags().BoolVar(&dev, "dev", false, "Dev mode: reload templates and assets from disk on every request")
+	root.Flags().BoolVar(&edit, "edit", false, "Enable in-browser markdown editor (local use only)")
 	root.Flags().BoolVar(&watch, "watch", false, "Watch site for changes and reload navigation/search (single-site only)")
 	root.Flags().StringVar(&logFormat, "log-format", "text", "Log format: text or json")
 
@@ -77,8 +79,16 @@ func main() {
 	}
 }
 
-func run(sites, gitRepos []string, workDir, libraryFile, port string, dev, watch bool, logFormat string) error {
+func run(sites, gitRepos []string, workDir, libraryFile, port string, dev, edit, watch bool, logFormat string) error {
 	setupLogger(logFormat)
+
+	// DYNO_EDIT=true enables editor mode even without --edit flag.
+	if os.Getenv("DYNO_EDIT") == "true" {
+		edit = true
+	}
+	if edit {
+		slog.Info("edit mode enabled — in-browser markdown editor active")
+	}
 
 	// gitConfigs maps resolvedDir → gitrepo.Config for auto-pull wiring.
 	gitConfigs := map[string]gitrepo.Config{}
@@ -227,16 +237,16 @@ func run(sites, gitRepos []string, workDir, libraryFile, port string, dev, watch
 	staticFS := resolveStaticFS(dev, firstSiteRoot)
 
 	if len(absSites) == 1 {
-		return runSingleWithGit(absSites[0], port, dev, watch, renderer, staticFS, gitConfigs[absSites[0]], cfgOverrides[absSites[0]])
+		return runSingleWithGit(absSites[0], port, dev, edit, watch, renderer, staticFS, gitConfigs[absSites[0]], cfgOverrides[absSites[0]])
 	}
 	return runLibraryWithGit(absSites, port, dev, renderer, staticFS, gitConfigs, cfgOverrides)
 }
 
 func runSingle(siteDir, port string, dev, watch bool, renderer *markdown.Renderer, staticFS fs.FS) error {
-	return runSingleWithGit(siteDir, port, dev, watch, renderer, staticFS, gitrepo.Config{}, nil)
+	return runSingleWithGit(siteDir, port, dev, false, watch, renderer, staticFS, gitrepo.Config{}, nil)
 }
 
-func runSingleWithGit(siteDir, port string, dev, watch bool, renderer *markdown.Renderer, staticFS fs.FS, gitCfg gitrepo.Config, cfgOverride *config.SiteConfig) error {
+func runSingleWithGit(siteDir, port string, dev, edit, watch bool, renderer *markdown.Renderer, staticFS fs.FS, gitCfg gitrepo.Config, cfgOverride *config.SiteConfig) error {
 	paths, err := sitepath.Resolve(siteDir)
 	if err != nil {
 		return err
@@ -295,6 +305,7 @@ func runSingleWithGit(siteDir, port string, dev, watch bool, renderer *markdown.
 		ContentDir: contentDir,
 		Port:       port,
 		DevMode:    dev,
+		EditMode:   edit,
 		SiteCfg:    siteCfg,
 		Version:    version,
 		Commit:     buildCommit,

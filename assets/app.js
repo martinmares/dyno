@@ -60,6 +60,7 @@ document.addEventListener('DOMContentLoaded', function () {
   if (overlay) overlay.addEventListener('click', closeSidebar);
 
   // Close sidebar on nav link click (mobile)
+  if (!sidebar) return;
   sidebar.querySelectorAll('.nav-link').forEach(function (link) {
     link.addEventListener('click', function () {
       if (window.innerWidth < 1024) closeSidebar();

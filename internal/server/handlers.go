@@ -58,6 +58,8 @@ type PageData struct {
 	LibraryURL     string                // non-empty in library mode: URL back to the dashboard
 	BuildVersion   string
 	BuildCommit    string
+	EditMode       bool   // true when --edit is active
+	EditPageURL    string // URL to open the editor for this page (empty if not editable)
 }
 
 // LibraryData is passed to the library dashboard template.
@@ -247,8 +249,15 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		Backlinks:       s.backlinks[node.FullPath],
 		EgoGraphURL:     s.graphPath + strings.TrimPrefix(node.FullPath, s.basePath),
 		LibraryURL:      s.libraryURL,
-		BuildVersion:  s.version,
-		BuildCommit:   s.commit,
+		BuildVersion:    s.version,
+		BuildCommit:     s.commit,
+		EditMode:        s.editMode,
+		EditPageURL:     func() string {
+			if s.editMode && node.FSPath != "" {
+				return s.editPageURLFor(node.FullPath)
+			}
+			return ""
+		}(),
 	}
 	if data.HasTasksBlock {
 		data.TasksAnchorURL = node.FullPath + "#tasks-0-filter"

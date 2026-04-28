@@ -28,6 +28,7 @@ type Server struct {
 	sectionTaskPath string // e.g. "/docs/_tasks/section"
 	graphPath       string // e.g. "/docs/_graph"
 	libraryURL string // non-empty when running as a book inside a LibraryServer
+	editMode   bool   // --edit / DYNO_EDIT=true: enables in-browser markdown editor
 	siteCfg    *config.SiteConfig
 	version    string
 	commit     string
@@ -98,6 +99,7 @@ type Config struct {
 	ContentDir string
 	Port       string
 	DevMode    bool
+	EditMode   bool // --edit / DYNO_EDIT=true
 	SiteCfg    *config.SiteConfig
 	Version    string
 	Commit     string
@@ -158,6 +160,7 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 		contentDir: cfg.ContentDir,
 		basePath:   cfg.SiteCfg.GetBasePath(),
 		libraryURL: cfg.LibraryURL,
+		editMode:   cfg.EditMode,
 		siteCfg:    cfg.SiteCfg,
 		version:    cfg.Version,
 		commit:     cfg.Commit,
@@ -235,6 +238,17 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 	s.mux.HandleFunc("GET /livez", s.livenessHandler)
 	s.mux.HandleFunc("GET /readyz", s.readinessHandler)
 	s.mux.Handle("GET /metrics", s.metrics.handler())
+
+	if cfg.EditMode {
+		editPath := "/_edit"
+		if basePath != "" {
+			editPath = basePath + "/_edit"
+		}
+		s.mux.HandleFunc("GET "+editPath+"/{pagepath...}", s.editPageHandler)
+		s.mux.HandleFunc("POST "+editPath+"/preview", s.editPreviewHandler)
+		s.mux.HandleFunc("POST "+editPath+"/save", s.editSaveHandler)
+	}
+
 	s.backlinks = navigation.BuildBacklinks(s.nav, s.basePath)
 
 	return s, nil
