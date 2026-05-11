@@ -250,7 +250,26 @@ func BuildTree(contentDir, basePath string) (*NavNode, error) {
 	// Sort children: dirs first, then files, each group alphabetically
 	sortChildren(root)
 
+	// Remove directories that contain no markdown files (directly or recursively)
+	pruneEmpty(root)
+
 	return root, nil
+}
+
+// pruneEmpty removes directory nodes that have no markdown content anywhere in their subtree.
+func pruneEmpty(node *NavNode) {
+	kept := node.Children[:0]
+	for _, child := range node.Children {
+		if child.IsDir {
+			pruneEmpty(child)
+			if child.FSPath != "" || len(child.Children) > 0 {
+				kept = append(kept, child)
+			}
+		} else {
+			kept = append(kept, child)
+		}
+	}
+	node.Children = kept
 }
 
 func sortChildren(node *NavNode) {

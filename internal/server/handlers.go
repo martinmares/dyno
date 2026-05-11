@@ -60,6 +60,7 @@ type PageData struct {
 	BuildCommit    string
 	EditMode       bool   // true when --edit is active
 	EditPageURL    string // URL to open the editor for this page (empty if not editable)
+	GitHistoryURL  string // non-empty when git history is available
 }
 
 // LibraryData is passed to the library dashboard template.
@@ -258,6 +259,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			return ""
 		}(),
+		GitHistoryURL: s.gitHistoryPath,
 	}
 	if data.HasTasksBlock {
 		data.TasksAnchorURL = node.FullPath + "#tasks-0-filter"
@@ -333,6 +335,7 @@ func (s *Server) renderSyntheticIndex(w http.ResponseWriter, r *http.Request, no
 		SearchURL:     s.searchPath,
 		TasksURL:      s.tasksPath,
 		GraphURL:      s.graphPath,
+		GitHistoryURL: s.gitHistoryPath,
 		HasTasksBlock: false,
 		LibraryURL:    s.libraryURL,
 		BuildVersion:  s.version,

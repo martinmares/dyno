@@ -4,9 +4,25 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
+
+// expandPath expands $HOME / ~ and resolves relative paths against base.
+func expandPath(p, base string) string {
+	home, _ := os.UserHomeDir()
+	p = os.Expand(strings.ReplaceAll(p, "~/", "$HOME/"), func(key string) string {
+		if key == "HOME" {
+			return home
+		}
+		return os.Getenv(key)
+	})
+	if !filepath.IsAbs(p) {
+		p = filepath.Join(base, p)
+	}
+	return p
+}
 
 // SiteEntry describes one site in dyno-library.yaml.
 // Exactly one of URL or Path must be set.
@@ -52,15 +68,15 @@ func Load(path string) (*LibraryFile, error) {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
 
-	// Resolve relative paths relative to the library file's directory.
+	// Resolve relative paths and expand ~ relative to the library file's directory.
 	base := filepath.Dir(filepath.Clean(path))
 	for i, s := range lf.Sites {
-		if s.Path != "" && !filepath.IsAbs(s.Path) {
-			lf.Sites[i].Path = filepath.Join(base, s.Path)
+		if s.Path != "" {
+			lf.Sites[i].Path = expandPath(s.Path, base)
 		}
 	}
-	if lf.WorkDir != "" && !filepath.IsAbs(lf.WorkDir) {
-		lf.WorkDir = filepath.Join(base, lf.WorkDir)
+	if lf.WorkDir != "" {
+		lf.WorkDir = expandPath(lf.WorkDir, base)
 	}
 
 	// Validate entries.

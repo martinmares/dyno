@@ -27,6 +27,8 @@ type Server struct {
 	tasksPath       string // e.g. "/docs/_tasks"
 	sectionTaskPath string // e.g. "/docs/_tasks/section"
 	graphPath       string // e.g. "/docs/_graph"
+	gitHistoryPath  string // e.g. "/docs/_git/history" — empty if not a git repo
+
 	libraryURL string // non-empty when running as a book inside a LibraryServer
 	editMode   bool   // --edit / DYNO_EDIT=true: enables in-browser markdown editor
 	siteCfg    *config.SiteConfig
@@ -220,6 +222,16 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 	s.tasksPath = tasksPath
 	s.sectionTaskPath = sectionTaskPath
 	s.graphPath = graphPath
+
+	// Only expose git history route when content lives inside a git repository.
+	if findGitRoot(cfg.ContentDir) != "" {
+		gitHistoryPath := "/_git/history"
+		if basePath != "" {
+			gitHistoryPath = basePath + "/_git/history"
+		}
+		s.gitHistoryPath = gitHistoryPath
+		s.mux.HandleFunc("GET "+gitHistoryPath, s.gitHistoryHandler)
+	}
 
 	if basePath == "" {
 		s.mux.HandleFunc("GET /{path...}", s.pageHandler)

@@ -123,6 +123,19 @@
         All tasks
       </a>
       {{ end }}
+      <!-- Git history -->
+      {{ if .GitHistoryURL }}
+      <a href="{{ .GitHistoryURL }}"
+         hx-get="{{ .GitHistoryURL }}"
+         hx-target="#page-content"
+         hx-push-url="true"
+         class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 flex items-center"
+         aria-label="Git history" title="Git history">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </a>
+      {{ end }}
       <!-- Edit page (only in --edit mode) — content is OOB-swapped on HTMX navigation -->
       {{ if .EditMode }}
       <span id="edit-page-btn" class="contents">
