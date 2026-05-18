@@ -28,6 +28,8 @@ type SiteConfig struct {
 	Color                        string   `yaml:"color"` // accent hex color for library card, e.g. "#0ea5e9"
 	APIProxyAllowedHosts         []string `yaml:"api_proxy_allowed_hosts"`
 	APIProxyAllowPrivateNetworks *bool    `yaml:"api_proxy_allow_private_networks"`
+	ContentInclude               []string `yaml:"content_include"`
+	ContentExclude               []string `yaml:"content_exclude"`
 	// Git auto-pull (used when site is cloned from a remote repo)
 	GitPullInterval string `yaml:"git_pull_interval"` // e.g. "5m", "false" to disable
 	GitBranch       string `yaml:"git_branch"`        // overrides CLI --git-branch
@@ -143,6 +145,12 @@ func (c *SiteConfig) MergeDefaults(ext SiteConfig) {
 	}
 	if c.GitBranch == "" && ext.GitBranch != "" {
 		c.GitBranch = ext.GitBranch
+	}
+	if len(c.ContentInclude) == 0 && len(ext.ContentInclude) > 0 {
+		c.ContentInclude = ext.ContentInclude
+	}
+	if len(c.ContentExclude) == 0 && len(ext.ContentExclude) > 0 {
+		c.ContentExclude = ext.ContentExclude
 	}
 }
 

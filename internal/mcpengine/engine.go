@@ -214,7 +214,10 @@ func loadSingleBook(siteDir string, renderer *markdown.Renderer) (*Book, error) 
 	}
 
 	basePath := siteCfg.GetBasePath()
-	nav, err := navigation.BuildTree(contentDir, basePath)
+	nav, err := navigation.BuildTreeWithFilter(contentDir, basePath, navigation.Filter{
+		Include: siteCfg.ContentInclude,
+		Exclude: siteCfg.ContentExclude,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to build navigation tree: %w", err)
 	}

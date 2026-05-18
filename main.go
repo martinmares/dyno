@@ -279,7 +279,7 @@ func runSingleWithGit(siteDir, port string, dev, edit, watch bool, renderer *mar
 		"site_dir", siteDir,
 	)
 
-	nav, err := navigation.BuildTree(contentDir, siteCfg.GetBasePath())
+	nav, err := navigation.BuildTreeWithFilter(contentDir, siteCfg.GetBasePath(), navFilter(siteCfg))
 	if err != nil {
 		return fmt.Errorf("failed to build navigation tree: %w", err)
 	}
@@ -313,7 +313,7 @@ func runSingleWithGit(siteDir, port string, dev, edit, watch bool, renderer *mar
 		plainText := func(src string) (string, error) {
 			return renderer.ToPlainText([]byte(src))
 		}
-		if err := watcher.Watch(contentDir, siteCfg.GetBasePath(), srv, plainText); err != nil {
+		if err := watcher.Watch(contentDir, siteCfg.GetBasePath(), navFilter(siteCfg), srv, plainText); err != nil {
 			return fmt.Errorf("failed to start watcher: %w", err)
 		}
 		slog.Info("watcher enabled", "content_dir", contentDir)
@@ -325,7 +325,7 @@ func runSingleWithGit(siteDir, port string, dev, edit, watch bool, renderer *mar
 			return renderer.ToPlainText([]byte(src))
 		}
 		gitrepo.StartAutoPull(gitCfg, siteDir, func() {
-			nav, err := navigation.BuildTree(contentDir, siteCfg.GetBasePath())
+			nav, err := navigation.BuildTreeWithFilter(contentDir, siteCfg.GetBasePath(), navFilter(siteCfg))
 			if err != nil {
 				slog.Error("git reload: build nav failed", "err", err)
 				return
@@ -349,6 +349,16 @@ func runSingleWithGit(siteDir, port string, dev, edit, watch bool, renderer *mar
 
 func runLibrary(siteDirs []string, port string, dev bool, renderer *markdown.Renderer, staticFS fs.FS) error {
 	return runLibraryWithGit(siteDirs, port, dev, renderer, staticFS, nil, nil)
+}
+
+func navFilter(cfg *config.SiteConfig) navigation.Filter {
+	if cfg == nil {
+		return navigation.Filter{}
+	}
+	return navigation.Filter{
+		Include: cfg.ContentInclude,
+		Exclude: cfg.ContentExclude,
+	}
 }
 
 func runLibraryWithGit(siteDirs []string, port string, dev bool, renderer *markdown.Renderer, staticFS fs.FS, gitConfigs map[string]gitrepo.Config, cfgOverrides map[string]*config.SiteConfig) error {
@@ -471,6 +481,8 @@ func siteEntryToSiteConfig(e libraryconfig.SiteEntry) *config.SiteConfig {
 		GitHubBranch:    e.Branch,
 		GitPullInterval: e.PullInterval,
 		GitBranch:       e.Branch,
+		ContentInclude:  e.ContentInclude,
+		ContentExclude:  e.ContentExclude,
 	}
 	if e.BasePath != "" {
 		cfg.BasePath = &e.BasePath

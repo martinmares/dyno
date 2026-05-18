@@ -16,7 +16,7 @@ type Reloader interface {
 
 // Watch watches contentDir for changes and calls srv.Reload() on any event.
 // plainText converts Markdown source to plain text for search indexing.
-func Watch(contentDir, basePath string, srv Reloader, plainText func(string) (string, error)) error {
+func Watch(contentDir, basePath string, filter navigation.Filter, srv Reloader, plainText func(string) (string, error)) error {
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err
@@ -44,7 +44,7 @@ func Watch(contentDir, basePath string, srv Reloader, plainText func(string) (st
 					timer.Stop()
 				}
 				timer = time.AfterFunc(300*time.Millisecond, func() {
-					rebuild(contentDir, basePath, srv, plainText)
+					rebuild(contentDir, basePath, filter, srv, plainText)
 				})
 
 			case err, ok := <-w.Errors:
@@ -59,8 +59,8 @@ func Watch(contentDir, basePath string, srv Reloader, plainText func(string) (st
 	return nil
 }
 
-func rebuild(contentDir, basePath string, srv Reloader, plainText func(string) (string, error)) {
-	nav, err := navigation.BuildTree(contentDir, basePath)
+func rebuild(contentDir, basePath string, filter navigation.Filter, srv Reloader, plainText func(string) (string, error)) {
+	nav, err := navigation.BuildTreeWithFilter(contentDir, basePath, filter)
 	if err != nil {
 		slog.Error("watch rebuild nav failed", "err", err)
 		return

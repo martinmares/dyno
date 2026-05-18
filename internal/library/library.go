@@ -65,7 +65,10 @@ func Load(siteDir string, globalBasePath string, plainText func(string) (string,
 	slug := cfg.GetSlug(filepath.Base(siteDir))
 	bookBasePath := strings.TrimRight(globalBasePath, "/") + "/" + slug
 
-	nav, err := navigation.BuildTree(contentDir, bookBasePath)
+	nav, err := navigation.BuildTreeWithFilter(contentDir, bookBasePath, navigation.Filter{
+		Include: cfg.ContentInclude,
+		Exclude: cfg.ContentExclude,
+	})
 	if err != nil {
 		return nil, err
 	}

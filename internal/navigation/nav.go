@@ -3,6 +3,7 @@ package navigation
 import (
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -22,6 +23,14 @@ type NavNode struct {
 	IsDir    bool
 	Children []*NavNode
 	Depth    int
+}
+
+// Filter limits which markdown files are exposed in navigation and search.
+// Patterns are slash-separated globs relative to contentDir. Exclude wins over
+// include; an empty Include list means all markdown files are included.
+type Filter struct {
+	Include []string
+	Exclude []string
 }
 
 var numericPrefix = regexp.MustCompile(`^\d+[-_]?`)
@@ -119,6 +128,10 @@ func SlugFromName(name string) string {
 // basePath is the URL prefix, e.g. "/docs" or "" for root.
 // The returned root node represents the content directory itself.
 func BuildTree(contentDir, basePath string) (*NavNode, error) {
+	return BuildTreeWithFilter(contentDir, basePath, Filter{})
+}
+
+func BuildTreeWithFilter(contentDir, basePath string, filter Filter) (*NavNode, error) {
 	siteDir := contentDir
 
 	root := &NavNode{
@@ -191,6 +204,9 @@ func BuildTree(contentDir, basePath string) (*NavNode, error) {
 		if !strings.HasSuffix(name, ".md") {
 			return nil
 		}
+		if !filter.Allows(filepath.ToSlash(rel)) {
+			return nil
+		}
 
 		baseName := strings.TrimSuffix(name, ".md")
 		slug := SlugFromName(baseName)
@@ -254,6 +270,69 @@ func BuildTree(contentDir, basePath string) (*NavNode, error) {
 	pruneEmpty(root)
 
 	return root, nil
+}
+
+func (f Filter) Allows(relPath string) bool {
+	relPath = cleanRelPath(relPath)
+	if relPath == "" {
+		return false
+	}
+	if matchesAny(f.Exclude, relPath) {
+		return false
+	}
+	if len(f.Include) == 0 {
+		return true
+	}
+	return matchesAny(f.Include, relPath)
+}
+
+func cleanRelPath(value string) string {
+	value = filepath.ToSlash(value)
+	value = strings.TrimPrefix(value, "./")
+	return strings.Trim(value, "/")
+}
+
+func matchesAny(patterns []string, relPath string) bool {
+	for _, pattern := range patterns {
+		if matchGlob(pattern, relPath) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchGlob(pattern, relPath string) bool {
+	pattern = cleanRelPath(pattern)
+	relPath = cleanRelPath(relPath)
+	if pattern == "" || relPath == "" {
+		return false
+	}
+	return matchSegments(strings.Split(pattern, "/"), strings.Split(relPath, "/"))
+}
+
+func matchSegments(patterns, parts []string) bool {
+	if len(patterns) == 0 {
+		return len(parts) == 0
+	}
+	if patterns[0] == "**" {
+		if matchSegments(patterns[1:], parts) {
+			return true
+		}
+		for i := range parts {
+			if matchSegments(patterns[1:], parts[i+1:]) {
+				return true
+			}
+		}
+		return false
+	}
+	if len(parts) == 0 {
+		return false
+	}
+	ok, err := path.Match(patterns[0], parts[0])
+	if err != nil || !ok {
+		return false
+	}
+	return matchSegments(patterns[1:], parts[1:])
 }
 
 // pruneEmpty removes directory nodes that have no markdown content anywhere in their subtree.

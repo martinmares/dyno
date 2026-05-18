@@ -35,3 +35,43 @@ func TestBuildTreeNormalizesUnicodeSlugs(t *testing.T) {
 		t.Fatalf("unexpected title: %q", pageNode.Title)
 	}
 }
+
+func TestBuildTreeWithFilter(t *testing.T) {
+	root := t.TempDir()
+	writeNavTestFile(t, filepath.Join(root, "index.md"), "# Home\n")
+	writeNavTestFile(t, filepath.Join(root, "README.md"), "# Readme\n")
+	writeNavTestFile(t, filepath.Join(root, "docs", "keep.md"), "# Keep\n")
+	writeNavTestFile(t, filepath.Join(root, "docs", "drafts", "hidden.md"), "# Hidden\n")
+	writeNavTestFile(t, filepath.Join(root, "other.md"), "# Other\n")
+
+	nav, err := BuildTreeWithFilter(root, "", Filter{
+		Include: []string{"docs/**/*.md", "README.md"},
+		Exclude: []string{"**/drafts/**"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if FindNode(nav, "/docs/keep") == nil {
+		t.Fatal("expected included docs page")
+	}
+	if FindNode(nav, "/readme") == nil {
+		t.Fatal("expected explicitly included root page")
+	}
+	if FindNode(nav, "/other") != nil {
+		t.Fatal("expected non-included page to be hidden")
+	}
+	if FindNode(nav, "/docs/drafts/hidden") != nil {
+		t.Fatal("expected excluded page to be hidden")
+	}
+}
+
+func writeNavTestFile(t *testing.T, path string, data string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}

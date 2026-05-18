@@ -64,12 +64,19 @@ git_branch: main
 api_proxy_allowed_hosts:
   - api.example.com
 api_proxy_allow_private_networks: false
+content_include:
+  - "docs/**/*.md"
+  - "README.md"
+content_exclude:
+  - "**/drafts/**"
 ```
 
 All fields are optional — dyno works with no config file at all.
 
 `api_proxy_allowed_hosts` limits the interactive API widget to an explicit host allowlist.
 `api_proxy_allow_private_networks` controls whether the widget may call loopback/private targets; default is `true` for compatibility.
+
+`content_include` and `content_exclude` limit which Markdown files are exposed in navigation, search, prev/next, and rendered pages. Patterns are slash-separated globs relative to the content directory; `**` matches across directories. Empty `content_include` means all Markdown files are included, and `content_exclude` always wins.
 
 ### `dyno-library.yaml`
 
@@ -95,6 +102,11 @@ sites:
     color: "#f97316"
     branch: main
     pull_interval: 10m
+    content_include:
+      - "docs/**/*.md"
+      - "README.md"
+    content_exclude:
+      - "**/drafts/**"
 
   - url: https://github.com/org/go-cookbook
     title: Go Cookbook

@@ -34,14 +34,16 @@ type SiteEntry struct {
 	// Local directory source
 	Path string `yaml:"path"`
 	// Metadata (fallback if dyno.yaml absent in the site)
-	Title       string `yaml:"title"`
-	Description string `yaml:"description"`
-	LogoText    string `yaml:"logo_text"`
-	Slug        string `yaml:"slug"`
-	Icon        string `yaml:"icon"`
-	Color       string `yaml:"color"`
-	GitHubURL   string `yaml:"github_url"`
-	BasePath    string `yaml:"base_path"`
+	Title          string   `yaml:"title"`
+	Description    string   `yaml:"description"`
+	LogoText       string   `yaml:"logo_text"`
+	Slug           string   `yaml:"slug"`
+	Icon           string   `yaml:"icon"`
+	Color          string   `yaml:"color"`
+	GitHubURL      string   `yaml:"github_url"`
+	BasePath       string   `yaml:"base_path"`
+	ContentInclude []string `yaml:"content_include"`
+	ContentExclude []string `yaml:"content_exclude"`
 }
 
 // IsGit reports whether this entry is a git repo.

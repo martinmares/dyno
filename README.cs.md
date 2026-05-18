@@ -64,9 +64,16 @@ git_branch: main
 api_proxy_allowed_hosts:
   - api.example.com
 api_proxy_allow_private_networks: false
+content_include:
+  - "docs/**/*.md"
+  - "README.md"
+content_exclude:
+  - "**/drafts/**"
 ```
 
 Všechna pole jsou volitelná — dyno funguje i bez konfiguračního souboru.
+
+`content_include` a `content_exclude` omezují, které Markdown soubory se objeví v navigaci, vyhledávání, předchozí/další navigaci a renderovaných stránkách. Patterny jsou slash-separated globy relativně k adresáři s obsahem; `**` matchuje přes adresáře. Prázdné `content_include` znamená všechny Markdown soubory a `content_exclude` má vždy přednost.
 
 ### `dyno-library.yaml`
 
@@ -92,6 +99,11 @@ sites:
     color: "#f97316"
     branch: main
     pull_interval: 10m
+    content_include:
+      - "docs/**/*.md"
+      - "README.md"
+    content_exclude:
+      - "**/drafts/**"
 
   - url: https://github.com/org/go-cookbook
     title: Go Cookbook
