@@ -114,7 +114,7 @@ func (s *Server) loadGitHistory() []GitCommit {
 	}
 	// format: hash|author|date|message — use \x1f as separator to handle commas in messages
 	cmd := exec.Command("git", "-C", gitRoot, "log", "--max-count=50",
-		"--pretty=format:%h\x1f%an\x1f%ad\x1f%s", "--date=format:%Y-%m-%d")
+		"--pretty=format:%h\x1f%an\x1f%ad\x1f%s", "--date=format:%Y-%m-%d %H:%M:%S %z")
 	var out bytes.Buffer
 	cmd.Stdout = &out
 	if err := cmd.Run(); err != nil {

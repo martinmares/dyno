@@ -174,7 +174,7 @@ Příznaky:
   -s, --site stringArray        Adresář s obsahem (opakovat pro režim knihovny) (výchozí ["./site"])
       --git-repo-site string    URL git repozitáře ke klonování a servírování (opakovatelné)
       --work-dir string         Zapisovatelný adresář pro git klony (povinné s --git-repo-site)
-      --library string          Cesta k dyno-library.yaml se seznamem webů a metadaty
+      --library string          Cesta k dyno-library.yaml se seznamem webů a metadaty (nelze kombinovat s --site ani --git-repo-site)
       --dev                     Dev režim: načítá šablony z disku při každém požadavku
       --watch                   Sleduje web a přenačítá navigaci a vyhledávání (pouze single-site)
       --log-format string       Formát logů: text nebo json (výchozí "text")
@@ -182,6 +182,8 @@ Příznaky:
 ```
 
 `--site` vždy ukazuje přímo na adresář s obsahem, například `./site` nebo `/cesta/k/wiki`.
+
+`--library` se nesmí kombinovat s `--site` ani `--git-repo-site`: při použití souboru knihovny definuj všechny knihy uvnitř `dyno-library.yaml`. `--work-dir` lze dál použít k přepsání `work_dir` pro git-backed záznamy z knihovního souboru.
 
 Pokud adresář sekce nemá `index.md`, dyno zobrazí syntetickou úvodní stránku s odkazy na podstránky.
 
@@ -202,9 +204,6 @@ dyno --git-repo-site https://github.com/org/docs --work-dir ~/tmp/dyno-wrk
 
 # Knihovna z konfiguračního souboru (lokální + git weby)
 dyno --library dyno-library.yaml
-
-# Kombinace: soubor knihovny + extra lokální web
-dyno --library dyno-library.yaml --site ./muj-extra-web
 
 # Vývojový režim s live reload (pouze single-site)
 dyno --site ./site --dev --watch

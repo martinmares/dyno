@@ -177,7 +177,7 @@ Flags:
   -s, --site stringArray        Content directory (repeat for library mode) (default ["./site"])
       --git-repo-site string    Git repo URL to clone and serve as a site (repeatable)
       --work-dir string         Writable directory for git clones (required with --git-repo-site)
-      --library string          Path to dyno-library.yaml with site list and metadata
+      --library string          Path to dyno-library.yaml with site list and metadata (cannot be combined with --site or --git-repo-site)
       --dev                     Dev mode: reload templates and assets from disk on every request
       --watch                   Watch site for changes and reload navigation/search (single-site only)
       --log-format string       Log format: text or json (default "text")
@@ -185,6 +185,8 @@ Flags:
 ```
 
 `--site` always points directly to the content directory, for example `./site` or `/path/to/wiki`.
+
+`--library` is exclusive with `--site` and `--git-repo-site`: when you use a library file, define all books inside `dyno-library.yaml`. `--work-dir` may still be used to override the library file's `work_dir` for git-backed entries.
 
 If a section directory has no `index.md`, dyno serves a synthetic landing page with links to child pages.
 
@@ -205,9 +207,6 @@ dyno --git-repo-site https://github.com/org/docs --work-dir ~/tmp/dyno-wrk
 
 # Library from a config file (local + git sites)
 dyno --library dyno-library.yaml
-
-# Mix: library file + extra local site
-dyno --library dyno-library.yaml --site ./my-extra-site
 
 # Development mode with live reload (single-site only)
 dyno --site ./site --dev --watch

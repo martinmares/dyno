@@ -311,11 +311,11 @@ func TestLibrarySearchUsesBasePath(t *testing.T) {
 		return renderer.ToPlainText([]byte(src))
 	}
 
-	bookA, err := library.Load(contentA, "/docs", plainText)
+	bookA, err := library.Load(contentA, "/docs", plainText, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	bookB, err := library.Load(contentB, "/docs", plainText)
+	bookB, err := library.Load(contentB, "/docs", plainText, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -346,7 +346,7 @@ func TestLibrarySearchUsesBasePath(t *testing.T) {
 	}
 
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodGet, "/docs/search?q=alpha", nil)
+	req = httptest.NewRequest(http.MethodGet, "/docs/_search?q=alpha", nil)
 	req.Header.Set("HX-Request", "true")
 	ls.Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -379,7 +379,7 @@ func TestLibraryBookPageKeepsSiteHomeAndDashboardLinks(t *testing.T) {
 	plainText := func(src string) (string, error) {
 		return renderer.ToPlainText([]byte(src))
 	}
-	bookA, err := library.Load(contentA, "/docs", plainText)
+	bookA, err := library.Load(contentA, "/docs", plainText, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -464,7 +464,7 @@ func TestAgentsDocumentGetsVisualMarkers(t *testing.T) {
 	if !strings.Contains(body, "nav-badge-agent") {
 		t.Fatalf("expected nav AGENT badge, got: %s", body)
 	}
-	if !strings.Contains(body, "Agent Instructions") {
+	if !strings.Contains(body, "Agent instructions") {
 		t.Fatalf("expected page AGENT marker, got: %s", body)
 	}
 }
@@ -563,7 +563,7 @@ func TestTasksBlocksAndTaskListsRender(t *testing.T) {
 	}
 
 	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodGet, "/tasks", nil)
+	req = httptest.NewRequest(http.MethodGet, "/_tasks", nil)
 	srv.Handler().ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected task summary 200, got %d", rec.Code)

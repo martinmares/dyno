@@ -60,6 +60,14 @@ func main() {
 		Version:      fmt.Sprintf("%s (commit %s, built %s)", version, buildCommit, buildDate),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if libraryFile != "" {
+				if cmd.Flags().Changed("site") {
+					return fmt.Errorf("--library cannot be combined with --site; add the site to dyno-library.yaml instead")
+				}
+				if cmd.Flags().Changed("git-repo-site") {
+					return fmt.Errorf("--library cannot be combined with --git-repo-site; add the repository to dyno-library.yaml instead")
+				}
+			}
 			return run(sites, gitRepos, workDir, libraryFile, port, dev, edit, watch, logFormat)
 		},
 	}
@@ -67,7 +75,7 @@ func main() {
 	root.Flags().StringArrayVarP(&sites, "site", "s", []string{"./site"}, "Content directory (repeat for library mode)")
 	root.Flags().StringArrayVar(&gitRepos, "git-repo-site", nil, "Git repo URL to clone and serve as a site (repeat for library mode)")
 	root.Flags().StringVar(&workDir, "work-dir", "", "Writable directory for git clones (required with --git-repo-site)")
-	root.Flags().StringVar(&libraryFile, "library", "", "Path to dyno-library.yaml with repo metadata and overrides")
+	root.Flags().Var(&singleUseStringValue{target: &libraryFile, name: "--library"}, "library", "Path to dyno-library.yaml with site list and metadata")
 	root.Flags().StringVarP(&port, "port", "p", "3000", "Port to listen on")
 	root.Flags().BoolVar(&dev, "dev", false, "Dev mode: reload templates and assets from disk on every request")
 	root.Flags().BoolVar(&edit, "edit", false, "Enable in-browser markdown editor (local use only)")
@@ -110,23 +118,14 @@ func run(sites, gitRepos []string, workDir, libraryFile, port string, dev, edit,
 			workDir = libFile.WorkDir
 		}
 
-		// Process sites from the library file (in order).
-		// They are prepended before CLI --site / --git-repo-site so file order is preserved.
+		// Process sites from the library file (in order). --library is the
+		// single source of truth for library entries; CLI sources are rejected
+		// by Cobra validation before run is called.
 		var libSites []string
 		for _, entry := range libFile.Sites {
 			if entry.IsGit() {
-				// Defer git clone until workDir is resolved — collect into gitRepos.
-				found := false
-				for _, r := range gitRepos {
-					if r == entry.URL {
-						found = true
-						break
-					}
-				}
-				if !found {
-					gitRepos = append([]string{entry.URL}, append(gitRepos[:0:0], gitRepos...)...)
-					// store override keyed by URL temporarily; resolved to cloneDir below
-				}
+				// Defer git clone until workDir is resolved.
+				gitRepos = append(gitRepos, entry.URL)
 				// Store entry by URL for later cloneDir resolution.
 				cfgOverrides["__url__"+entry.URL] = siteEntryToSiteConfig(entry)
 			} else {
@@ -135,14 +134,7 @@ func run(sites, gitRepos []string, workDir, libraryFile, port string, dev, edit,
 			}
 		}
 
-		// Prepend library sites before CLI sites.
-		// Drop default "./site" if no explicit --site was given.
-		if !hasExplicitSites {
-			sites = append(libSites, gitRepos...) // will be replaced by resolved dirs below
-			sites = libSites
-		} else {
-			sites = append(libSites, sites...)
-		}
+		sites = libSites
 	}
 
 	// Clone git repos and append their local paths to sites.
@@ -236,7 +228,8 @@ func run(sites, gitRepos []string, workDir, libraryFile, port string, dev, edit,
 
 	staticFS := resolveStaticFS(dev, firstSiteRoot)
 
-	if len(absSites) == 1 {
+	forceLibraryMode := libraryFile != ""
+	if len(absSites) == 1 && !forceLibraryMode {
 		return runSingleWithGit(absSites[0], port, dev, edit, watch, renderer, staticFS, gitConfigs[absSites[0]], cfgOverrides[absSites[0]])
 	}
 	return runLibraryWithGit(absSites, port, dev, renderer, staticFS, gitConfigs, cfgOverrides)
@@ -566,6 +559,32 @@ func parseBuildTime(value string) time.Time {
 		return time.Time{}
 	}
 	return t
+}
+
+type singleUseStringValue struct {
+	target *string
+	name   string
+	seen   bool
+}
+
+func (v *singleUseStringValue) Set(value string) error {
+	if v.seen {
+		return fmt.Errorf("%s can only be specified once", v.name)
+	}
+	v.seen = true
+	*v.target = value
+	return nil
+}
+
+func (v *singleUseStringValue) String() string {
+	if v == nil || v.target == nil {
+		return ""
+	}
+	return *v.target
+}
+
+func (v *singleUseStringValue) Type() string {
+	return "string"
 }
 
 func countNodes(node *navigation.NavNode) int {

@@ -43,7 +43,7 @@ func TestEndToEndSmokeFlow(t *testing.T) {
 		t.Fatalf("homepage failed: %d %s", rec.Code, rec.Body.String())
 	}
 
-	req = httptest.NewRequest(http.MethodGet, "/search?q=dyno", nil)
+	req = httptest.NewRequest(http.MethodGet, "/_search?q=dyno", nil)
 	rec = httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "/guides/api-widget?q=dyno") {
