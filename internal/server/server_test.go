@@ -88,6 +88,50 @@ func TestHealthEndpoints(t *testing.T) {
 	}
 }
 
+func TestPageRendersExternalRefs(t *testing.T) {
+	srv := newTestServer(t)
+	writeTestFile(t, filepath.Join(srv.contentDir, "linked.md"), `---
+title: Linked
+external_refs:
+  - id: PROJ128
+    label: Project PROJ128
+    url: https://projects.example.test/PROJ128
+    type: project
+---
+# Linked
+
+Body.
+`)
+	nav, err := navigation.BuildTree(srv.contentDir, srv.basePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, err := search.BuildIndex(nav, func(src string) (string, error) {
+		return srv.renderer.ToPlainText([]byte(src))
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv.Reload(nav, idx)
+
+	req := httptest.NewRequest(http.MethodGet, "/linked", nil)
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Vazby") {
+		t.Fatalf("expected external refs heading, got: %s", body)
+	}
+	if !strings.Contains(body, `href="https://projects.example.test/PROJ128"`) {
+		t.Fatalf("expected external ref URL, got: %s", body)
+	}
+	if !strings.Contains(body, `target="_blank"`) || !strings.Contains(body, `rel="noopener noreferrer"`) {
+		t.Fatalf("expected safe new-window link, got: %s", body)
+	}
+}
+
 func TestMetricsEndpoint(t *testing.T) {
 	srv := newTestServer(t)
 	handler := srv.Handler()

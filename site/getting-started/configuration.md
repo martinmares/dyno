@@ -2,6 +2,15 @@
 title: Configuration
 description: How to configure Dyno using dyno.yaml and CLI flags.
 weight: 2
+external_refs:
+  - id: CFG-042
+    label: Runtime configuration
+    url: https://github.com/mares/dyno/blob/main/README.md#configuration
+    type: guide
+  - id: CLI-007
+    label: CLI usage
+    url: https://github.com/mares/dyno/blob/main/README.md#usage
+    type: guide
 ---
 
 # Configuration

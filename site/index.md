@@ -2,6 +2,15 @@
 title: Welcome to Dyno Docs
 description: Self-hosted documentation server built with Go, HTMX and Tailwind CSS.
 weight: 1
+external_refs:
+  - id: DYNO-001
+    label: Product overview
+    url: https://github.com/mares/dyno
+    type: repository
+  - id: DOCS-128
+    label: Documentation backlog
+    url: https://github.com/mares/dyno/issues
+    type: backlog
 ---
 
 # Welcome to Dyno Docs

@@ -2,6 +2,15 @@
 title: API Widget
 description: Interactive REST API calls directly in documentation
 weight: 40
+external_refs:
+  - id: API-101
+    label: HTTPBin test API
+    url: https://httpbin.org
+    type: api
+  - id: SEC-014
+    label: Proxy allowlist policy
+    url: https://github.com/mares/dyno/blob/main/README.md#configuration
+    type: security
 ---
 
 # API Widget

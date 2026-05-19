@@ -36,10 +36,19 @@ type TOCEntry struct {
 
 // Frontmatter holds optional YAML metadata from the top of a Markdown file.
 type Frontmatter struct {
-	Title       string `yaml:"title"`
-	Description string `yaml:"description"`
-	Draft       bool   `yaml:"draft"`
-	Weight      int    `yaml:"weight"` // for future custom ordering
+	Title        string        `yaml:"title"`
+	Description  string        `yaml:"description"`
+	Draft        bool          `yaml:"draft"`
+	Weight       int           `yaml:"weight"` // for future custom ordering
+	ExternalRefs []ExternalRef `yaml:"external_refs"`
+}
+
+// ExternalRef describes a business/system link attached to a page.
+type ExternalRef struct {
+	ID    string `yaml:"id"`
+	Label string `yaml:"label"`
+	URL   string `yaml:"url"`
+	Type  string `yaml:"type"`
 }
 
 // Result holds the rendered HTML and extracted metadata.

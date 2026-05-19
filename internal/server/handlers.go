@@ -3,10 +3,10 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"html/template"
 	"io"
 	"log/slog"
-	"html"
 	"net/http"
 	"net/url"
 	"os"
@@ -24,43 +24,44 @@ import (
 
 // PageData is passed to page templates.
 type PageData struct {
-	Title       string
-	Breadcrumbs []navigation.NavNode
-	ContentHTML template.HTML
-	Nav         *navigation.NavNode
-	CurrentPath string
-	TOC         []markdown.TOCEntry
-	LightCSS    template.CSS
-	DarkCSS     template.CSS
-	IsHTMX      bool
-	Site        *config.SiteConfig
-	BasePath    string
+	Title        string
+	Breadcrumbs  []navigation.NavNode
+	ContentHTML  template.HTML
+	Nav          *navigation.NavNode
+	CurrentPath  string
+	TOC          []markdown.TOCEntry
+	ExternalRefs []markdown.ExternalRef
+	LightCSS     template.CSS
+	DarkCSS      template.CSS
+	IsHTMX       bool
+	Site         *config.SiteConfig
+	BasePath     string
 	// EditURL is the GitHub edit link for this page, empty if not configured
 	EditURL    string
 	IsAgentDoc bool
 	// Prev/Next for bottom navigation
-	Prev           *navigation.NavNode
-	Next           *navigation.NavNode
-	TailwindURL    string
-	AppCSSURL      string
-	AppJSURL       string
-	HTMXURL        string
-	MermaidURL     string
-	FaviconURL     string
-	SearchURL      string
+	Prev            *navigation.NavNode
+	Next            *navigation.NavNode
+	TailwindURL     string
+	AppCSSURL       string
+	AppJSURL        string
+	HTMXURL         string
+	MermaidURL      string
+	FaviconURL      string
+	SearchURL       string
 	TasksURL        string
 	SectionTasksURL string // URL for section-scoped task view (current folder)
 	HasTasksBlock   bool
 	TasksAnchorURL  string
-	Backlinks      []navigation.Backlink // pages that link to this page
-	GraphURL       string                // URL for the site link graph page
-	EgoGraphURL    string                // URL for ego-graph of current page
-	LibraryURL     string                // non-empty in library mode: URL back to the dashboard
-	BuildVersion   string
-	BuildCommit    string
-	EditMode       bool   // true when --edit is active
-	EditPageURL    string // URL to open the editor for this page (empty if not editable)
-	GitHistoryURL  string // non-empty when git history is available
+	Backlinks       []navigation.Backlink // pages that link to this page
+	GraphURL        string                // URL for the site link graph page
+	EgoGraphURL     string                // URL for ego-graph of current page
+	LibraryURL      string                // non-empty in library mode: URL back to the dashboard
+	BuildVersion    string
+	BuildCommit     string
+	EditMode        bool   // true when --edit is active
+	EditPageURL     string // URL to open the editor for this page (empty if not editable)
+	GitHistoryURL   string // non-empty when git history is available
 }
 
 // LibraryData is passed to the library dashboard template.
@@ -221,27 +222,28 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := PageData{
-		Title:         title,
-		Breadcrumbs:   navigation.Breadcrumbs(s.getNav(), node.FullPath),
-		ContentHTML:   template.HTML(res.HTML),
-		Nav:           s.getNav(),
-		CurrentPath:   node.FullPath,
-		TOC:           res.TOC,
-		LightCSS:      template.CSS(s.renderer.LightCSS()),
-		DarkCSS:       template.CSS(s.renderer.DarkCSS()),
-		IsHTMX:        isHTMX(r),
-		Site:          s.siteCfg,
-		BasePath:      s.basePath,
-		EditURL:       editURL,
-		IsAgentDoc:    filepath.Base(node.FSPath) == "AGENTS.md",
-		Prev:          prev,
-		Next:          next,
-		TailwindURL:   s.assetURL("tailwind.css"),
-		AppCSSURL:     s.assetURL("app.css"),
-		AppJSURL:      s.assetURL("app.js"),
-		HTMXURL:       s.assetURL("htmx.min.js"),
-		MermaidURL:    s.assetURL("mermaid.min.js"),
-		FaviconURL:    s.faviconURL(),
+		Title:           title,
+		Breadcrumbs:     navigation.Breadcrumbs(s.getNav(), node.FullPath),
+		ContentHTML:     template.HTML(res.HTML),
+		Nav:             s.getNav(),
+		CurrentPath:     node.FullPath,
+		TOC:             res.TOC,
+		ExternalRefs:    res.Frontmatter.ExternalRefs,
+		LightCSS:        template.CSS(s.renderer.LightCSS()),
+		DarkCSS:         template.CSS(s.renderer.DarkCSS()),
+		IsHTMX:          isHTMX(r),
+		Site:            s.siteCfg,
+		BasePath:        s.basePath,
+		EditURL:         editURL,
+		IsAgentDoc:      filepath.Base(node.FSPath) == "AGENTS.md",
+		Prev:            prev,
+		Next:            next,
+		TailwindURL:     s.assetURL("tailwind.css"),
+		AppCSSURL:       s.assetURL("app.css"),
+		AppJSURL:        s.assetURL("app.js"),
+		HTMXURL:         s.assetURL("htmx.min.js"),
+		MermaidURL:      s.assetURL("mermaid.min.js"),
+		FaviconURL:      s.faviconURL(),
 		SearchURL:       s.searchPath,
 		TasksURL:        s.tasksPath,
 		GraphURL:        s.graphPath,
@@ -253,7 +255,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		BuildVersion:    s.version,
 		BuildCommit:     s.commit,
 		EditMode:        s.editMode,
-		EditPageURL:     func() string {
+		EditPageURL: func() string {
 			if s.editMode && node.FSPath != "" {
 				return s.editPageURLFor(node.FullPath)
 			}

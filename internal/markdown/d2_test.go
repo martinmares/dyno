@@ -99,6 +99,36 @@ func TestRendererAppliesUppercaseTemplateEnv(t *testing.T) {
 	}
 }
 
+func TestRendererParsesExternalRefsFrontmatter(t *testing.T) {
+	r, err := markdown.NewRenderer()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	src := []byte(`---
+title: Linked page
+external_refs:
+  - id: PROJ128
+    label: Project PROJ128
+    url: https://projects.example.test/PROJ128
+    type: project
+---
+# Linked page
+`)
+
+	res, err := r.Render(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Frontmatter.ExternalRefs) != 1 {
+		t.Fatalf("expected 1 external ref, got %d", len(res.Frontmatter.ExternalRefs))
+	}
+	ref := res.Frontmatter.ExternalRefs[0]
+	if ref.ID != "PROJ128" || ref.Label != "Project PROJ128" || ref.URL != "https://projects.example.test/PROJ128" || ref.Type != "project" {
+		t.Fatalf("unexpected external ref: %#v", ref)
+	}
+}
+
 func TestRendererDoesNotConsumeLiteralAPIExampleInsideOuterFence(t *testing.T) {
 	r, err := markdown.NewRenderer()
 	if err != nil {

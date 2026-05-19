@@ -39,6 +39,28 @@
   </div>
   {{ end }}
 
+  {{ if .ExternalRefs }}
+  <section class="not-prose mb-6 rounded-lg border border-gray-200 bg-gray-50/80 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/50" aria-label="External references">
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Vazby</span>
+      {{ range .ExternalRefs }}
+        {{ if .URL }}
+        <a href="{{ .URL }}"
+           target="_blank"
+           rel="noopener noreferrer"
+           class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm transition-colors hover:border-brand-300 hover:text-brand-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:border-brand-600 dark:hover:text-brand-400">
+          {{ if .ID }}<span class="font-mono text-gray-500 dark:text-gray-400">{{ .ID }}</span>{{ end }}
+          {{ if .Label }}<span>{{ .Label }}</span>{{ else if not .ID }}<span>{{ .URL }}</span>{{ end }}
+          <svg class="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M9 7h8v8"/>
+          </svg>
+        </a>
+        {{ end }}
+      {{ end }}
+    </div>
+  </section>
+  {{ end }}
+
   {{/* Content */}}
   <div class="prose prose-gray dark:prose-invert max-w-none
     prose-headings:scroll-mt-20
