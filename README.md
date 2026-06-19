@@ -23,6 +23,7 @@ A self-hosted documentation server — think GitBook or Notion, but as a single 
 - **Backlinks** — every page shows which other pages link to it
 - **Ego-graph** — D2 dependency graph (±1 hop) for each page, accessible via the graph icon in the navbar
 - **Tasks** — collects `- [ ]` / `- [x]` task items across all pages; section-scoped and global views
+- **Page comments** — optional local JSONL-backed comments for page-level and selected-text notes
 - **Hot reload** — `--watch` flag reloads navigation and search index on file changes
 - **Dev mode** — `--dev` flag reloads templates from disk without rebuilding
 - **Single binary** — everything embedded, no Node.js, no build pipeline
@@ -190,6 +191,8 @@ Flags:
       --git-repo-site string    Git repo URL to clone and serve as a site (repeatable)
       --work-dir string         Writable directory for git clones (required with --git-repo-site)
       --library string          Path to dyno-library.yaml with site list and metadata (cannot be combined with --site or --git-repo-site)
+      --enable-comments         Enable page comments
+      --comments-file string    JSONL file for comments (default: <site-root>/.dyno-comments.jsonl)
       --dev                     Dev mode: reload templates and assets from disk on every request
       --watch                   Watch site for changes and reload navigation/search (single-site only)
       --log-format string       Log format: text or json (default "text")
@@ -222,7 +225,12 @@ dyno --library dyno-library.yaml
 
 # Development mode with live reload (single-site only)
 dyno --site ./site --dev --watch
+
+# Enable local comments
+dyno --site ./site --enable-comments --comments-file ./comments.jsonl
 ```
+
+Comments are an MVP feature. They are stored outside Markdown files in append-only JSONL. If an auth proxy sets `X-Auth-Request-User`, `X-Forwarded-User`, or `Remote-User`, dyno uses that as the author; otherwise the form author field is used.
 
 ## Writing content
 

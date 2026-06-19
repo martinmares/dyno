@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mares/dyno/internal/comments"
 	"github.com/mares/dyno/internal/library"
 	"github.com/mares/dyno/internal/markdown"
 	"github.com/mares/dyno/internal/search"
@@ -39,6 +40,7 @@ type LibraryConfig struct {
 	Version   string
 	Commit    string
 	BuildTime time.Time
+	Comments  comments.Store
 }
 
 // NewLibrary creates a LibraryServer that routes across all books.
@@ -118,6 +120,7 @@ func NewLibrary(cfg LibraryConfig, staticFS fs.FS, books []*library.Book, render
 			Commit:     cfg.Commit,
 			BuildTime:  cfg.BuildTime,
 			LibraryURL: dashboardURL,
+			Comments:   cfg.Comments,
 		}
 		// Override the book's base_path to bookBasePath so nav links are correct.
 		bookCfg.SiteCfg = cloneCfgWithBasePath(book.Cfg, bookBasePath)
@@ -134,6 +137,12 @@ func NewLibrary(cfg LibraryConfig, staticFS fs.FS, books []*library.Book, render
 		ls.mux.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
 			ls.servers[slug].mux.ServeHTTP(w, r)
 		})
+		if cfg.Comments != nil {
+			postPattern := "POST " + bookBasePath + "/_comments"
+			ls.mux.HandleFunc(postPattern, func(w http.ResponseWriter, r *http.Request) {
+				ls.servers[slug].mux.ServeHTTP(w, r)
+			})
+		}
 		slog.Info("registered book", "slug", book.Slug, "path", bookBasePath, "pages", book.PageCount)
 	}
 

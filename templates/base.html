@@ -26,6 +26,8 @@
   <style>{{ .DarkCSS }}</style>
 
   <link rel="stylesheet" href="{{ .TailwindURL }}" />
+  {{ if .EasyMDECSSURL }}<link rel="stylesheet" href="{{ .EasyMDECSSURL }}" />{{ end }}
+  {{ if .FontAwesomeURL }}<link rel="stylesheet" href="{{ .FontAwesomeURL }}" />{{ end }}
   <link rel="stylesheet" href="{{ .AppCSSURL }}" />
 </head>
 <body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 antialiased">
@@ -115,7 +117,7 @@
          hx-get="{{ .EgoGraphURL }}"
          hx-target="#page-content"
          hx-push-url="true"
-         class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400" aria-label="Graf závislostí stránky">
+         class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400" aria-label="Page dependency graph">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
           <circle cx="5" cy="12" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="19" cy="19" r="2"/>
           <line x1="7" y1="11" x2="17" y2="6"/><line x1="7" y1="13" x2="17" y2="18"/>
@@ -151,7 +153,7 @@
         {{ if .EditPageURL }}
         <a href="{{ .EditPageURL }}"
            class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 flex items-center"
-           aria-label="Editovat stránku" title="Editovat stránku">
+           aria-label="Edit page" title="Edit page">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/>
           </svg>
@@ -205,6 +207,7 @@
     </div>
   </footer>
 
+  {{ if .EasyMDEJSURL }}<script src="{{ .EasyMDEJSURL }}"></script>{{ end }}
   <script src="{{ .AppJSURL }}"></script>
 </body>
 

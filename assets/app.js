@@ -260,6 +260,157 @@ function initTaskFilters() {
   });
 }
 
+// ─── Page comments ───────────────────────────────────────────────────────────
+
+function initComments() {
+  document.querySelectorAll('[data-comments-root]:not([data-comments-init])').forEach(function (root) {
+    root.setAttribute('data-comments-init', '1');
+
+    const form = root.querySelector('[data-comments-form]');
+    const selectionBox = root.querySelector('[data-comment-selection]');
+    const selectionText = root.querySelector('[data-comment-selection-text]');
+    const quoteInput = root.querySelector('[data-comment-quote]');
+    const anchorInput = root.querySelector('[data-comment-anchor]');
+    const parentInput = root.querySelector('[data-comment-parent-id]');
+    const clearBtn = root.querySelector('[data-comment-clear-selection]');
+    const replyBox = root.querySelector('[data-comment-reply]');
+    const replyText = root.querySelector('[data-comment-reply-text]');
+    const clearReplyBtn = root.querySelector('[data-comment-clear-reply]');
+    const article = document.querySelector('#page-content .prose');
+    const textarea = form && form.querySelector('textarea[name="body"]');
+    let commentEditor = null;
+
+    if (textarea && typeof EasyMDE !== 'undefined' && !textarea.dataset.easymdeInit) {
+      textarea.dataset.easymdeInit = '1';
+      commentEditor = new EasyMDE({
+        element: textarea,
+        autoDownloadFontAwesome: false,
+        spellChecker: false,
+        status: false,
+        minHeight: '120px',
+        maxHeight: '260px',
+        forceSync: true,
+        placeholder: textarea.getAttribute('placeholder') || 'Add a note here...',
+        renderingConfig: {
+          singleLineBreaks: true,
+          codeSyntaxHighlighting: false
+        }
+      });
+      root.dynoCommentEditor = commentEditor;
+    } else if (root.dynoCommentEditor) {
+      commentEditor = root.dynoCommentEditor;
+    }
+
+    function focusCommentEditor() {
+      if (commentEditor && commentEditor.codemirror) {
+        commentEditor.codemirror.focus();
+      } else if (textarea) {
+        textarea.focus();
+      }
+    }
+
+    function clearSelection() {
+      if (quoteInput) quoteInput.value = '';
+      if (anchorInput) anchorInput.value = '';
+      if (selectionText) selectionText.textContent = '';
+      if (selectionBox) selectionBox.hidden = true;
+    }
+
+    function clearReply() {
+      if (parentInput) parentInput.value = '';
+      if (replyText) replyText.textContent = '';
+      if (replyBox) replyBox.hidden = true;
+    }
+
+    function setReply(id, author) {
+      if (!parentInput) return;
+      parentInput.value = id || '';
+      if (replyText) replyText.textContent = 'RE: ' + (author || id || 'comment');
+      if (replyBox) replyBox.hidden = false;
+      if (form) {
+        form.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        focusCommentEditor();
+      }
+    }
+
+    function nearestHeadingID(node) {
+      var el = node && node.nodeType === Node.ELEMENT_NODE ? node : node && node.parentElement;
+      while (el && el !== article) {
+        var prev = el;
+        while (prev) {
+          if (/^H[1-6]$/.test(prev.tagName || '') && prev.id) return prev.id;
+          prev = prev.previousElementSibling;
+        }
+        el = el.parentElement;
+      }
+      return '';
+    }
+
+    function captureSelection() {
+      if (!article || !quoteInput || !anchorInput) return;
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+      const range = sel.getRangeAt(0);
+      if (!article.contains(range.commonAncestorContainer)) return;
+      const text = sel.toString().trim().replace(/\s+/g, ' ');
+      if (!text) return;
+      const quote = text.length > 280 ? text.slice(0, 277) + '...' : text;
+      quoteInput.value = quote;
+      anchorInput.value = nearestHeadingID(range.startContainer);
+      if (selectionText) selectionText.textContent = quote;
+      if (selectionBox) selectionBox.hidden = false;
+      focusCommentEditor();
+    }
+
+    if (window.dynoCommentsMouseupHandler) {
+      document.removeEventListener('mouseup', window.dynoCommentsMouseupHandler);
+    }
+    if (window.dynoCommentsKeyupHandler) {
+      document.removeEventListener('keyup', window.dynoCommentsKeyupHandler);
+    }
+    window.dynoCommentsMouseupHandler = captureSelection;
+    window.dynoCommentsKeyupHandler = function (e) {
+      if (e.key === 'Shift' || e.key.startsWith('Arrow')) captureSelection();
+    };
+    document.addEventListener('mouseup', window.dynoCommentsMouseupHandler);
+    document.addEventListener('keyup', window.dynoCommentsKeyupHandler);
+    if (clearBtn) {
+      clearBtn.addEventListener('click', clearSelection);
+    }
+    if (clearReplyBtn) {
+      clearReplyBtn.addEventListener('click', clearReply);
+    }
+    root.querySelectorAll('[data-comment-reply-to]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        setReply(btn.getAttribute('data-comment-reply-to'), btn.getAttribute('data-comment-reply-author'));
+      });
+    });
+    if (form) {
+      form.addEventListener('submit', function (e) {
+        if (!window.fetch) return;
+        e.preventDefault();
+        if (commentEditor && commentEditor.codemirror) {
+          commentEditor.codemirror.save();
+        }
+        const btn = form.querySelector('button[type="submit"]');
+        if (btn) btn.disabled = true;
+        fetch(form.action, {
+          method: 'POST',
+          body: new FormData(form),
+          headers: { 'Accept': 'application/json' }
+        }).then(function (res) {
+          if (!res.ok) throw new Error('comment failed');
+          window.location.reload();
+        }).catch(function () {
+          form.submit();
+        }).finally(function () {
+          if (btn) btn.disabled = false;
+        });
+      });
+    }
+  });
+}
+
 // ─── Search highlight on destination page ───────────────────────────────────
 
 function clearSearchHighlights() {
@@ -351,6 +502,7 @@ document.addEventListener('DOMContentLoaded', function () {
   updateActiveNavLink(window.location.pathname);
   initTOCScrollSpy();
   initTaskFilters();
+  initComments();
   initCopyButtons();
   initLightbox();
   applySearchHighlights();
@@ -369,6 +521,7 @@ document.addEventListener('htmx:afterSwap', function (e) {
     initMermaid();
     initTOCScrollSpy();
     initTaskFilters();
+    initComments();
     initCopyButtons();
     initLightbox();
     applySearchHighlights();
@@ -690,11 +843,11 @@ document.addEventListener('click', function(e) {
   var url = btn.getAttribute('data-ego-url');
   if (!url) return;
   container.hidden = false;
-  container.innerHTML = '<div style="padding:1rem;color:#9ca3af;font-size:0.8rem">Načítám graf…</div>';
+  container.innerHTML = '<div style="padding:1rem;color:#9ca3af;font-size:0.8rem">Loading graph...</div>';
   fetch(url).then(function(r) { return r.text(); }).then(function(html) {
     container.innerHTML = html;
   }).catch(function() {
-    container.innerHTML = '<div style="padding:1rem;color:#ef4444;font-size:0.8rem">Chyba při načítání grafu.</div>';
+    container.innerHTML = '<div style="padding:1rem;color:#ef4444;font-size:0.8rem">Failed to load graph.</div>';
   });
 });
 
@@ -723,7 +876,7 @@ function initSiteGraph(container) {
       ctx.fillStyle = nodeText;
       ctx.font = '14px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('Žádné stránky nenalezeny.', W/2, H/2);
+      ctx.fillText('No pages found.', W/2, H/2);
       return;
     }
 
@@ -872,7 +1025,7 @@ function initSiteGraph(container) {
     ctx.fillStyle = '#ef4444';
     ctx.font = '14px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('Chyba při načítání dat grafu.', W/2, H/2);
+    ctx.fillText('Failed to load graph data.', W/2, H/2);
   });
 }
 

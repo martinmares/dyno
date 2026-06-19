@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mares/dyno/internal/comments"
 	"github.com/mares/dyno/internal/config"
 	"github.com/mares/dyno/internal/library"
 	"github.com/mares/dyno/internal/markdown"
@@ -121,7 +123,7 @@ Body.
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "Vazby") {
+	if !strings.Contains(body, "Links") {
 		t.Fatalf("expected external refs heading, got: %s", body)
 	}
 	if !strings.Contains(body, `href="https://projects.example.test/PROJ128"`) {
@@ -129,6 +131,75 @@ Body.
 	}
 	if !strings.Contains(body, `target="_blank"`) || !strings.Contains(body, `rel="noopener noreferrer"`) {
 		t.Fatalf("expected safe new-window link, got: %s", body)
+	}
+}
+
+func TestPageCommentsCanBeAddedAndRendered(t *testing.T) {
+	srv := newTestServer(t)
+	store, err := comments.NewJSONLStore(filepath.Join(t.TempDir(), "comments.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv.comments = store
+	srv.commentsPath = "/_comments"
+	srv.mux.HandleFunc("POST /_comments", srv.addCommentHandler)
+
+	form := strings.NewReader("page_path=/&author=Alice&body=Looks+**good**&anchor=intro&quote=Selected+text")
+	req := httptest.NewRequest(http.MethodPost, "/_comments", form)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var first comments.Comment
+	if err := json.Unmarshal(rec.Body.Bytes(), &first); err != nil {
+		t.Fatal(err)
+	}
+
+	replyForm := strings.NewReader("page_path=/&parent_id=" + first.ID + "&author=Bob&body=Re:+agreed")
+	req = httptest.NewRequest(http.MethodPost, "/_comments", replyForm)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+	rec = httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected reply 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/", nil)
+	rec = httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected page 200, got %d", rec.Code)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{"Comments", "Alice", "<strong>good</strong>", "Selected text", "Bob", "Re: agreed", "RE"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("expected %q in rendered page, got: %s", want, body)
+		}
+	}
+}
+
+func TestCommentsDisablePageConditionalNotModified(t *testing.T) {
+	srv := newTestServer(t)
+	store, err := comments.NewJSONLStore(filepath.Join(t.TempDir(), "comments.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv.comments = store
+	srv.commentsPath = "/_comments"
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("If-None-Match", `"anything"`)
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 with comments enabled, got %d", rec.Code)
+	}
+	if got := rec.Header().Get("Cache-Control"); got != "no-store" {
+		t.Fatalf("expected no-store cache control, got %q", got)
 	}
 }
 

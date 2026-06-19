@@ -92,7 +92,7 @@
       <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
       </svg>
-      Zpět
+      Back
     </a>
 
     <div class="w-px h-5 bg-gray-200 dark:bg-gray-700 shrink-0"></div>
@@ -103,7 +103,7 @@
     </span>
 
     <!-- Save status -->
-    <span id="save-status" class="text-xs text-gray-400 dark:text-gray-500 shrink-0 opacity-0">Uloženo</span>
+    <span id="save-status" class="text-xs text-gray-400 dark:text-gray-500 shrink-0 opacity-0">Saved</span>
 
     <!-- Save button -->
     <button id="save-btn"
@@ -113,7 +113,7 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M17 3v4H7V3"/>
         <path stroke-linecap="round" stroke-linejoin="round" d="M9 17h6"/>
       </svg>
-      Uložit <kbd class="ml-1 text-xs opacity-70">Ctrl+S</kbd>
+      Save <kbd class="ml-1 text-xs opacity-70">Ctrl+S</kbd>
     </button>
   </div>
 
@@ -315,27 +315,51 @@
 
   // Save
   const saveStatus = document.getElementById('save-status');
+  const saveButton = document.getElementById('save-btn');
   let saveTimer = null;
+  let revision = '{{ .Revision }}';
 
   function save() {
+    if (saveButton.disabled) return;
     const src = cm.getValue();
     const fd = new FormData();
     fd.append('source', src);
-    fd.append('fs_path', '{{ .FSPath }}');
+    fd.append('page_path', '{{ .PageURL }}');
+    fd.append('revision', revision);
+    saveButton.disabled = true;
+    saveStatus.textContent = 'Saving...';
+    saveStatus.classList.remove('text-red-500', 'dark:text-red-400');
+    saveStatus.style.opacity = '1';
     fetch('{{ .SaveURL }}', { method: 'POST', body: fd })
-      .then(r => r.json())
+      .then(async r => {
+        const data = await r.json();
+        if (!r.ok) throw data;
+        return data;
+      })
       .then(data => {
         if (data.ok) {
-          saveStatus.textContent = 'Uloženo';
+          revision = data.revision;
+          saveStatus.textContent = 'Saved';
           saveStatus.style.opacity = '1';
           clearTimeout(saveTimer);
           saveTimer = setTimeout(() => { saveStatus.style.opacity = '0'; }, 2000);
         }
       })
-      .catch(console.error);
+      .catch(error => {
+        clearTimeout(saveTimer);
+        saveStatus.textContent = error.code === 'conflict'
+          ? 'Conflict: the file changed on disk. Reload before saving.'
+          : (error.error || 'Save failed');
+        saveStatus.classList.add('text-red-500', 'dark:text-red-400');
+        saveStatus.style.opacity = '1';
+        console.error(error);
+      })
+      .finally(() => {
+        saveButton.disabled = false;
+      });
   }
 
-  document.getElementById('save-btn').addEventListener('click', save);
+  saveButton.addEventListener('click', save);
 
   // Sync theme changes to CodeMirror
   const observer = new MutationObserver(function() {

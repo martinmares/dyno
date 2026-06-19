@@ -15,6 +15,7 @@ import (
 	"time"
 
 	charmlog "github.com/charmbracelet/log"
+	"github.com/mares/dyno/internal/comments"
 	"github.com/mares/dyno/internal/config"
 	"github.com/mares/dyno/internal/gitrepo"
 	"github.com/mares/dyno/internal/library"
@@ -42,15 +43,17 @@ var (
 
 func main() {
 	var (
-		sites       []string
-		gitRepos    []string
-		workDir     string
-		libraryFile string
-		port        string
-		dev         bool
-		edit        bool
-		watch       bool
-		logFormat   string
+		sites          []string
+		gitRepos       []string
+		workDir        string
+		libraryFile    string
+		port           string
+		dev            bool
+		edit           bool
+		watch          bool
+		enableComments bool
+		commentsFile   string
+		logFormat      string
 	)
 
 	root := &cobra.Command{
@@ -68,7 +71,7 @@ func main() {
 					return fmt.Errorf("--library cannot be combined with --git-repo-site; add the repository to dyno-library.yaml instead")
 				}
 			}
-			return run(sites, gitRepos, workDir, libraryFile, port, dev, edit, watch, logFormat)
+			return run(sites, gitRepos, workDir, libraryFile, port, dev, edit, watch, enableComments, commentsFile, logFormat)
 		},
 	}
 
@@ -80,6 +83,8 @@ func main() {
 	root.Flags().BoolVar(&dev, "dev", false, "Dev mode: reload templates and assets from disk on every request")
 	root.Flags().BoolVar(&edit, "edit", false, "Enable in-browser markdown editor (local use only)")
 	root.Flags().BoolVar(&watch, "watch", false, "Watch site for changes and reload navigation/search (single-site only)")
+	root.Flags().BoolVar(&enableComments, "enable-comments", false, "Enable page comments")
+	root.Flags().StringVar(&commentsFile, "comments-file", "", "JSONL file for comments (default: <site-root>/.dyno-comments.jsonl)")
 	root.Flags().StringVar(&logFormat, "log-format", "text", "Log format: text or json")
 
 	if err := root.Execute(); err != nil {
@@ -87,7 +92,7 @@ func main() {
 	}
 }
 
-func run(sites, gitRepos []string, workDir, libraryFile, port string, dev, edit, watch bool, logFormat string) error {
+func run(sites, gitRepos []string, workDir, libraryFile, port string, dev, edit, watch, enableComments bool, commentsFile, logFormat string) error {
 	setupLogger(logFormat)
 
 	// DYNO_EDIT=true enables editor mode even without --edit flag.
@@ -230,16 +235,16 @@ func run(sites, gitRepos []string, workDir, libraryFile, port string, dev, edit,
 
 	forceLibraryMode := libraryFile != ""
 	if len(absSites) == 1 && !forceLibraryMode {
-		return runSingleWithGit(absSites[0], port, dev, edit, watch, renderer, staticFS, gitConfigs[absSites[0]], cfgOverrides[absSites[0]])
+		return runSingleWithGit(absSites[0], port, dev, edit, watch, enableComments, commentsFile, renderer, staticFS, gitConfigs[absSites[0]], cfgOverrides[absSites[0]])
 	}
-	return runLibraryWithGit(absSites, port, dev, renderer, staticFS, gitConfigs, cfgOverrides)
+	return runLibraryWithGit(absSites, port, dev, enableComments, commentsFile, renderer, staticFS, gitConfigs, cfgOverrides)
 }
 
 func runSingle(siteDir, port string, dev, watch bool, renderer *markdown.Renderer, staticFS fs.FS) error {
-	return runSingleWithGit(siteDir, port, dev, false, watch, renderer, staticFS, gitrepo.Config{}, nil)
+	return runSingleWithGit(siteDir, port, dev, false, watch, false, "", renderer, staticFS, gitrepo.Config{}, nil)
 }
 
-func runSingleWithGit(siteDir, port string, dev, edit, watch bool, renderer *markdown.Renderer, staticFS fs.FS, gitCfg gitrepo.Config, cfgOverride *config.SiteConfig) error {
+func runSingleWithGit(siteDir, port string, dev, edit, watch, enableComments bool, commentsFile string, renderer *markdown.Renderer, staticFS fs.FS, gitCfg gitrepo.Config, cfgOverride *config.SiteConfig) error {
 	paths, err := sitepath.Resolve(siteDir)
 	if err != nil {
 		return err
@@ -304,6 +309,14 @@ func runSingleWithGit(siteDir, port string, dev, edit, watch bool, renderer *mar
 		Commit:     buildCommit,
 		BuildTime:  parseBuildTime(buildDate),
 	}
+	if enableComments {
+		store, err := newCommentsStore(commentsFile, siteRoot)
+		if err != nil {
+			return fmt.Errorf("comments store: %w", err)
+		}
+		cfg.Comments = store
+		slog.Info("comments enabled", "file", storePath(commentsFile, siteRoot))
+	}
 	srv, err := server.New(cfg, staticFS, nav, idx, renderer)
 	if err != nil {
 		return fmt.Errorf("failed to create server: %w", err)
@@ -348,7 +361,7 @@ func runSingleWithGit(siteDir, port string, dev, edit, watch bool, renderer *mar
 }
 
 func runLibrary(siteDirs []string, port string, dev bool, renderer *markdown.Renderer, staticFS fs.FS) error {
-	return runLibraryWithGit(siteDirs, port, dev, renderer, staticFS, nil, nil)
+	return runLibraryWithGit(siteDirs, port, dev, false, "", renderer, staticFS, nil, nil)
 }
 
 func navFilter(cfg *config.SiteConfig) navigation.Filter {
@@ -361,7 +374,18 @@ func navFilter(cfg *config.SiteConfig) navigation.Filter {
 	}
 }
 
-func runLibraryWithGit(siteDirs []string, port string, dev bool, renderer *markdown.Renderer, staticFS fs.FS, gitConfigs map[string]gitrepo.Config, cfgOverrides map[string]*config.SiteConfig) error {
+func newCommentsStore(path, siteRoot string) (*comments.JSONLStore, error) {
+	return comments.NewJSONLStore(storePath(path, siteRoot))
+}
+
+func storePath(path, siteRoot string) string {
+	if path != "" {
+		return path
+	}
+	return filepath.Join(siteRoot, ".dyno-comments.jsonl")
+}
+
+func runLibraryWithGit(siteDirs []string, port string, dev, enableComments bool, commentsFile string, renderer *markdown.Renderer, staticFS fs.FS, gitConfigs map[string]gitrepo.Config, cfgOverrides map[string]*config.SiteConfig) error {
 	slog.Info("library mode", "books", len(siteDirs))
 
 	// Load global basePath from first site's dyno.yaml (or use default).
@@ -402,6 +426,14 @@ func runLibraryWithGit(siteDirs []string, port string, dev bool, renderer *markd
 		Version:   version,
 		Commit:    buildCommit,
 		BuildTime: parseBuildTime(buildDate),
+	}
+	if enableComments {
+		store, err := newCommentsStore(commentsFile, firstRoot)
+		if err != nil {
+			return fmt.Errorf("comments store: %w", err)
+		}
+		libCfg.Comments = store
+		slog.Info("comments enabled", "file", storePath(commentsFile, firstRoot))
 	}
 	libSrv, err := server.NewLibrary(libCfg, staticFS, books, renderer)
 	if err != nil {

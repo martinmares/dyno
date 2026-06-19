@@ -75,19 +75,19 @@ func (s *Server) gitHistoryHandler(w http.ResponseWriter, r *http.Request) {
 
 func renderGitHistoryHTML(commits []GitCommit) string {
 	if len(commits) == 0 {
-		return `<h1 class="text-2xl font-bold mb-4">Git history</h1><p class="text-gray-500 dark:text-gray-400">Git history není pro tuto stránku dostupná.</p>`
+		return `<h1 class="text-2xl font-bold mb-4">Git history</h1><p class="text-gray-500 dark:text-gray-400">Git history is not available for this page.</p>`
 	}
 
 	var b strings.Builder
 	fmt.Fprintf(&b, `<h1 class="text-2xl font-bold mb-2">Git history</h1>`)
-	fmt.Fprintf(&b, `<p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Posledních %d commitů</p>`, len(commits))
+	fmt.Fprintf(&b, `<p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Latest %d commits</p>`, len(commits))
 	b.WriteString(`<div class="overflow-x-auto not-prose">`)
 	b.WriteString(`<table class="w-full text-sm border-collapse">`)
 	b.WriteString(`<thead><tr class="border-b border-gray-200 dark:border-gray-700">`)
 	b.WriteString(`<th class="text-left py-2 pr-4 font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Datum</th>`)
 	b.WriteString(`<th class="text-left py-2 pr-4 font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Commit</th>`)
 	b.WriteString(`<th class="text-left py-2 pr-4 font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Autor</th>`)
-	b.WriteString(`<th class="text-left py-2 font-semibold text-gray-600 dark:text-gray-400">Zpráva</th>`)
+	b.WriteString(`<th class="text-left py-2 font-semibold text-gray-600 dark:text-gray-400">Message</th>`)
 	b.WriteString(`</tr></thead><tbody>`)
 	for _, c := range commits {
 		fmt.Fprintf(&b,

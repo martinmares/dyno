@@ -23,6 +23,7 @@ Samostatně hostovaný dokumentační server — něco jako GitBook nebo Notion,
 - **Zpětné odkazy** — každá stránka zobrazuje, které jiné stránky na ni odkazují
 - **Graf závislostí** — D2 graf (±1 hop) pro každou stránku, dostupný přes ikonu grafu v navbaru
 - **Úkoly** — sbírá `- [ ]` / `- [x]` položky ze všech stránek; zobrazení za sekci i globálně
+- **Komentáře ke stránkám** — volitelné lokální komentáře uložené v JSONL pro poznámky ke stránce nebo označenému textu
 - **Hot reload** — příznak `--watch` přenačte navigaci a vyhledávací index při změně souborů
 - **Dev režim** — příznak `--dev` načítá šablony z disku bez nutnosti rebuildu
 - **Jediný binární soubor** — vše je embedováno, žádný Node.js, žádný build pipeline
@@ -187,6 +188,8 @@ Příznaky:
       --git-repo-site string    URL git repozitáře ke klonování a servírování (opakovatelné)
       --work-dir string         Zapisovatelný adresář pro git klony (povinné s --git-repo-site)
       --library string          Cesta k dyno-library.yaml se seznamem webů a metadaty (nelze kombinovat s --site ani --git-repo-site)
+      --enable-comments         Zapne komentáře ke stránkám
+      --comments-file string    JSONL soubor pro komentáře (výchozí <site-root>/.dyno-comments.jsonl)
       --dev                     Dev režim: načítá šablony z disku při každém požadavku
       --watch                   Sleduje web a přenačítá navigaci a vyhledávání (pouze single-site)
       --log-format string       Formát logů: text nebo json (výchozí "text")
@@ -219,7 +222,12 @@ dyno --library dyno-library.yaml
 
 # Vývojový režim s live reload (pouze single-site)
 dyno --site ./site --dev --watch
+
+# Lokální komentáře
+dyno --site ./site --enable-comments --comments-file ./comments.jsonl
 ```
+
+Komentáře jsou zatím MVP. Ukládají se mimo Markdown soubory do append-only JSONL. Pokud auth proxy nastaví `X-Auth-Request-User`, `X-Forwarded-User` nebo `Remote-User`, dyno použije tuto hodnotu jako autora; jinak se použije autor z formuláře.
 
 ## Psaní obsahu
 

@@ -42,7 +42,7 @@
   {{ if .ExternalRefs }}
   <section class="not-prose mb-6 rounded-lg border border-gray-200 bg-gray-50/80 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/50" aria-label="External references">
     <div class="flex flex-wrap items-center gap-2">
-      <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Vazby</span>
+      <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Links</span>
       {{ range .ExternalRefs }}
         {{ if .URL }}
         <a href="{{ .URL }}"
@@ -70,6 +70,62 @@
     {{ .ContentHTML }}
   </div>
 
+  {{ if .CommentsURL }}
+  <section id="comments"
+           class="not-prose mt-10 border-t border-gray-200 pt-5 dark:border-gray-800"
+           data-comments-root
+           data-page-path="{{ .CurrentPath }}">
+    <div class="mb-4 flex items-center justify-between gap-3">
+      <div>
+        <h2 class="text-base font-semibold text-gray-950 dark:text-gray-50">Comments</h2>
+        <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">Add a page note or comment on selected text.</p>
+      </div>
+      <span class="inline-flex min-w-7 items-center justify-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">{{ len .Comments }}</span>
+    </div>
+
+    <div class="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-950" data-comments-list>
+      {{ if .CommentTree }}
+        {{ template "comment-tree" dict "Nodes" .CommentTree "CommentsURL" .CommentsURL "CurrentPath" .CurrentPath }}
+      {{ else }}
+        <p class="px-4 py-5 text-sm text-gray-500 dark:text-gray-400">No comments yet.</p>
+      {{ end }}
+    </div>
+
+    <form class="mt-4 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-950" method="post" action="{{ .CommentsURL }}" data-comments-form>
+      <input type="hidden" name="page_path" value="{{ .CurrentPath }}">
+      <input type="hidden" name="parent_id" data-comment-parent-id>
+      <input type="hidden" name="anchor" data-comment-anchor>
+      <input type="hidden" name="quote" data-comment-quote>
+      <div class="mx-4 mt-4 flex items-center justify-between gap-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200" data-comment-reply hidden>
+        <span data-comment-reply-text></span>
+        <button type="button" class="text-sky-700 hover:text-sky-950 dark:text-sky-300 dark:hover:text-sky-100" data-comment-clear-reply aria-label="Clear reply">×</button>
+      </div>
+      <div class="mx-4 mt-4 flex items-center justify-between gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200" data-comment-selection hidden>
+        <span data-comment-selection-text></span>
+        <button type="button" class="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100" data-comment-clear-selection aria-label="Clear selection">×</button>
+      </div>
+      <label class="block border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+        <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Author</span>
+        <input class="block w-full border-0 bg-transparent p-0 text-sm text-gray-950 outline-none placeholder:text-gray-400 dark:text-gray-50 dark:placeholder:text-gray-600" type="text" name="author" autocomplete="name" placeholder="Anonymous">
+      </label>
+      <label class="block px-4 py-3">
+        <span class="sr-only">Comment</span>
+        <textarea class="block min-h-24 w-full resize-y border-0 bg-transparent p-0 text-sm leading-6 text-gray-950 outline-none placeholder:text-gray-400 dark:text-gray-50 dark:placeholder:text-gray-600" name="body" rows="3" required data-comment-editor placeholder="Add a note here... Markdown is supported."></textarea>
+      </label>
+      <div class="flex items-center justify-between gap-3 border-t border-gray-100 bg-gray-50 px-3 py-2 dark:border-gray-800 dark:bg-gray-900/70">
+        <p class="text-xs text-gray-500 dark:text-gray-400">Markdown supported. Stored outside Markdown in JSONL.</p>
+        <button type="submit" class="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-700 disabled:cursor-wait disabled:opacity-60" aria-label="Add comment">
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M22 2L11 13"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M22 2l-7 20-4-9-9-4 20-7z"/>
+          </svg>
+          Add comment
+        </button>
+      </div>
+    </form>
+  </section>
+  {{ end }}
+
   {{/* Edit on GitHub + last updated */}}
   {{ if .EditURL }}
   <div class="mt-8 pt-4 border-t border-gray-100 dark:border-gray-800 flex justify-end">
@@ -88,7 +144,7 @@
   <div class="backlinks-section">
     <h2 class="backlinks-heading">
       <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-      Odkazují sem
+      Backlinks
     </h2>
     <div class="backlinks-list">
       {{ range .Backlinks }}
@@ -140,6 +196,45 @@
 </article>
 {{ end }}
 
+{{ define "comment-tree" }}
+  {{ range .Nodes }}
+  <article id="comment-{{ .Comment.ID }}" class="px-4 py-3">
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+          <strong class="text-sm font-semibold text-gray-950 dark:text-gray-50">{{ .Comment.Author }}</strong>
+          <time datetime="{{ .Comment.CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}">{{ .Comment.CreatedAt.Format "2006-01-02 15:04" }}</time>
+          {{ if .Comment.Anchor }}<a class="font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300" href="#{{ .Comment.Anchor }}">#{{ .Comment.Anchor }}</a>{{ end }}
+          {{ if .Comment.ParentID }}<span class="rounded bg-gray-100 px-1.5 py-0.5 font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">RE</span>{{ end }}
+        </div>
+        {{ if .Comment.Quote }}
+        <blockquote class="mt-2 inline-block rounded bg-gray-100 px-2 py-1 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">{{ .Comment.Quote }}</blockquote>
+        {{ end }}
+        <div class="prose prose-sm prose-gray mt-2 max-w-none dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-pre:my-2">
+          {{ .BodyHTML }}
+        </div>
+      </div>
+      <button type="button"
+              class="inline-flex shrink-0 items-center gap-1 rounded-md border border-transparent px-2 py-1 text-xs font-medium text-gray-500 hover:border-gray-200 hover:bg-gray-50 hover:text-brand-600 dark:text-gray-400 dark:hover:border-gray-800 dark:hover:bg-gray-900 dark:hover:text-brand-400"
+              data-comment-reply-to="{{ .Comment.ID }}"
+              data-comment-reply-author="{{ .Comment.Author }}"
+              aria-label="Reply">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 14l-4-4 4-4"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 10h11a4 4 0 014 4v2"/>
+        </svg>
+        Reply
+      </button>
+    </div>
+    {{ if .Children }}
+    <div class="mt-3 border-l-2 border-teal-200 pl-4 dark:border-teal-800">
+      {{ template "comment-tree" dict "Nodes" .Children "CommentsURL" $.CommentsURL "CurrentPath" $.CurrentPath }}
+    </div>
+    {{ end }}
+  </article>
+  {{ end }}
+{{ end }}
+
 {{ define "toc-sidebar-inner" }}
   {{ if .TOC }}
   <div class="sticky top-20 toc-scroll">
@@ -171,7 +266,7 @@
   {{ if .EditPageURL }}
   <a href="{{ .EditPageURL }}"
      class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 flex items-center"
-     aria-label="Editovat stránku" title="Editovat stránku">
+     aria-label="Edit page" title="Edit page">
     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/>
     </svg>

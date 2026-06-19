@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mares/dyno/internal/comments"
 	"github.com/mares/dyno/internal/config"
 	"github.com/mares/dyno/internal/markdown"
 	"github.com/mares/dyno/internal/navigation"
@@ -19,15 +20,16 @@ import (
 
 // Server holds all dependencies and serves the documentation site.
 type Server struct {
-	mu         sync.RWMutex
-	siteRoot   string
-	contentDir string
-	basePath   string // e.g. "/docs"
+	mu              sync.RWMutex
+	siteRoot        string
+	contentDir      string
+	basePath        string // e.g. "/docs"
 	searchPath      string // e.g. "/docs/_search"
 	tasksPath       string // e.g. "/docs/_tasks"
 	sectionTaskPath string // e.g. "/docs/_tasks/section"
 	graphPath       string // e.g. "/docs/_graph"
 	gitHistoryPath  string // e.g. "/docs/_git/history" — empty if not a git repo
+	commentsPath    string // e.g. "/docs/_comments" — empty when comments are disabled
 
 	libraryURL string // non-empty when running as a book inside a LibraryServer
 	editMode   bool   // --edit / DYNO_EDIT=true: enables in-browser markdown editor
@@ -39,6 +41,7 @@ type Server struct {
 	taskIndex  *tasks.Index
 	backlinks  navigation.BacklinkIndex
 	taskHTML   string
+	comments   comments.Store
 	renderer   *markdown.Renderer
 	buildTime  time.Time
 	tmpl       *template.Template // nil in dev mode (re-parsed per request)
@@ -107,6 +110,7 @@ type Config struct {
 	Commit     string
 	BuildTime  time.Time
 	LibraryURL string // set by LibraryServer: URL back to the dashboard
+	Comments   comments.Store
 }
 
 func newFuncMap() template.FuncMap {
@@ -168,6 +172,7 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 		commit:     cfg.Commit,
 		nav:        nav,
 		idx:        idx,
+		comments:   cfg.Comments,
 		renderer:   renderer,
 		buildTime:  cfg.BuildTime,
 		tmplFS:     tmplFS,
@@ -222,6 +227,14 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 	s.tasksPath = tasksPath
 	s.sectionTaskPath = sectionTaskPath
 	s.graphPath = graphPath
+	if s.comments != nil {
+		commentsPath := "/_comments"
+		if basePath != "" {
+			commentsPath = basePath + "/_comments"
+		}
+		s.commentsPath = commentsPath
+		s.mux.HandleFunc("POST "+commentsPath, s.addCommentHandler)
+	}
 
 	// Only expose git history route when content lives inside a git repository.
 	if findGitRoot(cfg.ContentDir) != "" {

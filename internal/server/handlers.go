@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mares/dyno/internal/comments"
 	"github.com/mares/dyno/internal/config"
 	"github.com/mares/dyno/internal/markdown"
 	"github.com/mares/dyno/internal/navigation"
@@ -31,6 +32,9 @@ type PageData struct {
 	CurrentPath  string
 	TOC          []markdown.TOCEntry
 	ExternalRefs []markdown.ExternalRef
+	Comments     []comments.Comment
+	CommentTree  []CommentNode
+	CommentsURL  string
 	LightCSS     template.CSS
 	DarkCSS      template.CSS
 	IsHTMX       bool
@@ -45,6 +49,9 @@ type PageData struct {
 	TailwindURL     string
 	AppCSSURL       string
 	AppJSURL        string
+	EasyMDECSSURL   string
+	EasyMDEJSURL    string
+	FontAwesomeURL  string
 	HTMXURL         string
 	MermaidURL      string
 	FaviconURL      string
@@ -62,6 +69,13 @@ type PageData struct {
 	EditMode        bool   // true when --edit is active
 	EditPageURL     string // URL to open the editor for this page (empty if not editable)
 	GitHistoryURL   string // non-empty when git history is available
+}
+
+type CommentNode struct {
+	Comment  comments.Comment
+	BodyHTML template.HTML
+	Children []CommentNode
+	Depth    int
 }
 
 // LibraryData is passed to the library dashboard template.
@@ -112,6 +126,14 @@ func isHTMX(r *http.Request) bool {
 
 // render executes a named template, re-parsing from disk in dev mode.
 func (s *Server) render(w http.ResponseWriter, name string, data any) error {
+	if page, ok := data.(PageData); ok {
+		if s.comments != nil {
+			page.EasyMDECSSURL = s.assetURL("easymde.min.css")
+			page.EasyMDEJSURL = s.assetURL("easymde.min.js")
+			page.FontAwesomeURL = s.assetURL("font-awesome.min.css")
+		}
+		data = page
+	}
 	tmpl, err := s.getTemplate()
 	if err != nil {
 		return err
@@ -182,7 +204,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	if !isHTMX(r) {
+	if !isHTMX(r) && s.comments == nil {
 		pageETag := fmt.Sprintf(`W/"%x-%x"`, info.ModTime().UnixNano(), info.Size())
 		w.Header().Set("ETag", pageETag)
 		w.Header().Set("Last-Modified", info.ModTime().UTC().Format(http.TimeFormat))
@@ -191,6 +213,8 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNotModified)
 			return
 		}
+	} else if !isHTMX(r) {
+		w.Header().Set("Cache-Control", "no-store")
 	}
 
 	res, err := s.getRenderedPage(fsPath)
@@ -211,6 +235,10 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	prev, next := navigation.PrevNext(s.getNav(), node.FullPath)
+	pageComments, err := s.listComments(node.FullPath)
+	if err != nil {
+		slog.Warn("failed to load comments", "path", node.FullPath, "err", err)
+	}
 
 	editURL := ""
 	if s.siteCfg.GitHubURL != "" && node.FSPath != "" {
@@ -229,6 +257,9 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		CurrentPath:     node.FullPath,
 		TOC:             res.TOC,
 		ExternalRefs:    res.Frontmatter.ExternalRefs,
+		Comments:        pageComments,
+		CommentTree:     buildCommentTree(pageComments, renderCommentMarkdown),
+		CommentsURL:     s.commentsPath,
 		LightCSS:        template.CSS(s.renderer.LightCSS()),
 		DarkCSS:         template.CSS(s.renderer.DarkCSS()),
 		IsHTMX:          isHTMX(r),
@@ -554,8 +585,8 @@ func (s *Server) graphHandler(w http.ResponseWriter, r *http.Request) {
 	contentHTML := template.HTML(buildDepsTable(s.getNav(), s.backlinks, s.graphPath))
 	selfURL := s.graphPath
 	data := PageData{
-		Title:        "Závislosti stránek",
-		Breadcrumbs:  []navigation.NavNode{{Title: "Home", FullPath: s.basePath + "/"}, {Title: "Závislosti stránek", FullPath: selfURL}},
+		Title:        "Page Dependencies",
+		Breadcrumbs:  []navigation.NavNode{{Title: "Home", FullPath: s.basePath + "/"}, {Title: "Page Dependencies", FullPath: selfURL}},
 		ContentHTML:  contentHTML,
 		Nav:          s.getNav(),
 		IsHTMX:       isHTMX(r),
@@ -666,7 +697,7 @@ func (s *Server) egoGraphHandler(w http.ResponseWriter, r *http.Request) {
 	content.WriteString(svg)
 	if len(nodes) > 1 {
 		content.WriteString(`<div class="ego-neighbours">`)
-		content.WriteString(`<p class="ego-neighbours-heading">Sousedé</p>`)
+		content.WriteString(`<p class="ego-neighbours-heading">Neighbours</p>`)
 		for url, n := range nodes {
 			if url == pagePath {
 				continue
@@ -685,11 +716,11 @@ func (s *Server) egoGraphHandler(w http.ResponseWriter, r *http.Request) {
 
 	selfURL := s.graphPath + suffix
 	data := PageData{
-		Title: "Graf — " + centerNode.Title,
+		Title: "Graph - " + centerNode.Title,
 		Breadcrumbs: []navigation.NavNode{
 			{Title: "Home", FullPath: s.basePath + "/"},
 			{Title: centerNode.Title, FullPath: centerNode.FullPath},
-			{Title: "Graf", FullPath: selfURL},
+			{Title: "Graph", FullPath: selfURL},
 		},
 		ContentHTML:  template.HTML(content.String()),
 		Nav:          s.getNav(),
@@ -759,7 +790,7 @@ func (s *Server) graphNeighboursHandler(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if len(neighbours) == 0 {
-		fmt.Fprint(w, `<span class="ego-nb-empty">žádní další sousedé</span>`)
+		fmt.Fprint(w, `<span class="ego-nb-empty">no other neighbours</span>`)
 		return
 	}
 	idx := s.getIdx()
@@ -840,14 +871,14 @@ func buildDepsTable(root *navigation.NavNode, bl navigation.BacklinkIndex, graph
 	})
 
 	if len(rows) == 0 {
-		return `<div class="tasks-empty">Žádné závislosti nebyly nalezeny.</div>`
+		return `<div class="tasks-empty">No dependencies were found.</div>`
 	}
 
 	var b strings.Builder
 	b.WriteString(`<div class="deps-table-wrap">`)
-	b.WriteString(`<p class="deps-summary">Stránky s alespoň jednou vazbou — kliknutím na název otevřete ego-graf.</p>`)
+	b.WriteString(`<p class="deps-summary">Pages with at least one link. Click a page name to open its ego graph.</p>`)
 	b.WriteString(`<table class="deps-table">`)
-	b.WriteString(`<thead><tr><th>Stránka</th><th>Odkazuje na</th><th>Odkazují sem</th></tr></thead>`)
+	b.WriteString(`<thead><tr><th>Page</th><th>Links to</th><th>Linked from</th></tr></thead>`)
 	b.WriteString(`<tbody>`)
 	for _, row := range rows {
 		egoURL := graphPath + strings.TrimRight(row.node.FullPath, "/")[len(strings.TrimRight(graphPath, "/"))-len(graphPath):]
