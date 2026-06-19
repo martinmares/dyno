@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -77,6 +78,19 @@ func WalkNodes(node *NavNode, fn func(*NavNode)) {
 	for _, ch := range node.Children {
 		WalkNodes(ch, fn)
 	}
+}
+
+// FindNodeByFSPath returns the page backed by fsPath, including directory
+// landing pages whose filesystem path belongs to an IsDir node.
+func FindNodeByFSPath(root *NavNode, fsPath string) *NavNode {
+	cleanPath := filepath.Clean(fsPath)
+	var found *NavNode
+	WalkNodes(root, func(node *NavNode) {
+		if found == nil && node.FSPath != "" && filepath.Clean(node.FSPath) == cleanPath {
+			found = node
+		}
+	})
+	return found
 }
 
 // extractLinkTargets returns resolved page URLs linked from src markdown content.

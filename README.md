@@ -70,6 +70,23 @@ content_include:
   - "README.md"
 content_exclude:
   - "**/drafts/**"
+frontmatter:
+  display: [document-status, document-owner, document-tags, updated]
+  fields:
+    document-status:
+      label: Status
+      type: select
+      options: [NEW, DRAFT, REVISION, FINAL]
+    document-owner:
+      label: Owner
+      type: text
+    document-tags:
+      label: Tags
+      type: tags
+    updated:
+      label: Source updated
+      type: datetime
+      readonly: true
 ```
 
 All fields are optional — dyno works with no config file at all.
@@ -78,6 +95,8 @@ All fields are optional — dyno works with no config file at all.
 `api_proxy_allow_private_networks` controls whether the widget may call loopback/private targets; default is `true` for compatibility.
 
 `content_include` and `content_exclude` limit which Markdown files are exposed in navigation, search, prev/next, and rendered pages. Patterns are slash-separated globs relative to the content directory; `**` matches across directories. Empty `content_include` means all Markdown files are included, and `content_exclude` always wins.
+
+`frontmatter.fields` defines the metadata form shown by the Markdown editor in `--edit` mode. Field names are repository-defined; Dyno does not hard-code a metadata vocabulary. Supported types are `text`, `textarea`, `select`, `boolean`, `number`, `date`, `datetime`, and `tags`. `display` controls the preferred order, `readonly` prevents form edits, and `required` enables validation. Applying the form patches only changed top-level fields; unknown YAML and untouched complex blocks remain unchanged. The same `frontmatter` block can be configured per site in `dyno-library.yaml`.
 
 ### `dyno-library.yaml`
 

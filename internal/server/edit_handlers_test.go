@@ -13,6 +13,7 @@ import (
 
 func TestEditPageSupportsRootIndexWithoutExposingFilePath(t *testing.T) {
 	srv := newTestServer(t)
+	srv.siteCfg.Frontmatter = metadataTestConfig()
 	req := httptest.NewRequest(http.MethodGet, "/_edit/", nil)
 	rec := httptest.NewRecorder()
 	srv.editPageHandler(rec, req)
@@ -25,6 +26,11 @@ func TestEditPageSupportsRootIndexWithoutExposingFilePath(t *testing.T) {
 	}
 	if strings.Contains(body, srv.contentDir) {
 		t.Fatalf("editor page exposed absolute content path")
+	}
+	for _, want := range []string{"Metadata", "Document metadata", `data-name="document-status"`, `data-name="document-owner"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("expected %q in metadata-aware editor", want)
+		}
 	}
 }
 

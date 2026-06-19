@@ -515,6 +515,7 @@ func siteEntryToSiteConfig(e libraryconfig.SiteEntry) *config.SiteConfig {
 		GitBranch:       e.Branch,
 		ContentInclude:  e.ContentInclude,
 		ContentExclude:  e.ContentExclude,
+		Frontmatter:     e.Frontmatter,
 	}
 	if e.BasePath != "" {
 		cfg.BasePath = &e.BasePath

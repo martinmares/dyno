@@ -2,8 +2,10 @@ package config
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -23,16 +25,97 @@ type SiteConfig struct {
 	Favicon      string  `yaml:"favicon"`   // URL or path under assets/
 	BasePath     *string `yaml:"base_path"` // e.g. "/docs" (default), "" or "/" for root
 	// Library mode fields (used when multiple --site flags are given)
-	Slug                         string   `yaml:"slug"`  // URL segment for this book, e.g. "monitoring"
-	Icon                         string   `yaml:"icon"`  // emoji or short text shown on library card
-	Color                        string   `yaml:"color"` // accent hex color for library card, e.g. "#0ea5e9"
-	APIProxyAllowedHosts         []string `yaml:"api_proxy_allowed_hosts"`
-	APIProxyAllowPrivateNetworks *bool    `yaml:"api_proxy_allow_private_networks"`
-	ContentInclude               []string `yaml:"content_include"`
-	ContentExclude               []string `yaml:"content_exclude"`
+	Slug                         string            `yaml:"slug"`  // URL segment for this book, e.g. "monitoring"
+	Icon                         string            `yaml:"icon"`  // emoji or short text shown on library card
+	Color                        string            `yaml:"color"` // accent hex color for library card, e.g. "#0ea5e9"
+	APIProxyAllowedHosts         []string          `yaml:"api_proxy_allowed_hosts"`
+	APIProxyAllowPrivateNetworks *bool             `yaml:"api_proxy_allow_private_networks"`
+	ContentInclude               []string          `yaml:"content_include"`
+	ContentExclude               []string          `yaml:"content_exclude"`
+	Frontmatter                  FrontmatterConfig `yaml:"frontmatter"`
 	// Git auto-pull (used when site is cloned from a remote repo)
 	GitPullInterval string `yaml:"git_pull_interval"` // e.g. "5m", "false" to disable
 	GitBranch       string `yaml:"git_branch"`        // overrides CLI --git-branch
+}
+
+// FrontmatterConfig describes metadata fields without coupling Dyno to a
+// particular documentation repository or frontmatter vocabulary.
+type FrontmatterConfig struct {
+	Display []string                          `yaml:"display"`
+	Fields  map[string]FrontmatterFieldConfig `yaml:"fields"`
+}
+
+type FrontmatterFieldConfig struct {
+	Label       string   `yaml:"label"`
+	Type        string   `yaml:"type"`
+	Options     []string `yaml:"options"`
+	ReadOnly    bool     `yaml:"readonly"`
+	Required    bool     `yaml:"required"`
+	Description string   `yaml:"description"`
+}
+
+type NamedFrontmatterField struct {
+	Name string
+	FrontmatterFieldConfig
+}
+
+var supportedFrontmatterFieldTypes = map[string]bool{
+	"text": true, "textarea": true, "select": true, "boolean": true,
+	"number": true, "date": true, "datetime": true, "tags": true,
+}
+
+// OrderedFields returns configured fields in display order. Fields omitted
+// from display are appended alphabetically, so configuration additions become
+// visible without requiring a second list change.
+func (c FrontmatterConfig) OrderedFields() []NamedFrontmatterField {
+	seen := make(map[string]bool, len(c.Fields))
+	out := make([]NamedFrontmatterField, 0, len(c.Fields))
+	add := func(name string) {
+		if name == "" || seen[name] {
+			return
+		}
+		field, ok := c.Fields[name]
+		if !ok {
+			return
+		}
+		seen[name] = true
+		out = append(out, NamedFrontmatterField{Name: name, FrontmatterFieldConfig: field})
+	}
+	for _, name := range c.Display {
+		add(name)
+	}
+	rest := make([]string, 0, len(c.Fields)-len(out))
+	for name := range c.Fields {
+		if !seen[name] {
+			rest = append(rest, name)
+		}
+	}
+	sort.Strings(rest)
+	for _, name := range rest {
+		add(name)
+	}
+	return out
+}
+
+func (c *FrontmatterConfig) Normalize() error {
+	for name, field := range c.Fields {
+		trimmedName := strings.TrimSpace(name)
+		if trimmedName == "" || trimmedName != name || strings.ContainsAny(name, "\r\n") {
+			return fmt.Errorf("frontmatter field name %q is invalid", name)
+		}
+		field.Type = strings.ToLower(strings.TrimSpace(field.Type))
+		if field.Type == "" {
+			field.Type = "text"
+		}
+		if !supportedFrontmatterFieldTypes[field.Type] {
+			return fmt.Errorf("frontmatter field %q has unsupported type %q", name, field.Type)
+		}
+		if field.Type == "select" && len(field.Options) == 0 {
+			return fmt.Errorf("frontmatter select field %q requires options", name)
+		}
+		c.Fields[name] = field
+	}
+	return nil
 }
 
 // GetSlug returns the URL slug for this site in library mode.
@@ -152,6 +235,9 @@ func (c *SiteConfig) MergeDefaults(ext SiteConfig) {
 	if len(c.ContentExclude) == 0 && len(ext.ContentExclude) > 0 {
 		c.ContentExclude = ext.ContentExclude
 	}
+	if len(c.Frontmatter.Fields) == 0 && len(ext.Frontmatter.Fields) > 0 {
+		c.Frontmatter = ext.Frontmatter
+	}
 }
 
 // Exists reports whether a dyno.yaml file exists in dir.
@@ -175,6 +261,9 @@ func Load(siteRoot string) (*SiteConfig, error) {
 	}
 
 	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return nil, err
+	}
+	if err := cfg.Frontmatter.Normalize(); err != nil {
 		return nil, err
 	}
 	cfg.Defaults()

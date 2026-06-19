@@ -19,12 +19,15 @@ import (
 // EditPageData is passed to the edit.html template.
 type EditPageData struct {
 	PageData
-	PageURL     string        // dyno URL of the page (for "View page" link)
-	Source      string        // raw markdown source
-	PreviewHTML template.HTML // initial rendered preview
-	PreviewURL  string        // POST endpoint for live preview
-	SaveURL     string        // POST endpoint for saving
-	Revision    string        // content hash used for optimistic concurrency control
+	PageURL        string        // dyno URL of the page (for "View page" link)
+	Source         string        // raw markdown source
+	PreviewHTML    template.HTML // initial rendered preview
+	PreviewURL     string        // POST endpoint for live preview
+	SaveURL        string        // POST endpoint for saving
+	Revision       string        // content hash used for optimistic concurrency control
+	MetadataURL    string
+	MetadataFields []MetadataFieldData
+	MetadataError  string
 }
 
 // editPath returns the /_edit base path for this server.
@@ -75,6 +78,12 @@ func (s *Server) editPageHandler(w http.ResponseWriter, r *http.Request) {
 
 	previewURL := s.editBasePath() + "/preview"
 	saveURL := s.editBasePath() + "/save"
+	metadataURL := s.editBasePath() + "/metadata"
+	metadataFields, metadataErr := buildMetadataFields(s.siteCfg.Frontmatter, src)
+	metadataError := ""
+	if metadataErr != nil {
+		metadataError = metadataErr.Error()
+	}
 
 	data := EditPageData{
 		PageData: PageData{
@@ -100,12 +109,15 @@ func (s *Server) editPageHandler(w http.ResponseWriter, r *http.Request) {
 			EditMode:     true,
 			EditPageURL:  s.editPageURLFor(node.FullPath),
 		},
-		PageURL:     node.FullPath,
-		Source:      string(src),
-		PreviewHTML: template.HTML(res.HTML),
-		PreviewURL:  previewURL,
-		SaveURL:     saveURL,
-		Revision:    contentRevision(src),
+		PageURL:        node.FullPath,
+		Source:         string(src),
+		PreviewHTML:    template.HTML(res.HTML),
+		PreviewURL:     previewURL,
+		SaveURL:        saveURL,
+		Revision:       contentRevision(src),
+		MetadataURL:    metadataURL,
+		MetadataFields: metadataFields,
+		MetadataError:  metadataError,
 	}
 
 	if err := s.render(w, "edit.html", data); err != nil {

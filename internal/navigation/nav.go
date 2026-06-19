@@ -163,8 +163,10 @@ func BuildTreeWithFilter(contentDir, basePath string, filter Filter) (*NavNode, 
 
 		name := d.Name()
 
-		// Skip hidden files/dirs and asset dirs (prefix "." or "_")
-		if strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") {
+		// Skip hidden files/dirs and asset dirs. _group.md is a supported
+		// directory landing page convention used by Obsidian-style repositories.
+		isGroupLanding := strings.EqualFold(name, "_group.md")
+		if strings.HasPrefix(name, ".") || (strings.HasPrefix(name, "_") && !isGroupLanding) {
 			if d.IsDir() {
 				return filepath.SkipDir
 			}
@@ -228,8 +230,12 @@ func BuildTreeWithFilter(contentDir, basePath string, filter Filter) (*NavNode, 
 		}
 
 		var fullPath string
-		if baseName == "index" || numericPrefix.ReplaceAllString(baseName, "") == "index" {
-			// index.md in a dir → the dir's landing page
+		isIndex := isIndexPageName(baseName)
+		isReadmeLanding := strings.EqualFold(baseName, "README") && !directoryHasIndexPage(parentPath)
+		isGroupLanding = strings.EqualFold(baseName, "_group") &&
+			!directoryHasIndexPage(parentPath) && !directoryHasReadmePage(parentPath)
+		if isIndex || isReadmeLanding || isGroupLanding {
+			// The highest-priority landing page becomes the directory page.
 			// The parent dir node gets the FSPath set
 			parentNode.FSPath = path
 			// Override dir title from frontmatter if present
@@ -270,6 +276,37 @@ func BuildTreeWithFilter(contentDir, basePath string, filter Filter) (*NavNode, 
 	pruneEmpty(root)
 
 	return root, nil
+}
+
+func isIndexPageName(baseName string) bool {
+	return strings.EqualFold(numericPrefix.ReplaceAllString(baseName, ""), "index")
+}
+
+func directoryHasIndexPage(dir string) bool {
+	return directoryHasPage(dir, isIndexPageName)
+}
+
+func directoryHasReadmePage(dir string) bool {
+	return directoryHasPage(dir, func(baseName string) bool {
+		return strings.EqualFold(baseName, "README")
+	})
+}
+
+func directoryHasPage(dir string, matches func(string) bool) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.EqualFold(filepath.Ext(entry.Name()), ".md") {
+			continue
+		}
+		baseName := strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name()))
+		if matches(baseName) {
+			return true
+		}
+	}
+	return false
 }
 
 func (f Filter) Allows(relPath string) bool {

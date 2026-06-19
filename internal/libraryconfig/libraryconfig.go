@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/mares/dyno/internal/config"
 	"gopkg.in/yaml.v3"
 )
 
@@ -34,16 +35,17 @@ type SiteEntry struct {
 	// Local directory source
 	Path string `yaml:"path"`
 	// Metadata (fallback if dyno.yaml absent in the site)
-	Title          string   `yaml:"title"`
-	Description    string   `yaml:"description"`
-	LogoText       string   `yaml:"logo_text"`
-	Slug           string   `yaml:"slug"`
-	Icon           string   `yaml:"icon"`
-	Color          string   `yaml:"color"`
-	GitHubURL      string   `yaml:"github_url"`
-	BasePath       string   `yaml:"base_path"`
-	ContentInclude []string `yaml:"content_include"`
-	ContentExclude []string `yaml:"content_exclude"`
+	Title          string                   `yaml:"title"`
+	Description    string                   `yaml:"description"`
+	LogoText       string                   `yaml:"logo_text"`
+	Slug           string                   `yaml:"slug"`
+	Icon           string                   `yaml:"icon"`
+	Color          string                   `yaml:"color"`
+	GitHubURL      string                   `yaml:"github_url"`
+	BasePath       string                   `yaml:"base_path"`
+	ContentInclude []string                 `yaml:"content_include"`
+	ContentExclude []string                 `yaml:"content_exclude"`
+	Frontmatter    config.FrontmatterConfig `yaml:"frontmatter"`
 }
 
 // IsGit reports whether this entry is a git repo.
@@ -88,6 +90,9 @@ func Load(path string) (*LibraryFile, error) {
 		}
 		if s.URL != "" && s.Path != "" {
 			return nil, fmt.Errorf("sites[%d]: cannot set both 'url' and 'path'", i)
+		}
+		if err := lf.Sites[i].Frontmatter.Normalize(); err != nil {
+			return nil, fmt.Errorf("sites[%d]: %w", i, err)
 		}
 	}
 

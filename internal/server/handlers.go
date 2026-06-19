@@ -226,8 +226,8 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
+	res.HTML = s.rewriteMDLinks(res.HTML, node.FSPath)
 	res.HTML = rewriteAbsoluteLinks(res.HTML, s.basePath)
-	res.HTML = rewriteMDLinks(res.HTML, node.FullPath)
 
 	title := res.Title
 	if title == "" {
@@ -338,7 +338,7 @@ func (s *Server) renderSyntheticIndex(w http.ResponseWriter, r *http.Request, no
 	list.WriteString(`</ul>`)
 
 	body := `<p class="synthetic-index-note">` +
-		`This section has no <code>index.md</code>, so this overview was generated automatically.` +
+		`This section has no <code>index.md</code>, <code>README.md</code>, or <code>_group.md</code>, so this overview was generated automatically.` +
 		`</p>`
 	if len(node.Children) > 0 {
 		body += `<h2>Pages in this section</h2>` + list.String()
@@ -1061,43 +1061,56 @@ func rewriteAbsoluteLinks(htmlStr, basePath string) string {
 	})
 }
 
-// mdLinkRe matches href="..." where the href ends with .md
-var mdLinkRe = regexp.MustCompile(`href="([^"]*\.md)"`)
+// mdLinkRe matches Markdown document links and preserves query strings/fragments.
+var mdLinkRe = regexp.MustCompile(`href="([^"?#]*\.md)([?#][^"]*)?"`)
 
-// rewriteMDLinks converts .md file links (Obsidian-style) to dyno page URLs.
-// Relative links are resolved against pageURL (e.g. "/docs/wiki/bss/orders").
-// Each path segment is slug-normalized to match what navigation.BuildTree produces.
-func rewriteMDLinks(htmlStr, pageURL string) string {
+// rewriteMDLinks converts filesystem-relative Markdown links to navigation URLs.
+func (s *Server) rewriteMDLinks(htmlStr, sourceFSPath string) string {
 	return mdLinkRe.ReplaceAllStringFunc(htmlStr, func(match string) string {
 		subs := mdLinkRe.FindStringSubmatch(match)
-		href := subs[1]
+		href, suffix := subs[1], subs[2]
 
 		// URL-decode to get the real path (Goldmark percent-encodes non-ASCII)
 		decoded, err := url.PathUnescape(href)
 		if err != nil {
 			decoded = href
 		}
-		// Strip .md suffix
-		decoded = strings.TrimSuffix(decoded, ".md")
-
-		// Resolve relative paths against the parent dir of pageURL
-		var resolved string
+		var targetPath string
 		if strings.HasPrefix(decoded, "/") {
-			resolved = decoded
+			targetPath = filepath.Join(s.contentDir, filepath.FromSlash(strings.TrimPrefix(decoded, "/")))
 		} else {
-			base := path.Dir(pageURL)
-			resolved = path.Join(base, decoded)
+			targetPath = filepath.Join(filepath.Dir(sourceFSPath), filepath.FromSlash(decoded))
+		}
+		targetPath = filepath.Clean(targetPath)
+
+		rel, err := filepath.Rel(s.contentDir, targetPath)
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return match
 		}
 
-		// Slug-normalize each segment to match navigation.BuildTree output
-		segments := strings.Split(resolved, "/")
-		for i, seg := range segments {
-			if seg != "" {
-				segments[i] = navigation.SlugFromName(seg)
+		if target := navigation.FindNodeByFSPath(s.getNav(), targetPath); target != nil {
+			return `href="` + target.FullPath + suffix + `"`
+		}
+
+		// Some generated repositories link Directory/Directory.md although the
+		// directory itself is the document and the named file does not exist.
+		targetDir := filepath.Dir(targetPath)
+		fileSlug := navigation.SlugFromName(strings.TrimSuffix(filepath.Base(targetPath), filepath.Ext(targetPath)))
+		if info, statErr := os.Stat(targetDir); statErr == nil && info.IsDir() &&
+			fileSlug == navigation.SlugFromName(filepath.Base(targetDir)) {
+			dirRel, relErr := filepath.Rel(s.contentDir, targetDir)
+			if relErr == nil {
+				parts := strings.Split(filepath.ToSlash(dirRel), "/")
+				for i := range parts {
+					parts[i] = navigation.SlugFromName(parts[i])
+				}
+				pageURL := s.basePath + "/" + strings.Join(parts, "/") + "/"
+				if navigation.FindNode(s.getNav(), pageURL) != nil {
+					return `href="` + pageURL + suffix + `"`
+				}
 			}
 		}
-		resolved = strings.Join(segments, "/")
 
-		return `href="` + resolved + `"`
+		return match
 	})
 }

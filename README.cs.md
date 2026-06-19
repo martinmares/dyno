@@ -70,11 +70,30 @@ content_include:
   - "README.md"
 content_exclude:
   - "**/drafts/**"
+frontmatter:
+  display: [document-status, document-owner, document-tags, updated]
+  fields:
+    document-status:
+      label: Stav
+      type: select
+      options: [NEW, DRAFT, REVISION, FINAL]
+    document-owner:
+      label: Vlastnik
+      type: text
+    document-tags:
+      label: Tagy
+      type: tags
+    updated:
+      label: Aktualizovano ve zdroji
+      type: datetime
+      readonly: true
 ```
 
 Všechna pole jsou volitelná — dyno funguje i bez konfiguračního souboru.
 
 `content_include` a `content_exclude` omezují, které Markdown soubory se objeví v navigaci, vyhledávání, předchozí/další navigaci a renderovaných stránkách. Patterny jsou slash-separated globy relativně k adresáři s obsahem; `**` matchuje přes adresáře. Prázdné `content_include` znamená všechny Markdown soubory a `content_exclude` má vždy přednost.
+
+`frontmatter.fields` definuje metadatový formulář zobrazený Markdown editorem v režimu `--edit`. Názvy polí určuje konkrétní repozitář; Dyno nemá natvrdo zabudovaný metadatový slovník. Podporované typy jsou `text`, `textarea`, `select`, `boolean`, `number`, `date`, `datetime` a `tags`. `display` určuje preferované pořadí, `readonly` zakáže editaci přes formulář a `required` zapne validaci. Použití formuláře upraví pouze změněná top-level pole; neznámý YAML a nedotčené složité bloky zůstanou beze změny. Stejný blok `frontmatter` lze nakonfigurovat pro každou site zvlášť v `dyno-library.yaml`.
 
 ### `dyno-library.yaml`
 

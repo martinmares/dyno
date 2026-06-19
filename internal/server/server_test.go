@@ -394,11 +394,34 @@ func TestSyntheticIndexForMissingIndexPage(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, "This section has no <code>index.md</code>") {
+	if !strings.Contains(body, "This section has no <code>index.md</code>, <code>README.md</code>, or <code>_group.md</code>") {
 		t.Fatalf("expected synthetic index note, got: %s", body)
 	}
 	if !strings.Contains(body, "/guides/getting-started") {
 		t.Fatalf("expected child page link, got: %s", body)
+	}
+}
+
+func TestRewriteMDLinksUsesSourceFileAndDirectoryFallback(t *testing.T) {
+	srv := newTestServer(t)
+	landing := filepath.Join(srv.contentDir, "detail-design", "platformizace", "README.md")
+	targetDir := filepath.Join(srv.contentDir, "detail-design", "platformizace", "REQ0122859 - Uživatelské požadavky (BRD)")
+	writeTestFile(t, landing, "# Platformizace\n")
+	writeTestFile(t, filepath.Join(targetDir, "_group.md"), "# Requirements\n")
+
+	nav, err := navigation.BuildTree(srv.contentDir, srv.basePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv.nav = nav
+
+	got := srv.rewriteMDLinks(
+		`<a href="REQ0122859%20-%20U%C5%BEivatelsk%C3%A9%20po%C5%BEadavky%20(BRD)/REQ0122859%20-%20U%C5%BEivatelsk%C3%A9%20po%C5%BEadavky%20(BRD).md">BRD</a>`,
+		landing,
+	)
+	want := `href="/detail-design/platformizace/req0122859-uzivatelske-pozadavky-brd/"`
+	if !strings.Contains(got, want) {
+		t.Fatalf("expected directory landing URL %s, got %s", want, got)
 	}
 }
 
