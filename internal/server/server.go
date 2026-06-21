@@ -30,6 +30,7 @@ type Server struct {
 	sectionTaskPath string // e.g. "/docs/_tasks/section"
 	graphPath       string // e.g. "/docs/_graph"
 	gitHistoryPath  string // e.g. "/docs/_git/history" — empty if not a git repo
+	gitComparePath  string // e.g. "/docs/_git/compare" — empty if not a git repo
 	commentsPath    string // e.g. "/docs/_comments" — empty when comments are disabled
 
 	libraryURL string // non-empty when running as a book inside a LibraryServer
@@ -263,6 +264,12 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 		}
 		s.gitHistoryPath = gitHistoryPath
 		s.mux.HandleFunc("GET "+gitHistoryPath, s.gitHistoryHandler)
+		gitComparePath := "/_git/compare"
+		if basePath != "" {
+			gitComparePath = basePath + "/_git/compare"
+		}
+		s.gitComparePath = gitComparePath
+		s.mux.HandleFunc("GET "+gitComparePath+"/{pagepath...}", s.gitCompareHandler)
 	}
 
 	if basePath == "" {

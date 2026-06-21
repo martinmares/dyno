@@ -113,6 +113,7 @@
       </a>
       {{ end }}
       <!-- Graph (ego-graph of current page, or site deps table) -->
+      <span id="ego-graph-btn" class="contents">
       {{ if .EgoGraphURL }}
       <a href="{{ .EgoGraphURL }}"
          hx-get="{{ .EgoGraphURL }}"
@@ -125,6 +126,7 @@
         </svg>
       </a>
       {{ end }}
+      </span>
       <!-- All tasks -->
       {{ if .TasksURL }}
       <a href="{{ .TasksURL }}"
@@ -148,6 +150,18 @@
         </svg>
       </a>
       {{ end }}
+      <!-- Compare document revisions; updated out-of-band during HTMX navigation. -->
+      <span id="git-compare-btn" class="contents">
+        {{ if .GitCompareURL }}
+        <a href="{{ .GitCompareURL }}"
+           class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 flex items-center"
+           aria-label="Compare versions" title="Compare versions">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h11l-3-3m3 3l-3 3M16 17H5l3 3m-3-3l3-3"/>
+          </svg>
+        </a>
+        {{ end }}
+      </span>
       <!-- Edit page (only in --edit mode) — content is OOB-swapped on HTMX navigation -->
       {{ if .EditMode }}
       <span id="edit-page-btn" class="contents">
@@ -315,8 +329,17 @@
 
 {{ define "sidebar-inner" }}
   {{ template "metadata-filters" . }}
-  <nav class="p-4 space-y-1">
+  <nav class="p-4">
+    <div class="mb-3 flex items-center justify-between gap-2">
+      <p class="text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400">Contents</p>
+      <button type="button" data-nav-expand-all
+        class="rounded px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-brand-600 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-brand-400">
+        Expand all
+      </button>
+    </div>
+    <div class="space-y-1">
     {{ template "nav-tree" (dict "node" .Nav "current" .CurrentPath "depth" 0 "filterQuery" .FilterQuery) }}
+    </div>
   </nav>
 {{ end }}
 

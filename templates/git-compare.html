@@ -1,0 +1,120 @@
+{{ define "git-compare.html" }}
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ .Title }}</title>
+  <link rel="icon" href="{{ .FaviconURL }}">
+  <link rel="stylesheet" href="{{ .TailwindURL }}">
+  <link rel="stylesheet" href="{{ .AppCSSURL }}">
+  <style>{{ .LightCSS }}</style>
+  <style>{{ .DarkCSS }}</style>
+  <script>
+    (function () {
+      try {
+        var stored = localStorage.getItem('dyno-theme');
+        var dark = stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) document.documentElement.classList.add('dark');
+      } catch (_) {}
+    })();
+  </script>
+</head>
+<body class="h-full overflow-hidden bg-white text-gray-900 antialiased dark:bg-gray-950 dark:text-gray-100">
+  <main class="flex h-full min-w-0 flex-col">
+    <header class="shrink-0 border-b border-gray-200 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-900">
+      <div class="flex flex-wrap items-center gap-3">
+        <a href="{{ .PageURL }}" class="inline-flex shrink-0 items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-brand-600 dark:text-gray-400 dark:hover:text-brand-400">
+          <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+          Back
+        </a>
+        <div class="h-5 w-px bg-gray-200 dark:bg-gray-700"></div>
+        <div class="min-w-40 flex-1 truncate text-sm font-semibold" title="{{ .DocumentTitle }}">{{ .DocumentTitle }}</div>
+        <form id="compare-form" action="{{ .CompareURL }}" method="get" class="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2" data-compare-form>
+          <input type="hidden" name="mode" value="{{ .Mode }}">
+          {{ if and (eq .Mode "preview") .IgnoreFrontmatter }}<input type="hidden" name="ignore_frontmatter" value="1">{{ end }}
+          <label class="sr-only" for="left-revision">Older revision</label>
+          <select id="left-revision" name="left" class="max-w-72 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-950" data-revision-select>
+            {{ range .Revisions }}<option value="{{ .ID }}" {{ if eq .ID $.Left.ID }}selected{{ end }}>{{ .Label }}</option>{{ end }}
+          </select>
+          <a href="{{ .SwapURL }}" class="rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-brand-600 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-brand-400" title="Swap revisions" aria-label="Swap revisions">
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h11l-3-3m3 3l-3 3M17 17H6l3 3m-3-3l3-3"/></svg>
+          </a>
+          <label class="sr-only" for="right-revision">Newer revision</label>
+          <select id="right-revision" name="right" class="max-w-72 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-950" data-revision-select>
+            {{ range .Revisions }}<option value="{{ .ID }}" {{ if eq .ID $.Right.ID }}selected{{ end }}>{{ .Label }}</option>{{ end }}
+          </select>
+        </form>
+      </div>
+      <div class="mt-3 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="flex items-center rounded-md border border-gray-200 p-0.5 text-xs font-medium dark:border-gray-700">
+            <a href="{{ .SourceURL }}" class="rounded px-3 py-1.5 {{ if eq .Mode "source" }}bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white{{ else }}text-gray-500 dark:text-gray-400{{ end }}">Source</a>
+            <a href="{{ .PreviewURL }}" class="rounded px-3 py-1.5 {{ if eq .Mode "preview" }}bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white{{ else }}text-gray-500 dark:text-gray-400{{ end }}">Preview</a>
+          </div>
+          {{ if eq .Mode "source" }}
+          <label class="inline-flex cursor-pointer items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+            <input form="compare-form" type="checkbox" name="ignore_frontmatter" value="1" {{ if .IgnoreFrontmatter }}checked{{ end }}
+              class="rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800"
+              onchange="this.form.submit()">
+            Ignore frontmatter
+          </label>
+          {{ end }}
+        </div>
+        {{ if eq .Mode "source" }}
+        <div class="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+          <span class="text-green-600 dark:text-green-400">+{{ .Added }}</span>
+          <span class="text-red-600 dark:text-red-400">-{{ .Deleted }}</span>
+          <span class="text-amber-600 dark:text-amber-400">~{{ .Changed }}</span>
+          <button type="button" class="rounded-md border border-gray-200 px-2 py-1 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800" data-diff-nav="previous">Previous change</button>
+          <button type="button" class="rounded-md border border-gray-200 px-2 py-1 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800" data-diff-nav="next">Next change</button>
+        </div>
+        {{ end }}
+      </div>
+    </header>
+
+    {{ if eq .Mode "preview" }}
+    <div class="grid min-h-0 flex-1 grid-cols-1 overflow-auto lg:grid-cols-2 lg:divide-x lg:divide-gray-200 lg:dark:divide-gray-800">
+      <article class="prose prose-gray max-w-none p-8 dark:prose-invert">{{ .LeftHTML }}</article>
+      <article class="prose prose-gray max-w-none p-8 dark:prose-invert">{{ .RightHTML }}</article>
+    </div>
+    {{ else }}
+    <div class="min-h-0 flex-1 overflow-auto" data-diff-scroll>
+      <table class="w-full table-fixed border-collapse font-mono text-xs leading-5">
+        <colgroup><col class="w-12"><col><col class="w-12"><col></colgroup>
+        <thead class="sticky top-0 z-10 bg-gray-100 text-left text-gray-600 dark:bg-gray-900 dark:text-gray-300">
+          <tr><th colspan="2" class="border-b border-r border-gray-200 px-3 py-2 dark:border-gray-800">{{ .Left.Label }}</th><th colspan="2" class="border-b border-gray-200 px-3 py-2 dark:border-gray-800">{{ .Right.Label }}</th></tr>
+        </thead>
+        <tbody>
+          {{ range .Rows }}
+          <tr {{ if .Changed }}data-diff-change{{ end }} class="border-b border-gray-100 align-top dark:border-gray-900 {{ if eq .Kind "add" }}bg-green-50 text-green-950 dark:bg-green-950/70 dark:text-green-100{{ else if eq .Kind "delete" }}bg-red-50 text-red-950 dark:bg-red-950/70 dark:text-red-100{{ else if eq .Kind "change" }}bg-amber-50 text-amber-950 dark:bg-amber-950/70 dark:text-amber-100{{ end }}">
+            <td class="select-none border-r border-gray-200 px-2 text-right text-gray-400 dark:border-gray-800 dark:text-gray-600">{{ if .LeftLine }}{{ .LeftLine }}{{ end }}</td>
+            <td class="whitespace-pre-wrap break-words border-r border-gray-300 px-3 dark:border-gray-700">{{ .LeftText }}</td>
+            <td class="select-none border-r border-gray-200 px-2 text-right text-gray-400 dark:border-gray-800 dark:text-gray-600">{{ if .RightLine }}{{ .RightLine }}{{ end }}</td>
+            <td class="whitespace-pre-wrap break-words px-3">{{ .RightText }}</td>
+          </tr>
+          {{ end }}
+        </tbody>
+      </table>
+    </div>
+    {{ end }}
+  </main>
+  <script>
+    document.querySelectorAll('[data-revision-select]').forEach(function (select) {
+      select.addEventListener('change', function () { select.form.submit(); });
+    });
+    var changes = Array.from(document.querySelectorAll('[data-diff-change]'));
+    var currentChange = -1;
+    document.querySelectorAll('[data-diff-nav]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        if (!changes.length) return;
+        currentChange = button.dataset.diffNav === 'next'
+          ? (currentChange + 1) % changes.length
+          : (currentChange - 1 + changes.length) % changes.length;
+        changes[currentChange].scrollIntoView({ block: 'center', behavior: 'smooth' });
+      });
+    });
+  </script>
+</body>
+</html>
+{{ end }}

@@ -19,6 +19,7 @@ Samostatně hostovaný dokumentační server — něco jako GitBook nebo Notion,
 - **Konfigurovatelný base path** — server lze spustit pod libovolnou URL cestou (`/docs`, `/moje/docs` nebo `/`)
 - **Režim knihovny** — více dokumentačních webů pod jednou instancí dyno pomocí opakovaného `--site`
 - **Git-backed weby** — `--git-repo-site <url>` naklonuje repozitář a servíruje ho; automaticky pulluje v konfigurovatelném intervalu
+- **Porovnání verzí dokumentu** — porovná libovolné dvě Git revize, staged soubor nebo working tree jako zdrojový Markdown i vyrenderovaný náhled
 - **Konfigurační soubor knihovny** — `--library dyno-library.yaml` popisuje více webů (lokální nebo git) s přepsáním metadat
 - **Zpětné odkazy** — každá stránka zobrazuje, které jiné stránky na ni odkazují
 - **Graf závislostí** — D2 graf (±1 hop) pro každou stránku, dostupný přes ikonu grafu v navbaru

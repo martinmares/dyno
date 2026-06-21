@@ -70,6 +70,7 @@ type PageData struct {
 	EditMode          bool   // true when --edit is active
 	EditPageURL       string // URL to open the editor for this page (empty if not editable)
 	GitHistoryURL     string // non-empty when git history is available
+	GitCompareURL     string // compare revisions of the current document
 	MetadataFacets    []metadata.Facet
 	FilterQuery       string
 	FiltersActive     bool
@@ -315,7 +316,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		SectionTasksURL: s.sectionTaskPath + "?path=" + node.FullPath,
 		HasTasksBlock:   s.taskIndex.HasTasksBlock(node.FullPath),
 		Backlinks:       s.backlinks[node.FullPath],
-		EgoGraphURL:     s.graphPath + strings.TrimPrefix(node.FullPath, s.basePath),
+		EgoGraphURL:     s.graphPath + strings.TrimPrefix(node.FullPath, s.basePath) + view.Query,
 		LibraryURL:      s.libraryURL,
 		BuildVersion:    s.version,
 		BuildCommit:     s.commit,
@@ -327,6 +328,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 			return ""
 		}(),
 		GitHistoryURL:     s.gitHistoryPath,
+		GitCompareURL:     s.gitCompareURLFor(node.FullPath),
 		MetadataFacets:    view.Facets,
 		FilterQuery:       view.Query,
 		FiltersActive:     view.Active,
@@ -675,6 +677,7 @@ func (s *Server) graphHandler(w http.ResponseWriter, r *http.Request) {
 // egoGraphHandler renders a D2 ego-graph (±1 hop) as a full page.
 // Route: GET /_graph/{page-path...} where page-path mirrors the page URL segments.
 func (s *Server) egoGraphHandler(w http.ResponseWriter, r *http.Request) {
+	view := s.metadataView(r)
 	// Reconstruct the page URL from the path suffix after /_graph
 	suffix := strings.TrimPrefix(r.URL.Path, s.graphPath)
 	pagePath := suffix // e.g. /bss/crm/crm → we need full page URL: basePath+suffix
@@ -729,7 +732,8 @@ func (s *Server) egoGraphHandler(w http.ResponseWriter, r *http.Request) {
 	for _, n := range nodes {
 		label := `"` + strings.ReplaceAll(n.title, `"`, `'`) + `"`
 		id := egoNodeID(n.url)
-		fmt.Fprintf(&d2, "%s: %s {\n  link: %s\n}\n", id, label, n.url)
+		link := n.url + view.Query
+		fmt.Fprintf(&d2, "%s: %s {\n  link: \"%s\"\n}\n", id, label, strings.ReplaceAll(link, `"`, `'`))
 	}
 	d2.WriteString("\n")
 	for _, bl := range incoming {
@@ -752,14 +756,16 @@ func (s *Server) egoGraphHandler(w http.ResponseWriter, r *http.Request) {
 	if len(nodes) > 1 {
 		content.WriteString(`<div class="ego-neighbours">`)
 		content.WriteString(`<p class="ego-neighbours-heading">Neighbours</p>`)
-		for url, n := range nodes {
-			if url == pagePath {
+		for nodeURL, n := range nodes {
+			if nodeURL == pagePath {
 				continue
 			}
-			expandID := "nb-" + egoNodeID(url)
-			nbURL := neighboursURL + "?path=" + url + "&exclude=" + pagePath
+			expandID := "nb-" + egoNodeID(nodeURL)
+			nbValues := url.Values{"path": {nodeURL}, "exclude": {pagePath}}
+			nbURL := appendFilterQuery(neighboursURL+"?"+nbValues.Encode(), view.Query)
+			pageURL := nodeURL + view.Query
 			content.WriteString(`<div class="ego-nb-row">`)
-			content.WriteString(`<a class="ego-nb-title" href="` + html.EscapeString(url) + `" hx-get="` + html.EscapeString(url) + `" hx-target="#page-content" hx-push-url="true">` + html.EscapeString(n.title) + `</a>`)
+			content.WriteString(`<a class="ego-nb-title" href="` + html.EscapeString(pageURL) + `" hx-get="` + html.EscapeString(pageURL) + `" hx-target="#page-content" hx-push-url="true">` + html.EscapeString(n.title) + `</a>`)
 			content.WriteString(`<button class="ego-nb-expand" hx-get="` + html.EscapeString(nbURL) + `" hx-target="#` + expandID + `" hx-swap="innerHTML" hx-indicator="#` + expandID + `-ind" onclick="this.style.display='none'">+</button>`)
 			content.WriteString(`<span id="` + expandID + `-ind" class="htmx-indicator ego-nb-loading">…</span>`)
 			content.WriteString(`<div id="` + expandID + `" class="ego-nb-children"></div>`)
@@ -768,7 +774,8 @@ func (s *Server) egoGraphHandler(w http.ResponseWriter, r *http.Request) {
 		content.WriteString(`</div>`)
 	}
 
-	selfURL := s.graphPath + suffix
+	selfPath := s.graphPath + suffix
+	selfURL := selfPath + view.Query
 	data := PageData{
 		Title: "Graph - " + centerNode.Title,
 		Breadcrumbs: []navigation.NavNode{
@@ -776,24 +783,29 @@ func (s *Server) egoGraphHandler(w http.ResponseWriter, r *http.Request) {
 			{Title: centerNode.Title, FullPath: centerNode.FullPath},
 			{Title: "Graph", FullPath: selfURL},
 		},
-		ContentHTML:  template.HTML(content.String()),
-		Nav:          s.getNav(),
-		IsHTMX:       isHTMX(r),
-		LightCSS:     template.CSS(s.renderer.LightCSS()),
-		DarkCSS:      template.CSS(s.renderer.DarkCSS()),
-		Site:         s.siteCfg,
-		BasePath:     s.basePath,
-		TailwindURL:  s.assetURL("tailwind.css"),
-		AppCSSURL:    s.assetURL("app.css"),
-		AppJSURL:     s.assetURL("app.js"),
-		HTMXURL:      s.assetURL("htmx.min.js"),
-		MermaidURL:   s.assetURL("mermaid.min.js"),
-		FaviconURL:   s.faviconURL(),
-		SearchURL:    s.searchPath,
-		TasksURL:     s.tasksPath,
-		GraphURL:     s.graphPath,
-		BuildVersion: s.version,
-		BuildCommit:  s.commit,
+		ContentHTML:       template.HTML(content.String()),
+		Nav:               view.Nav,
+		CurrentPath:       centerNode.FullPath,
+		IsHTMX:            isHTMX(r),
+		LightCSS:          template.CSS(s.renderer.LightCSS()),
+		DarkCSS:           template.CSS(s.renderer.DarkCSS()),
+		Site:              s.siteCfg,
+		BasePath:          s.basePath,
+		TailwindURL:       s.assetURL("tailwind.css"),
+		AppCSSURL:         s.assetURL("app.css"),
+		AppJSURL:          s.assetURL("app.js"),
+		HTMXURL:           s.assetURL("htmx.min.js"),
+		MermaidURL:        s.assetURL("mermaid.min.js"),
+		FaviconURL:        s.faviconURL(),
+		SearchURL:         s.searchPath + view.Query,
+		TasksURL:          s.tasksPath,
+		GraphURL:          s.graphPath,
+		BuildVersion:      s.version,
+		BuildCommit:       s.commit,
+		MetadataFacets:    view.Facets,
+		FilterQuery:       view.Query,
+		FiltersActive:     view.Active,
+		MetadataFilterURL: selfPath,
 	}
 	if isHTMX(r) {
 		w.Header().Set("HX-Push-Url", selfURL)
@@ -810,6 +822,7 @@ func (s *Server) egoGraphHandler(w http.ResponseWriter, r *http.Request) {
 // graphNeighboursHandler returns an HTML fragment listing neighbours of a node.
 // Used by HTMX [+] expand in ego-graph.
 func (s *Server) graphNeighboursHandler(w http.ResponseWriter, r *http.Request) {
+	view := s.metadataView(r)
 	pagePath := r.URL.Query().Get("path")
 	exclude := r.URL.Query().Get("exclude")
 
@@ -851,6 +864,7 @@ func (s *Server) graphNeighboursHandler(w http.ResponseWriter, r *http.Request) 
 	var b strings.Builder
 	b.WriteString(`<table class="ego-nb-table"><thead><tr><th class="ego-nb-th ego-nb-th-num">#</th><th class="ego-nb-th">Nadpis</th><th class="ego-nb-th">Podkapitoly</th></tr></thead><tbody>`)
 	for i, n := range neighbours {
+		pageURL := n.url + view.Query
 		var headingsStr string
 		if idx != nil {
 			if hh := idx.Headings(n.url); len(hh) > 0 {
@@ -859,12 +873,23 @@ func (s *Server) graphNeighboursHandler(w http.ResponseWriter, r *http.Request) 
 		}
 		b.WriteString(`<tr class="ego-nb-tr">`)
 		b.WriteString(`<td class="ego-nb-td ego-nb-td-num">` + fmt.Sprintf("%d", i+1) + `</td>`)
-		b.WriteString(`<td class="ego-nb-td"><a class="ego-nb-child" href="` + html.EscapeString(n.url) + `" hx-get="` + html.EscapeString(n.url) + `" hx-target="#page-content" hx-push-url="true">` + html.EscapeString(n.title) + `</a></td>`)
+		b.WriteString(`<td class="ego-nb-td"><a class="ego-nb-child" href="` + html.EscapeString(pageURL) + `" hx-get="` + html.EscapeString(pageURL) + `" hx-target="#page-content" hx-push-url="true">` + html.EscapeString(n.title) + `</a></td>`)
 		b.WriteString(`<td class="ego-nb-td ego-nb-td-section">` + html.EscapeString(headingsStr) + `</td>`)
 		b.WriteString(`</tr>`)
 	}
 	b.WriteString(`</tbody></table>`)
 	fmt.Fprint(w, b.String())
+}
+
+func appendFilterQuery(rawURL, filterQuery string) string {
+	if filterQuery == "" {
+		return rawURL
+	}
+	separator := "?"
+	if strings.Contains(rawURL, "?") {
+		separator = "&"
+	}
+	return rawURL + separator + strings.TrimPrefix(filterQuery, "?")
 }
 
 func egoNodeID(urlPath string) string {

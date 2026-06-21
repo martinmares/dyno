@@ -19,6 +19,7 @@ A self-hosted documentation server — think GitBook or Notion, but as a single 
 - **Configurable base path** — run under any URL prefix (e.g. `/docs`, `/myapp/docs`, or `/`)
 - **Library mode** — serve multiple documentation sites under one dyno instance with repeated `--site`
 - **Git-backed sites** — `--git-repo-site <url>` clones a repo and serves it; auto-pulls on a configurable interval
+- **Document version compare** — compare any two Git revisions, the staged file, or the working tree in source and rendered views
 - **Library config file** — `--library dyno-library.yaml` describes multiple sites (local or git) with metadata overrides
 - **Backlinks** — every page shows which other pages link to it
 - **Ego-graph** — D2 dependency graph (±1 hop) for each page, accessible via the graph icon in the navbar

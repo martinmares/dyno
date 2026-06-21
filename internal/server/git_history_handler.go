@@ -84,9 +84,9 @@ func renderGitHistoryHTML(commits []GitCommit) string {
 	b.WriteString(`<div class="overflow-x-auto not-prose">`)
 	b.WriteString(`<table class="w-full text-sm border-collapse">`)
 	b.WriteString(`<thead><tr class="border-b border-gray-200 dark:border-gray-700">`)
-	b.WriteString(`<th class="text-left py-2 pr-4 font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Datum</th>`)
+	b.WriteString(`<th class="text-left py-2 pr-4 font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Date</th>`)
 	b.WriteString(`<th class="text-left py-2 pr-4 font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Commit</th>`)
-	b.WriteString(`<th class="text-left py-2 pr-4 font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Autor</th>`)
+	b.WriteString(`<th class="text-left py-2 pr-4 font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Author</th>`)
 	b.WriteString(`<th class="text-left py-2 font-semibold text-gray-600 dark:text-gray-400">Message</th>`)
 	b.WriteString(`</tr></thead><tbody>`)
 	for _, c := range commits {

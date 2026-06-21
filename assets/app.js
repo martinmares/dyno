@@ -111,6 +111,18 @@ function initNavTree() {
 }
 
 document.addEventListener('click', function (event) {
+  const expandAll = event.target.closest('[data-nav-expand-all]');
+  if (expandAll) {
+    const sidebar = expandAll.closest('#sidebar');
+    if (!sidebar) return;
+    const collapsed = new Set();
+    writeCollapsedNavPaths(sidebar, collapsed);
+    sidebar.querySelectorAll('[data-nav-section]').forEach(function (section) {
+      setNavSectionExpanded(section, true);
+    });
+    return;
+  }
+
   const toggle = event.target.closest('[data-nav-toggle]');
   if (!toggle) return;
   const section = toggle.closest('[data-nav-section]');

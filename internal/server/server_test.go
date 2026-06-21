@@ -176,6 +176,53 @@ func TestMetadataFilterPrunesNavigationAndSearch(t *testing.T) {
 	}
 }
 
+func TestMetadataFilterSurvivesHTMXGraphAndBacklinkNavigation(t *testing.T) {
+	srv := newTestServer(t)
+	srv.siteCfg.Frontmatter = config.FrontmatterConfig{Fields: map[string]config.FrontmatterFieldConfig{
+		"document-owner": {Label: "Document owner", Type: "text", Filterable: true},
+	}}
+	writeTestFile(t, filepath.Join(srv.contentDir, "guides", "source.md"), "---\ndocument-owner: martin.mares@datalite.cz\n---\n# Source\n\n[Target](./target.md)\n")
+	writeTestFile(t, filepath.Join(srv.contentDir, "guides", "target.md"), "---\ndocument-owner: martin.mares@datalite.cz\n---\n# Target\n")
+	nav, err := navigation.BuildTree(srv.contentDir, srv.basePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, err := search.BuildIndex(nav, func(src string) (string, error) {
+		return srv.renderer.ToPlainText([]byte(src))
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv.Reload(nav, idx)
+
+	filterQuery := "?meta.document-owner=martin.mares%40datalite.cz"
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/guides/source"+filterQuery, nil)
+	req.Header.Set("HX-Request", "true")
+	srv.Handler().ServeHTTP(rec, req)
+	body := rec.Body.String()
+	for _, want := range []string{
+		`id="ego-graph-btn" hx-swap-oob="outerHTML"`,
+		`href="/_graph/guides/source` + filterQuery + `"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("filtered HTMX page must update graph URL with %q, got: %s", want, body)
+		}
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/_graph/guides/target"+filterQuery, nil)
+	req.Header.Set("HX-Request", "true")
+	srv.Handler().ServeHTTP(rec, req)
+	if got := rec.Header().Get("HX-Push-Url"); got != "/_graph/guides/target"+filterQuery {
+		t.Fatalf("graph lost filter in HX-Push-Url: %q", got)
+	}
+	body = rec.Body.String()
+	if !strings.Contains(body, `href="/guides/source`+filterQuery+`"`) {
+		t.Fatalf("graph backlink lost metadata filter, got: %s", body)
+	}
+}
+
 func TestPageCommentsCanBeAddedAndRendered(t *testing.T) {
 	srv := newTestServer(t)
 	store, err := comments.NewJSONLStore(filepath.Join(t.TempDir(), "comments.jsonl"))
@@ -413,6 +460,8 @@ func TestSidebarSectionsHaveIndependentToggleAndTitleTooltips(t *testing.T) {
 	for _, want := range []string{
 		`data-nav-section data-nav-path="/guides/"`,
 		`data-nav-toggle aria-expanded="true"`,
+		`data-nav-expand-all`,
+		`Expand all`,
 		`aria-controls="nav-children-%2Fguides%2F"`,
 		`title="Guides"`,
 		`title="Api Widget"`,

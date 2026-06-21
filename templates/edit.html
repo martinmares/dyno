@@ -112,6 +112,14 @@
       <span data-git-status-label>{{ .GitStatus }}</span>
     </span>
 
+    {{ if .GitCompareURL }}
+    <a href="{{ .GitCompareURL }}"
+      class="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">
+      <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h11l-3-3m3 3l-3 3M16 17H5l3 3m-3-3l3-3"/></svg>
+      Versions
+    </a>
+    {{ end }}
+
     {{ if or .MetadataFields .MetadataError }}
     <button id="metadata-toggle" type="button"
       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
