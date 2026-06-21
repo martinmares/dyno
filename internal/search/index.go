@@ -28,9 +28,9 @@ type Posting struct {
 
 // Index is an in-memory full-text search index.
 type Index struct {
-	mu      sync.RWMutex
+	mu       sync.RWMutex
 	inverted map[string][]Posting
-	docs    []Document
+	docs     []Document
 }
 
 // SearchResult is one search hit.
@@ -181,6 +181,12 @@ func (idx *Index) Headings(urlPath string) []string {
 
 // Search returns the top results for a query string.
 func (idx *Index) Search(query string) []SearchResult {
+	return idx.SearchFiltered(query, nil)
+}
+
+// SearchFiltered restricts results to paths accepted by allowed. A nil map
+// searches every indexed document.
+func (idx *Index) SearchFiltered(query string, allowed map[string]bool) []SearchResult {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
 
@@ -223,6 +229,9 @@ func (idx *Index) Search(query string) []SearchResult {
 	results := make([]SearchResult, 0, len(scores))
 	for docID, score := range scores {
 		doc := idx.docs[docID]
+		if allowed != nil && !allowed[doc.Path] {
+			continue
+		}
 		bodyLen := float64(len(tokenize(doc.Body)) + 1)
 		normalized := score / math.Log(bodyLen+1)
 

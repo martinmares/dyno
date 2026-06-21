@@ -19,6 +19,7 @@ import (
 	"github.com/mares/dyno/internal/comments"
 	"github.com/mares/dyno/internal/config"
 	"github.com/mares/dyno/internal/markdown"
+	"github.com/mares/dyno/internal/metadata"
 	"github.com/mares/dyno/internal/navigation"
 	"github.com/mares/dyno/internal/search"
 )
@@ -44,31 +45,35 @@ type PageData struct {
 	EditURL    string
 	IsAgentDoc bool
 	// Prev/Next for bottom navigation
-	Prev            *navigation.NavNode
-	Next            *navigation.NavNode
-	TailwindURL     string
-	AppCSSURL       string
-	AppJSURL        string
-	EasyMDECSSURL   string
-	EasyMDEJSURL    string
-	FontAwesomeURL  string
-	HTMXURL         string
-	MermaidURL      string
-	FaviconURL      string
-	SearchURL       string
-	TasksURL        string
-	SectionTasksURL string // URL for section-scoped task view (current folder)
-	HasTasksBlock   bool
-	TasksAnchorURL  string
-	Backlinks       []navigation.Backlink // pages that link to this page
-	GraphURL        string                // URL for the site link graph page
-	EgoGraphURL     string                // URL for ego-graph of current page
-	LibraryURL      string                // non-empty in library mode: URL back to the dashboard
-	BuildVersion    string
-	BuildCommit     string
-	EditMode        bool   // true when --edit is active
-	EditPageURL     string // URL to open the editor for this page (empty if not editable)
-	GitHistoryURL   string // non-empty when git history is available
+	Prev              *navigation.NavNode
+	Next              *navigation.NavNode
+	TailwindURL       string
+	AppCSSURL         string
+	AppJSURL          string
+	EasyMDECSSURL     string
+	EasyMDEJSURL      string
+	FontAwesomeURL    string
+	HTMXURL           string
+	MermaidURL        string
+	FaviconURL        string
+	SearchURL         string
+	TasksURL          string
+	SectionTasksURL   string // URL for section-scoped task view (current folder)
+	HasTasksBlock     bool
+	TasksAnchorURL    string
+	Backlinks         []navigation.Backlink // pages that link to this page
+	GraphURL          string                // URL for the site link graph page
+	EgoGraphURL       string                // URL for ego-graph of current page
+	LibraryURL        string                // non-empty in library mode: URL back to the dashboard
+	BuildVersion      string
+	BuildCommit       string
+	EditMode          bool   // true when --edit is active
+	EditPageURL       string // URL to open the editor for this page (empty if not editable)
+	GitHistoryURL     string // non-empty when git history is available
+	MetadataFacets    []metadata.Facet
+	FilterQuery       string
+	FiltersActive     bool
+	MetadataFilterURL string
 }
 
 type CommentNode struct {
@@ -80,44 +85,72 @@ type CommentNode struct {
 
 // LibraryData is passed to the library dashboard template.
 type LibraryData struct {
-	Title       string // page <title>
-	LogoText    string // short name shown in navbar, e.g. "Dyno"
-	Subtitle    string
-	Books       []bookCardData
-	BasePath    string
-	SearchURL   string
-	TailwindURL string
-	AppCSSURL   string
-	AppJSURL    string
-	HTMXURL     string
-	MermaidURL  string
-	LightCSS    template.CSS
-	DarkCSS     template.CSS
-	IsHTMX      bool
+	Title          string // page <title>
+	LogoText       string // short name shown in navbar, e.g. "Dyno"
+	Subtitle       string
+	Books          []bookCardData
+	BasePath       string
+	SearchURL      string
+	TailwindURL    string
+	AppCSSURL      string
+	AppJSURL       string
+	HTMXURL        string
+	MermaidURL     string
+	LightCSS       template.CSS
+	DarkCSS        template.CSS
+	IsHTMX         bool
+	MetadataFacets []metadata.Facet
+	FilterQuery    string
+	FiltersActive  bool
 }
 
 // SearchData is passed to search templates.
 type SearchData struct {
-	Query        string
-	Results      []search.SearchResult
-	Nav          *navigation.NavNode
-	IsHTMX       bool
-	LightCSS     template.CSS
-	DarkCSS      template.CSS
-	Title        string
-	TOC          []markdown.TOCEntry
-	Site         *config.SiteConfig
-	BasePath     string
-	TailwindURL  string
-	AppCSSURL    string
-	AppJSURL     string
-	HTMXURL      string
-	FaviconURL   string
-	SearchURL    string
-	TasksURL     string
-	GraphURL     string
-	BuildVersion string
-	BuildCommit  string
+	Query          string
+	Results        []search.SearchResult
+	Nav            *navigation.NavNode
+	IsHTMX         bool
+	LightCSS       template.CSS
+	DarkCSS        template.CSS
+	Title          string
+	TOC            []markdown.TOCEntry
+	Site           *config.SiteConfig
+	BasePath       string
+	TailwindURL    string
+	AppCSSURL      string
+	AppJSURL       string
+	HTMXURL        string
+	FaviconURL     string
+	SearchURL      string
+	TasksURL       string
+	GraphURL       string
+	BuildVersion   string
+	BuildCommit    string
+	MetadataFacets []metadata.Facet
+	FilterQuery    string
+	FiltersActive  bool
+	ResultQuery    string
+}
+
+type metadataView struct {
+	Nav     *navigation.NavNode
+	Facets  []metadata.Facet
+	Query   string
+	Allowed map[string]bool
+	Active  bool
+}
+
+func (s *Server) metadataView(r *http.Request) metadataView {
+	idx := s.getMetadata()
+	if idx == nil || !idx.Enabled() {
+		return metadataView{Nav: s.getNav()}
+	}
+	filter := idx.Parse(r.URL.Query())
+	allowed := idx.Allowed(filter)
+	return metadataView{
+		Nav: navigation.FilterTree(s.getNav(), allowed), Facets: idx.Facets(filter),
+		Query: metadata.Encode(filter), Allowed: allowed, Active: len(filter) > 0,
+	}
 }
 
 func isHTMX(r *http.Request) bool {
@@ -184,6 +217,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		s.notFound(w, r)
 		return
 	}
+	view := s.metadataView(r)
 
 	fsPath := node.FSPath
 	if fsPath == "" && node.IsDir {
@@ -204,7 +238,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	if !isHTMX(r) && s.comments == nil {
+	if !isHTMX(r) && s.comments == nil && !view.Active {
 		pageETag := fmt.Sprintf(`W/"%x-%x"`, info.ModTime().UnixNano(), info.Size())
 		w.Header().Set("ETag", pageETag)
 		w.Header().Set("Last-Modified", info.ModTime().UTC().Format(http.TimeFormat))
@@ -234,7 +268,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		title = node.Title
 	}
 
-	prev, next := navigation.PrevNext(s.getNav(), node.FullPath)
+	prev, next := navigation.PrevNext(view.Nav, node.FullPath)
 	pageComments, err := s.listComments(node.FullPath)
 	if err != nil {
 		slog.Warn("failed to load comments", "path", node.FullPath, "err", err)
@@ -253,7 +287,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		Title:           title,
 		Breadcrumbs:     navigation.Breadcrumbs(s.getNav(), node.FullPath),
 		ContentHTML:     template.HTML(res.HTML),
-		Nav:             s.getNav(),
+		Nav:             view.Nav,
 		CurrentPath:     node.FullPath,
 		TOC:             res.TOC,
 		ExternalRefs:    res.Frontmatter.ExternalRefs,
@@ -275,7 +309,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		HTMXURL:         s.assetURL("htmx.min.js"),
 		MermaidURL:      s.assetURL("mermaid.min.js"),
 		FaviconURL:      s.faviconURL(),
-		SearchURL:       s.searchPath,
+		SearchURL:       s.searchPath + view.Query,
 		TasksURL:        s.tasksPath,
 		GraphURL:        s.graphPath,
 		SectionTasksURL: s.sectionTaskPath + "?path=" + node.FullPath,
@@ -292,7 +326,11 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			return ""
 		}(),
-		GitHistoryURL: s.gitHistoryPath,
+		GitHistoryURL:     s.gitHistoryPath,
+		MetadataFacets:    view.Facets,
+		FilterQuery:       view.Query,
+		FiltersActive:     view.Active,
+		MetadataFilterURL: node.FullPath,
 	}
 	if data.HasTasksBlock {
 		data.TasksAnchorURL = node.FullPath + "#tasks-0-filter"
@@ -304,7 +342,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 			pushURL += "?" + rawQuery
 		}
 		w.Header().Set("HX-Push-Url", pushURL)
-		w.Header().Set("X-Search-URL", s.searchPath)
+		w.Header().Set("X-Search-URL", s.searchPath+view.Query)
 		if err := s.render(w, "page-fragment", data); err != nil {
 			slog.Error("template error", "template", "page-fragment", "err", err)
 		}
@@ -317,6 +355,10 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) renderSyntheticIndex(w http.ResponseWriter, r *http.Request, node *navigation.NavNode) {
+	view := s.metadataView(r)
+	if filtered := navigation.FindNode(view.Nav, node.FullPath); filtered != nil {
+		node = filtered
+	}
 	title := node.Title
 	if title == "" || title == "Home" {
 		if s.siteCfg != nil && s.siteCfg.Title != "" {
@@ -331,6 +373,7 @@ func (s *Server) renderSyntheticIndex(w http.ResponseWriter, r *http.Request, no
 	for _, child := range node.Children {
 		list.WriteString(`<li><a href="`)
 		list.WriteString(child.FullPath)
+		list.WriteString(view.Query)
 		list.WriteString(`">`)
 		list.WriteString(template.HTMLEscapeString(child.Title))
 		list.WriteString(`</a></li>`)
@@ -347,37 +390,41 @@ func (s *Server) renderSyntheticIndex(w http.ResponseWriter, r *http.Request, no
 	}
 
 	data := PageData{
-		Title:         title,
-		Breadcrumbs:   navigation.Breadcrumbs(s.getNav(), node.FullPath),
-		ContentHTML:   template.HTML(body),
-		Nav:           s.getNav(),
-		CurrentPath:   node.FullPath,
-		TOC:           nil,
-		LightCSS:      template.CSS(s.renderer.LightCSS()),
-		DarkCSS:       template.CSS(s.renderer.DarkCSS()),
-		IsHTMX:        isHTMX(r),
-		Site:          s.siteCfg,
-		BasePath:      s.basePath,
-		IsAgentDoc:    false,
-		TailwindURL:   s.assetURL("tailwind.css"),
-		AppCSSURL:     s.assetURL("app.css"),
-		AppJSURL:      s.assetURL("app.js"),
-		HTMXURL:       s.assetURL("htmx.min.js"),
-		MermaidURL:    s.assetURL("mermaid.min.js"),
-		FaviconURL:    s.faviconURL(),
-		SearchURL:     s.searchPath,
-		TasksURL:      s.tasksPath,
-		GraphURL:      s.graphPath,
-		GitHistoryURL: s.gitHistoryPath,
-		HasTasksBlock: false,
-		LibraryURL:    s.libraryURL,
-		BuildVersion:  s.version,
-		BuildCommit:   s.commit,
+		Title:             title,
+		Breadcrumbs:       navigation.Breadcrumbs(s.getNav(), node.FullPath),
+		ContentHTML:       template.HTML(body),
+		Nav:               view.Nav,
+		CurrentPath:       node.FullPath,
+		TOC:               nil,
+		LightCSS:          template.CSS(s.renderer.LightCSS()),
+		DarkCSS:           template.CSS(s.renderer.DarkCSS()),
+		IsHTMX:            isHTMX(r),
+		Site:              s.siteCfg,
+		BasePath:          s.basePath,
+		IsAgentDoc:        false,
+		TailwindURL:       s.assetURL("tailwind.css"),
+		AppCSSURL:         s.assetURL("app.css"),
+		AppJSURL:          s.assetURL("app.js"),
+		HTMXURL:           s.assetURL("htmx.min.js"),
+		MermaidURL:        s.assetURL("mermaid.min.js"),
+		FaviconURL:        s.faviconURL(),
+		SearchURL:         s.searchPath + view.Query,
+		TasksURL:          s.tasksPath,
+		GraphURL:          s.graphPath,
+		GitHistoryURL:     s.gitHistoryPath,
+		HasTasksBlock:     false,
+		LibraryURL:        s.libraryURL,
+		BuildVersion:      s.version,
+		BuildCommit:       s.commit,
+		MetadataFacets:    view.Facets,
+		FilterQuery:       view.Query,
+		FiltersActive:     view.Active,
+		MetadataFilterURL: node.FullPath,
 	}
 
 	if isHTMX(r) {
-		w.Header().Set("HX-Push-Url", node.FullPath)
-		w.Header().Set("X-Search-URL", s.searchPath)
+		w.Header().Set("HX-Push-Url", node.FullPath+view.Query)
+		w.Header().Set("X-Search-URL", s.searchPath+view.Query)
 		if err := s.render(w, "page-fragment", data); err != nil {
 			slog.Error("template error", "template", "page-fragment", "err", err)
 		}
@@ -396,31 +443,38 @@ func (s *Server) searchHandler(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	view := s.metadataView(r)
+	resultValues := r.URL.Query()
+	resultValues.Set("q", q)
 	var results []search.SearchResult
 	if q != "" {
-		results = s.getIdx().Search(q)
+		results = s.getIdx().SearchFiltered(q, view.Allowed)
 	}
 
 	data := SearchData{
-		Query:        q,
-		Results:      results,
-		Nav:          s.getNav(),
-		IsHTMX:       isHTMX(r),
-		LightCSS:     template.CSS(s.renderer.LightCSS()),
-		DarkCSS:      template.CSS(s.renderer.DarkCSS()),
-		Title:        "Search",
-		Site:         s.siteCfg,
-		BasePath:     s.basePath,
-		TailwindURL:  s.assetURL("tailwind.css"),
-		AppCSSURL:    s.assetURL("app.css"),
-		AppJSURL:     s.assetURL("app.js"),
-		HTMXURL:      s.assetURL("htmx.min.js"),
-		FaviconURL:   s.faviconURL(),
-		SearchURL:    s.searchPath,
-		TasksURL:     s.tasksPath,
-		GraphURL:     s.graphPath,
-		BuildVersion: s.version,
-		BuildCommit:  s.commit,
+		Query:          q,
+		Results:        results,
+		Nav:            view.Nav,
+		IsHTMX:         isHTMX(r),
+		LightCSS:       template.CSS(s.renderer.LightCSS()),
+		DarkCSS:        template.CSS(s.renderer.DarkCSS()),
+		Title:          "Search",
+		Site:           s.siteCfg,
+		BasePath:       s.basePath,
+		TailwindURL:    s.assetURL("tailwind.css"),
+		AppCSSURL:      s.assetURL("app.css"),
+		AppJSURL:       s.assetURL("app.js"),
+		HTMXURL:        s.assetURL("htmx.min.js"),
+		FaviconURL:     s.faviconURL(),
+		SearchURL:      s.searchPath + view.Query,
+		TasksURL:       s.tasksPath,
+		GraphURL:       s.graphPath,
+		BuildVersion:   s.version,
+		BuildCommit:    s.commit,
+		MetadataFacets: view.Facets,
+		FilterQuery:    view.Query,
+		FiltersActive:  view.Active,
+		ResultQuery:    "?" + resultValues.Encode(),
 	}
 
 	if isHTMX(r) {

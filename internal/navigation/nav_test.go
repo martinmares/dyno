@@ -137,6 +137,23 @@ func TestBuildTreeUsesGroupAsLowestPriorityLandingPage(t *testing.T) {
 	}
 }
 
+func TestFilterTreeKeepsAncestorsWithoutDisallowedLandingPage(t *testing.T) {
+	root := &NavNode{IsDir: true, FullPath: "/", Children: []*NavNode{
+		{IsDir: true, FullPath: "/guides/", FSPath: "/tmp/index.md", Children: []*NavNode{
+			{FullPath: "/guides/one", FSPath: "/tmp/one.md"},
+			{FullPath: "/guides/two", FSPath: "/tmp/two.md"},
+		}},
+	}}
+	filtered := FilterTree(root, map[string]bool{"/guides/two": true})
+	guides := FindNode(filtered, "/guides/")
+	if guides == nil || guides.FSPath != "" || len(guides.Children) != 1 {
+		t.Fatalf("unexpected filtered section: %#v", guides)
+	}
+	if guides.Children[0].FullPath != "/guides/two" {
+		t.Fatalf("unexpected child: %#v", guides.Children[0])
+	}
+}
+
 func writeNavTestFile(t *testing.T, path string, data string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

@@ -278,6 +278,33 @@ func BuildTreeWithFilter(contentDir, basePath string, filter Filter) (*NavNode, 
 	return root, nil
 }
 
+// FilterTree returns a cloned tree containing allowed pages and the directory
+// ancestors needed to reach them. A nil allowed set means no active filter.
+func FilterTree(root *NavNode, allowed map[string]bool) *NavNode {
+	if root == nil || allowed == nil {
+		return root
+	}
+	var clone func(*NavNode, bool) *NavNode
+	clone = func(node *NavNode, isRoot bool) *NavNode {
+		copyNode := *node
+		copyNode.Children = nil
+		for _, child := range node.Children {
+			if filtered := clone(child, false); filtered != nil {
+				copyNode.Children = append(copyNode.Children, filtered)
+			}
+		}
+		pageAllowed := node.FSPath != "" && allowed[node.FullPath]
+		if node.IsDir && !pageAllowed {
+			copyNode.FSPath = ""
+		}
+		if isRoot || pageAllowed || len(copyNode.Children) > 0 {
+			return &copyNode
+		}
+		return nil
+	}
+	return clone(root, true)
+}
+
 func isIndexPageName(baseName string) bool {
 	return strings.EqualFold(numericPrefix.ReplaceAllString(baseName, ""), "index")
 }

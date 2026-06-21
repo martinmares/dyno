@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -11,7 +12,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/mares/dyno/internal/config"
+	"github.com/mares/dyno/internal/frontmatter"
 	"github.com/mares/dyno/internal/markdown"
 	"github.com/mares/dyno/internal/navigation"
 )
@@ -28,6 +32,7 @@ type EditPageData struct {
 	MetadataURL    string
 	MetadataFields []MetadataFieldData
 	MetadataError  string
+	GitStatus      string
 }
 
 // editPath returns the /_edit base path for this server.
@@ -118,6 +123,7 @@ func (s *Server) editPageHandler(w http.ResponseWriter, r *http.Request) {
 		MetadataURL:    metadataURL,
 		MetadataFields: metadataFields,
 		MetadataError:  metadataError,
+		GitStatus:      gitFileStatus(node.FSPath),
 	}
 
 	if err := s.render(w, "edit.html", data); err != nil {
@@ -174,11 +180,13 @@ func (s *Server) editSaveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	currentRevision := contentRevision(current)
-	newContent := []byte(src)
+	newContent := normalizeEditedLineEndings(current, src)
 	newRevision := contentRevision(newContent)
 	if currentRevision == newRevision {
 		// Treat unchanged content and retried saves as successful without rewriting the file.
-		writeEditSaveResponse(w, http.StatusOK, editSaveResponse{OK: true, Revision: currentRevision})
+		writeEditSaveResponse(w, http.StatusOK, editSaveResponse{
+			OK: true, Revision: currentRevision, GitStatus: gitFileStatus(fsPath),
+		})
 		return
 	}
 	if currentRevision != expectedRevision {
@@ -189,6 +197,15 @@ func (s *Server) editSaveHandler(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	newContent, err = applyUpdateOnSave(s.siteCfg.Frontmatter, newContent, time.Now())
+	if err != nil {
+		writeEditSaveResponse(w, http.StatusBadRequest, editSaveResponse{
+			Error: "failed to update document metadata: " + err.Error(),
+			Code:  "invalid_frontmatter",
+		})
+		return
+	}
+	newRevision = contentRevision(newContent)
 
 	info, err := os.Stat(fsPath)
 	if err != nil {
@@ -209,14 +226,46 @@ func (s *Server) editSaveHandler(w http.ResponseWriter, r *http.Request) {
 	delete(s.pageCache, fsPath)
 
 	slog.Info("page saved", "path", fsPath)
-	writeEditSaveResponse(w, http.StatusOK, editSaveResponse{OK: true, Revision: newRevision})
+	writeEditSaveResponse(w, http.StatusOK, editSaveResponse{
+		OK: true, Revision: newRevision, GitStatus: gitFileStatus(fsPath),
+	})
+}
+
+func applyUpdateOnSave(cfg config.FrontmatterConfig, content []byte, now time.Time) ([]byte, error) {
+	updates := make(map[string]any)
+	for _, field := range cfg.OrderedFields() {
+		if !field.UpdateOnSave {
+			continue
+		}
+		if field.Type == "date" {
+			updates[field.Name] = now.Format("2006-01-02")
+		} else {
+			updates[field.Name] = now.Truncate(time.Second)
+		}
+	}
+	return frontmatter.Apply(content, updates)
+}
+
+// Browsers normalize string fields in multipart/form-data to CRLF. Restore the
+// document's existing convention so a save does not rewrite every line.
+func normalizeEditedLineEndings(current []byte, edited string) []byte {
+	crlfCount := bytes.Count(current, []byte("\r\n"))
+	bareLFCount := bytes.Count(current, []byte("\n")) - crlfCount
+
+	normalized := strings.ReplaceAll(edited, "\r\n", "\n")
+	normalized = strings.ReplaceAll(normalized, "\r", "\n")
+	if crlfCount > bareLFCount {
+		normalized = strings.ReplaceAll(normalized, "\n", "\r\n")
+	}
+	return []byte(normalized)
 }
 
 type editSaveResponse struct {
-	OK       bool   `json:"ok"`
-	Revision string `json:"revision,omitempty"`
-	Error    string `json:"error,omitempty"`
-	Code     string `json:"code,omitempty"`
+	OK        bool   `json:"ok"`
+	Revision  string `json:"revision,omitempty"`
+	GitStatus string `json:"git_status,omitempty"`
+	Error     string `json:"error,omitempty"`
+	Code      string `json:"code,omitempty"`
 }
 
 func writeEditSaveResponse(w http.ResponseWriter, status int, response editSaveResponse) {

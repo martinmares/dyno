@@ -13,6 +13,7 @@ import (
 	"github.com/mares/dyno/internal/comments"
 	"github.com/mares/dyno/internal/config"
 	"github.com/mares/dyno/internal/markdown"
+	"github.com/mares/dyno/internal/metadata"
 	"github.com/mares/dyno/internal/navigation"
 	"github.com/mares/dyno/internal/search"
 	"github.com/mares/dyno/internal/tasks"
@@ -38,6 +39,7 @@ type Server struct {
 	commit     string
 	nav        *navigation.NavNode
 	idx        *search.Index
+	metadata   *metadata.Index
 	taskIndex  *tasks.Index
 	backlinks  navigation.BacklinkIndex
 	taskHTML   string
@@ -60,10 +62,15 @@ type pageCacheEntry struct {
 
 // Reload swaps the navigation tree and search index atomically (used by --watch).
 func (s *Server) Reload(nav *navigation.NavNode, idx *search.Index) {
+	metadataIndex, err := metadata.Build(nav, s.siteCfg.Frontmatter)
+	if err != nil {
+		metadataIndex = &metadata.Index{}
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.nav = nav
 	s.idx = idx
+	s.metadata = metadataIndex
 	if taskIndex, err := tasks.BuildIndex("", s.siteCfg.Title, s.contentDir, nav); err == nil {
 		s.taskIndex = taskIndex
 		s.taskHTML = taskIndex.RenderSummary("tasks-summary")
@@ -86,6 +93,12 @@ func (s *Server) getIdx() *search.Index {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.idx
+}
+
+func (s *Server) getMetadata() *metadata.Index {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.metadata
 }
 
 func (s *Server) renderTasks(query, anchorID string) (string, error) {
@@ -161,6 +174,11 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 		return nil, err
 	}
 
+	metadataIndex, err := metadata.Build(nav, cfg.SiteCfg.Frontmatter)
+	if err != nil {
+		return nil, err
+	}
+
 	s := &Server{
 		siteRoot:   cfg.SiteRoot,
 		contentDir: cfg.ContentDir,
@@ -172,6 +190,7 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 		commit:     cfg.Commit,
 		nav:        nav,
 		idx:        idx,
+		metadata:   metadataIndex,
 		comments:   cfg.Comments,
 		renderer:   renderer,
 		buildTime:  cfg.BuildTime,

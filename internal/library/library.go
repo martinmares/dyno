@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/mares/dyno/internal/config"
+	"github.com/mares/dyno/internal/metadata"
 	"github.com/mares/dyno/internal/navigation"
 	"github.com/mares/dyno/internal/search"
 	"github.com/mares/dyno/internal/sitepath"
@@ -19,6 +20,7 @@ type Book struct {
 	Slug       string // URL segment, e.g. "monitoring"
 	Nav        *navigation.NavNode
 	Idx        *search.Index
+	Metadata   *metadata.Index
 
 	// Stats computed at load time
 	PageCount int
@@ -77,6 +79,10 @@ func Load(siteDir string, globalBasePath string, plainText func(string) (string,
 	if err != nil {
 		return nil, err
 	}
+	metadataIndex, err := metadata.Build(nav, cfg.Frontmatter)
+	if err != nil {
+		return nil, err
+	}
 
 	pages, words := collectStats(nav)
 
@@ -87,6 +93,7 @@ func Load(siteDir string, globalBasePath string, plainText func(string) (string,
 		Slug:       slug,
 		Nav:        nav,
 		Idx:        idx,
+		Metadata:   metadataIndex,
 		PageCount:  pages,
 		WordCount:  words,
 	}, nil

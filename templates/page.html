@@ -12,8 +12,8 @@
       {{ if eq $i (add (len $.Breadcrumbs) -1) }}
         <span class="text-gray-900 dark:text-gray-100 font-medium">{{ $crumb.Title }}</span>
       {{ else }}
-        <a href="{{ $crumb.FullPath }}"
-           hx-get="{{ $crumb.FullPath }}"
+        <a href="{{ $crumb.FullPath }}{{ $.FilterQuery }}"
+           hx-get="{{ $crumb.FullPath }}{{ $.FilterQuery }}"
            hx-target="#page-content"
            hx-push-url="true"
            class="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">{{ $crumb.Title }}</a>
@@ -165,8 +165,8 @@
   {{ if or .Prev .Next }}
   <nav class="mt-8 grid grid-cols-2 gap-4" aria-label="Page navigation">
     {{ if .Prev }}
-    <a href="{{ .Prev.FullPath }}"
-       hx-get="{{ .Prev.FullPath }}"
+    <a href="{{ .Prev.FullPath }}{{ .FilterQuery }}"
+       hx-get="{{ .Prev.FullPath }}{{ .FilterQuery }}"
        hx-target="#page-content"
        hx-push-url="true"
        class="group flex flex-col gap-1 p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-brand-300 dark:hover:border-brand-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
@@ -179,8 +179,8 @@
     {{ else }}<div></div>{{ end }}
 
     {{ if .Next }}
-    <a href="{{ .Next.FullPath }}"
-       hx-get="{{ .Next.FullPath }}"
+    <a href="{{ .Next.FullPath }}{{ .FilterQuery }}"
+       hx-get="{{ .Next.FullPath }}{{ .FilterQuery }}"
        hx-target="#page-content"
        hx-push-url="true"
        class="group flex flex-col gap-1 p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-brand-300 dark:hover:border-brand-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-right">
@@ -258,6 +258,11 @@
 
 {{ define "page-fragment" }}
 {{ template "page-content" . }}
+{{ if .MetadataFilterURL }}
+<aside id="sidebar" hx-swap-oob="innerHTML">
+  {{ template "sidebar-inner" . }}
+</aside>
+{{ end }}
 <aside id="toc-sidebar" hx-swap-oob="outerHTML" class="{{ if .TOC }}hidden xl:block{{ else }}hidden{{ end }} w-48 shrink-0">
   {{ template "toc-sidebar-inner" . }}
 </aside>

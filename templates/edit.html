@@ -102,6 +102,16 @@
       {{ .Title }}
     </span>
 
+    <span id="git-file-status"
+      class="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+      {{ if not .GitStatus }}style="display: none"{{ end }}
+      title="Git working tree status">
+      <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="3"/><path stroke-linecap="round" d="M12 3v6m0 6v6"/>
+      </svg>
+      <span data-git-status-label>{{ .GitStatus }}</span>
+    </span>
+
     {{ if or .MetadataFields .MetadataError }}
     <button id="metadata-toggle" type="button"
       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors shrink-0"
@@ -452,6 +462,7 @@
   // Save
   const saveStatus = document.getElementById('save-status');
   const saveButton = document.getElementById('save-btn');
+  const gitFileStatus = document.getElementById('git-file-status');
   let saveTimer = null;
   let revision = '{{ .Revision }}';
 
@@ -475,6 +486,9 @@
       .then(data => {
         if (data.ok) {
           revision = data.revision;
+          const gitStatusLabel = gitFileStatus.querySelector('[data-git-status-label]');
+          gitStatusLabel.textContent = data.git_status || '';
+          gitFileStatus.style.display = data.git_status ? 'inline-flex' : 'none';
           saveStatus.textContent = 'Saved';
           saveStatus.style.opacity = '1';
           clearTimeout(saveTimer);

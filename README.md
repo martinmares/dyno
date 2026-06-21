@@ -77,9 +77,11 @@ frontmatter:
       label: Status
       type: select
       options: [NEW, DRAFT, REVISION, FINAL]
+      filterable: true
     document-owner:
       label: Owner
       type: text
+      filterable: true
     document-tags:
       label: Tags
       type: tags
@@ -87,6 +89,7 @@ frontmatter:
       label: Source updated
       type: datetime
       readonly: true
+      update_on_save: true
 ```
 
 All fields are optional — dyno works with no config file at all.
@@ -96,7 +99,7 @@ All fields are optional — dyno works with no config file at all.
 
 `content_include` and `content_exclude` limit which Markdown files are exposed in navigation, search, prev/next, and rendered pages. Patterns are slash-separated globs relative to the content directory; `**` matches across directories. Empty `content_include` means all Markdown files are included, and `content_exclude` always wins.
 
-`frontmatter.fields` defines the metadata form shown by the Markdown editor in `--edit` mode. Field names are repository-defined; Dyno does not hard-code a metadata vocabulary. Supported types are `text`, `textarea`, `select`, `boolean`, `number`, `date`, `datetime`, and `tags`. `display` controls the preferred order, `readonly` prevents form edits, and `required` enables validation. Applying the form patches only changed top-level fields; unknown YAML and untouched complex blocks remain unchanged. The same `frontmatter` block can be configured per site in `dyno-library.yaml`.
+`frontmatter.fields` defines repository-specific metadata without hard-coding a vocabulary in Dyno. Supported types are `text`, `textarea`, `select`, `boolean`, `number`, `date`, `datetime`, and `tags`. `display` controls the preferred order, `readonly` prevents form edits, and `required` enables validation. For `date` and `datetime` fields, `update_on_save: true` writes the current server date or RFC 3339 timestamp whenever the document content is actually changed. Setting `filterable: true` adds a runtime facet to the sidebar, navigation, and full-text search in normal, edit, and library modes. Facet values and document counts are indexed at startup; values within one field use OR and different fields use AND. Filters are working views stored in the URL, not publication or access restrictions. Applying the editor form patches only changed top-level fields; unknown YAML and untouched complex blocks remain unchanged. The same `frontmatter` block can be configured per site in `dyno-library.yaml`.
 
 ### `dyno-library.yaml`
 

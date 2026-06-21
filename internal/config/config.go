@@ -46,12 +46,14 @@ type FrontmatterConfig struct {
 }
 
 type FrontmatterFieldConfig struct {
-	Label       string   `yaml:"label"`
-	Type        string   `yaml:"type"`
-	Options     []string `yaml:"options"`
-	ReadOnly    bool     `yaml:"readonly"`
-	Required    bool     `yaml:"required"`
-	Description string   `yaml:"description"`
+	Label        string   `yaml:"label"`
+	Type         string   `yaml:"type"`
+	Options      []string `yaml:"options"`
+	Filterable   bool     `yaml:"filterable"`
+	UpdateOnSave bool     `yaml:"update_on_save"`
+	ReadOnly     bool     `yaml:"readonly"`
+	Required     bool     `yaml:"required"`
+	Description  string   `yaml:"description"`
 }
 
 type NamedFrontmatterField struct {
@@ -112,6 +114,9 @@ func (c *FrontmatterConfig) Normalize() error {
 		}
 		if field.Type == "select" && len(field.Options) == 0 {
 			return fmt.Errorf("frontmatter select field %q requires options", name)
+		}
+		if field.UpdateOnSave && field.Type != "date" && field.Type != "datetime" {
+			return fmt.Errorf("frontmatter field %q can use update_on_save only with date or datetime", name)
 		}
 		c.Fields[name] = field
 	}

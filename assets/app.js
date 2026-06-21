@@ -59,17 +59,70 @@ document.addEventListener('DOMContentLoaded', function () {
   if (toggleBtn) toggleBtn.addEventListener('click', openSidebar);
   if (overlay) overlay.addEventListener('click', closeSidebar);
 
-  // Close sidebar on nav link click (mobile)
   if (!sidebar) return;
-  sidebar.querySelectorAll('.nav-link').forEach(function (link) {
-    link.addEventListener('click', function () {
-      if (window.innerWidth < 1024) closeSidebar();
-    });
+  // Delegation survives HTMX out-of-band replacements of the sidebar content.
+  sidebar.addEventListener('click', function (event) {
+    if (event.target.closest('.nav-link') && window.innerWidth < 1024) closeSidebar();
   });
 });
 
 // ─── Active nav link ──────────────────────────────────────────────────────────
 // Uses data-active attribute so dark/light styling is handled purely in CSS.
+
+function navCollapsedStorageKey(sidebar) {
+  return 'dyno-nav-collapsed:' + (sidebar.getAttribute('data-nav-storage-key') || '/');
+}
+
+function readCollapsedNavPaths(sidebar) {
+  try {
+    const value = JSON.parse(localStorage.getItem(navCollapsedStorageKey(sidebar)) || '[]');
+    return new Set(Array.isArray(value) ? value : []);
+  } catch (_) {
+    return new Set();
+  }
+}
+
+function writeCollapsedNavPaths(sidebar, paths) {
+  try {
+    localStorage.setItem(navCollapsedStorageKey(sidebar), JSON.stringify(Array.from(paths)));
+  } catch (_) {}
+}
+
+function setNavSectionExpanded(section, expanded) {
+  const toggle = section.querySelector(':scope > div > [data-nav-toggle]');
+  const children = section.querySelector(':scope > [data-nav-children]');
+  if (!toggle || !children) return;
+  toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+  const label = section.getAttribute('data-nav-title') || 'section';
+  toggle.setAttribute('aria-label', (expanded ? 'Collapse ' : 'Expand ') + label);
+  children.classList.toggle('hidden', !expanded);
+  const chevron = toggle.querySelector('[data-nav-chevron]');
+  if (chevron) chevron.classList.toggle('rotate-90', expanded);
+}
+
+function initNavTree() {
+  const sidebar = document.getElementById('sidebar');
+  if (!sidebar) return;
+  const collapsed = readCollapsedNavPaths(sidebar);
+  sidebar.querySelectorAll('[data-nav-section]').forEach(function (section) {
+    const containsActivePage = !!section.querySelector('.nav-link[data-active="true"]');
+    setNavSectionExpanded(section, containsActivePage || !collapsed.has(section.dataset.navPath));
+  });
+}
+
+document.addEventListener('click', function (event) {
+  const toggle = event.target.closest('[data-nav-toggle]');
+  if (!toggle) return;
+  const section = toggle.closest('[data-nav-section]');
+  const sidebar = toggle.closest('#sidebar');
+  if (!section || !sidebar) return;
+  const expanded = toggle.getAttribute('aria-expanded') === 'true';
+  const collapsed = readCollapsedNavPaths(sidebar);
+  if (expanded) collapsed.add(section.dataset.navPath);
+  else collapsed.delete(section.dataset.navPath);
+  writeCollapsedNavPaths(sidebar, collapsed);
+  setNavSectionExpanded(section, !expanded);
+});
 
 function updateActiveNavLink(path) {
   document.querySelectorAll('.nav-page-link, .nav-section-title').forEach(function (link) {
@@ -498,6 +551,7 @@ function applySearchHighlights() {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
+  initNavTree();
   initMermaid();
   updateActiveNavLink(window.location.pathname);
   initTOCScrollSpy();
@@ -525,6 +579,7 @@ document.addEventListener('htmx:afterSwap', function (e) {
     initCopyButtons();
     initLightbox();
     applySearchHighlights();
+    requestAnimationFrame(initNavTree);
     if (!getSearchQuery()) {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -532,6 +587,16 @@ document.addEventListener('htmx:afterSwap', function (e) {
   if (e.target.id === 'page-content' || e.target.id === 'search-results-container') {
     updateActiveNavLink(window.location.pathname);
   }
+});
+
+document.addEventListener('htmx:oobAfterSwap', function (e) {
+  if (e.target && e.target.id === 'sidebar') requestAnimationFrame(initNavTree);
+});
+
+document.addEventListener('htmx:afterSettle', function () {
+  // OOB content may be inserted after the main target's afterSwap callback.
+  // Re-apply persisted collapse state once the complete HTMX transaction settles.
+  initNavTree();
 });
 
 // ─── Search UX ────────────────────────────────────────────────────────────────

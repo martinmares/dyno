@@ -78,6 +78,7 @@
           hx-trigger="input changed delay:300ms, search"
           hx-target="#search-results-container"
           hx-indicator="#search-spinner"
+          {{ if .MetadataFacets }}hx-include="#metadata-filters"{{ end }}
           name="q"
           autocomplete="off"
         />
@@ -177,10 +178,8 @@
 
   <div class="flex pt-14 min-h-screen">
     <!-- Sidebar -->
-    <aside id="sidebar" class="fixed lg:sticky top-14 left-0 h-[calc(100vh-3.5rem)] w-64 shrink-0 overflow-y-auto border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 z-40 -translate-x-full lg:translate-x-0 transition-transform duration-200">
-      <nav class="p-4 space-y-1">
-        {{ template "nav-tree" (dict "node" .Nav "current" .CurrentPath "depth" 0) }}
-      </nav>
+    <aside id="sidebar" data-nav-storage-key="{{ .BasePath }}" class="fixed lg:sticky top-14 left-0 h-[calc(100vh-3.5rem)] w-64 shrink-0 overflow-y-auto border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 z-40 -translate-x-full lg:translate-x-0 transition-transform duration-200">
+      {{ template "sidebar-inner" . }}
     </aside>
 
     <!-- Sidebar overlay (mobile) -->
@@ -218,49 +217,107 @@
 {{ $node := index . "node" }}
 {{ $current := index . "current" }}
 {{ $depth := index . "depth" }}
+{{ $filterQuery := index . "filterQuery" }}
 {{ range $node.Children }}
   {{ if .IsDir }}
-    <div class="nav-section mt-4 first:mt-0">
-      {{/* Section header — clickable if has index.md, otherwise plain label */}}
+    {{ $childrenID := printf "nav-children-%s" (.FullPath | urlquery) }}
+    <div class="nav-section mt-4 first:mt-0" data-nav-section data-nav-path="{{ .FullPath }}" data-nav-title="{{ .Title }}">
+      <div class="flex min-w-0 items-center gap-1">
+      {{/* A landing-page title navigates; its separate chevron toggles children. */}}
       {{ if .FSPath }}
-        <a href="{{ .FullPath }}"
-           hx-get="{{ .FullPath }}"
+        <a href="{{ .FullPath }}{{ $filterQuery }}"
+           hx-get="{{ .FullPath }}{{ $filterQuery }}"
            hx-target="#page-content"
            hx-push-url="true"
-           class="nav-link nav-section-title flex items-center justify-between px-2 py-1 rounded text-xs font-semibold uppercase tracking-widest transition-colors"
+           class="nav-link nav-section-title min-w-0 flex-1 rounded px-2 py-1 text-xs font-semibold uppercase tracking-widest transition-colors"
            data-path="{{ .FullPath }}"
+           title="{{ .Title }}"
            data-active="{{ if eq .FullPath $current }}true{{ else }}false{{ end }}">
-          {{ .Title }}
-          <svg class="w-3 h-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <span class="block truncate">{{ .Title }}</span>
+        </a>
+        <button type="button" data-nav-toggle aria-expanded="true" aria-controls="{{ $childrenID }}"
+          aria-label="Collapse {{ .Title }}" title="Collapse {{ .Title }}"
+          class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-200">
+          <svg data-nav-chevron class="h-3.5 w-3.5 rotate-90 transition-transform duration-150" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
           </svg>
-        </a>
+        </button>
       {{ else }}
-        <p class="px-2 py-1 text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
-          {{ .Title }}
-        </p>
+        <button type="button" data-nav-toggle aria-expanded="true" aria-controls="{{ $childrenID }}"
+          aria-label="Collapse {{ .Title }}" title="{{ .Title }}"
+          class="flex min-w-0 flex-1 items-center justify-between gap-1 rounded px-2 py-1 text-left text-xs font-semibold uppercase tracking-widest text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-200">
+          <span class="min-w-0 flex-1 truncate">{{ .Title }}</span>
+          <svg data-nav-chevron class="h-3.5 w-3.5 shrink-0 rotate-90 transition-transform duration-150" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </button>
       {{ end }}
+      </div>
       {{/* Children — indented with left border */}}
-      <div class="mt-0.5 ml-0 pl-2 border-l-2 border-gray-100 dark:border-gray-700">
-        {{ template "nav-tree" (dict "node" . "current" $current "depth" (add $depth 1)) }}
+      <div id="{{ $childrenID }}" data-nav-children class="mt-0.5 ml-0 pl-2 border-l-2 border-gray-100 dark:border-gray-700">
+        {{ template "nav-tree" (dict "node" . "current" $current "depth" (add $depth 1) "filterQuery" $filterQuery) }}
       </div>
     </div>
   {{ else }}
-    <a href="{{ .FullPath }}"
-       hx-get="{{ .FullPath }}"
+    <a href="{{ .FullPath }}{{ $filterQuery }}"
+       hx-get="{{ .FullPath }}{{ $filterQuery }}"
        hx-target="#page-content"
        hx-push-url="true"
        class="nav-link nav-page-link flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors"
        data-path="{{ .FullPath }}"
        data-active="{{ if eq .FullPath $current }}true{{ else }}false{{ end }}">
       <span class="nav-dot w-1.5 h-1.5 rounded-full shrink-0 opacity-0 {{ if eq .FullPath $current }}opacity-100{{ end }}"></span>
-      <span class="min-w-0 truncate">{{ .Title }}</span>
+      <span class="min-w-0 truncate" title="{{ .Title }}">{{ .Title }}</span>
       {{ if isAgentsDoc .FSPath }}
       <span class="nav-badge-agent">AGENT</span>
       {{ end }}
     </a>
   {{ end }}
 {{ end }}
+{{ end }}
+
+{{ define "metadata-filters" }}
+{{ if .MetadataFacets }}
+<form id="metadata-filters"
+      class="border-b border-gray-200 p-4 dark:border-gray-700"
+      hx-get="{{ .MetadataFilterURL }}"
+      hx-trigger="change"
+      hx-target="#page-content"
+      hx-push-url="true">
+  <div class="mb-3 flex items-center justify-between">
+    <p class="text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400">Filters</p>
+    {{ if .FiltersActive }}
+    <a href="{{ .MetadataFilterURL }}" hx-get="{{ .MetadataFilterURL }}" hx-target="#page-content" hx-push-url="true"
+       class="text-xs text-brand-600 hover:underline dark:text-brand-400">Clear</a>
+    {{ end }}
+  </div>
+  <div class="space-y-3">
+    {{ range .MetadataFacets }}
+    {{ $facet := . }}
+    <details class="group" open>
+      <summary class="cursor-pointer list-none text-xs font-medium text-gray-700 dark:text-gray-300">{{ .Label }}</summary>
+      <div class="mt-1.5 max-h-36 space-y-1 overflow-y-auto">
+        {{ range .Values }}
+        <label class="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-800">
+          <input type="checkbox" name="meta.{{ $facet.Name }}" value="{{ .Value }}" {{ if .Selected }}checked{{ end }}
+                 class="rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800">
+          <span class="min-w-0 flex-1 truncate" title="{{ .Value }}">{{ .Value }}</span>
+          <span class="tabular-nums text-gray-400 dark:text-gray-500">{{ .Count }}</span>
+        </label>
+        {{ end }}
+      </div>
+    </details>
+    {{ end }}
+  </div>
+</form>
+{{ end }}
+{{ end }}
+
+{{ define "sidebar-inner" }}
+  {{ template "metadata-filters" . }}
+  <nav class="p-4 space-y-1">
+    {{ template "nav-tree" (dict "node" .Nav "current" .CurrentPath "depth" 0 "filterQuery" .FilterQuery) }}
+  </nav>
 {{ end }}
 
 {{/* dict helper used in nav-tree */}}

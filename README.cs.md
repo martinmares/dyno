@@ -77,9 +77,11 @@ frontmatter:
       label: Stav
       type: select
       options: [NEW, DRAFT, REVISION, FINAL]
+      filterable: true
     document-owner:
       label: Vlastnik
       type: text
+      filterable: true
     document-tags:
       label: Tagy
       type: tags
@@ -87,13 +89,14 @@ frontmatter:
       label: Aktualizovano ve zdroji
       type: datetime
       readonly: true
+      update_on_save: true
 ```
 
 Všechna pole jsou volitelná — dyno funguje i bez konfiguračního souboru.
 
 `content_include` a `content_exclude` omezují, které Markdown soubory se objeví v navigaci, vyhledávání, předchozí/další navigaci a renderovaných stránkách. Patterny jsou slash-separated globy relativně k adresáři s obsahem; `**` matchuje přes adresáře. Prázdné `content_include` znamená všechny Markdown soubory a `content_exclude` má vždy přednost.
 
-`frontmatter.fields` definuje metadatový formulář zobrazený Markdown editorem v režimu `--edit`. Názvy polí určuje konkrétní repozitář; Dyno nemá natvrdo zabudovaný metadatový slovník. Podporované typy jsou `text`, `textarea`, `select`, `boolean`, `number`, `date`, `datetime` a `tags`. `display` určuje preferované pořadí, `readonly` zakáže editaci přes formulář a `required` zapne validaci. Použití formuláře upraví pouze změněná top-level pole; neznámý YAML a nedotčené složité bloky zůstanou beze změny. Stejný blok `frontmatter` lze nakonfigurovat pro každou site zvlášť v `dyno-library.yaml`.
+`frontmatter.fields` definuje metadata konkrétního repozitáře bez natvrdo zabudovaného slovníku v Dynu. Podporované typy jsou `text`, `textarea`, `select`, `boolean`, `number`, `date`, `datetime` a `tags`. `display` určuje preferované pořadí, `readonly` zakáže editaci přes formulář a `required` zapne validaci. Pro pole `date` a `datetime` zapíše `update_on_save: true` aktuální datum serveru nebo RFC 3339 timestamp, pokud se obsah dokumentu skutečně změnil. Nastavení `filterable: true` přidá runtime facet do sidebaru, navigace a fulltextového hledání v normálním, editačním i library režimu. Hodnoty facet a počty dokumentů se indexují při startu; hodnoty jednoho pole používají OR a různá pole AND. Filtry jsou pracovní pohled uložený v URL, nejde o publikační ani přístupové omezení. Použití editoru upraví pouze změněná top-level pole; neznámý YAML a nedotčené složité bloky zůstanou beze změny. Stejný blok `frontmatter` lze nakonfigurovat pro každou site zvlášť v `dyno-library.yaml`.
 
 ### `dyno-library.yaml`
 

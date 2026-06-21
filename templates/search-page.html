@@ -47,9 +47,9 @@
   </header>
 
   <div class="flex pt-14 min-h-screen">
-    <aside id="sidebar" class="fixed lg:sticky top-14 left-0 h-[calc(100vh-3.5rem)] w-64 shrink-0 overflow-y-auto border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 z-40 -translate-x-full lg:translate-x-0 transition-transform duration-200">
+    <aside id="sidebar" data-nav-storage-key="{{ .BasePath }}" class="fixed lg:sticky top-14 left-0 h-[calc(100vh-3.5rem)] w-64 shrink-0 overflow-y-auto border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 z-40 -translate-x-full lg:translate-x-0 transition-transform duration-200">
       <nav class="p-4 space-y-1">
-        {{ template "nav-tree" (dict "node" .Nav "current" "" "depth" 0) }}
+        {{ template "nav-tree" (dict "node" .Nav "current" "" "depth" 0 "filterQuery" .FilterQuery) }}
       </nav>
     </aside>
     <div id="sidebar-overlay" class="fixed inset-0 bg-black/40 z-30 hidden lg:hidden"></div>

@@ -15,9 +15,11 @@ frontmatter:
     document-owner:
       label: Owner
       type: text
+      filterable: true
     updated:
       type: datetime
       readonly: true
+      update_on_save: true
     document-status:
       label: Status
       type: select
@@ -43,6 +45,23 @@ frontmatter:
 	}
 	if !fields[2].ReadOnly {
 		t.Fatalf("expected updated to be read-only")
+	}
+	if !fields[2].UpdateOnSave {
+		t.Fatal("expected updated to be refreshed on save")
+	}
+	if !cfg.Frontmatter.Fields["document-owner"].Filterable {
+		t.Fatal("expected owner to be filterable")
+	}
+}
+
+func TestLoadRejectsUpdateOnSaveForTextField(t *testing.T) {
+	dir := t.TempDir()
+	data := []byte("frontmatter:\n  fields:\n    owner:\n      type: text\n      update_on_save: true\n")
+	if err := os.WriteFile(filepath.Join(dir, "dyno.yaml"), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Load(dir); err == nil {
+		t.Fatal("expected update_on_save on text field to fail")
 	}
 }
 

@@ -134,6 +134,48 @@ Body.
 	}
 }
 
+func TestMetadataFilterPrunesNavigationAndSearch(t *testing.T) {
+	srv := newTestServer(t)
+	srv.siteCfg.Frontmatter = config.FrontmatterConfig{Fields: map[string]config.FrontmatterFieldConfig{
+		"owner": {Label: "Owner", Type: "text", Filterable: true},
+	}}
+	writeTestFile(t, filepath.Join(srv.contentDir, "guides", "api-widget.md"), "---\nowner: alice\n---\n# API Widget\n\nVisible needle.\n")
+	writeTestFile(t, filepath.Join(srv.contentDir, "guides", "internal.md"), "---\nowner: bob\n---\n# Internal\n\nHidden needle.\n")
+	nav, err := navigation.BuildTree(srv.contentDir, srv.basePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, err := search.BuildIndex(nav, func(src string) (string, error) {
+		return srv.renderer.ToPlainText([]byte(src))
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv.Reload(nav, idx)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/guides/api-widget?meta.owner=alice", nil)
+	srv.Handler().ServeHTTP(rec, req)
+	body := rec.Body.String()
+	if !strings.Contains(body, `name="meta.owner"`) || !strings.Contains(body, `value="alice" checked`) {
+		t.Fatalf("expected selected owner facet, got: %s", body)
+	}
+	if strings.Contains(body, `/guides/internal`) {
+		t.Fatalf("filtered navigation must hide Bob's page, got: %s", body)
+	}
+	if !strings.Contains(body, `/guides/api-widget?meta.owner=alice`) {
+		t.Fatalf("navigation must preserve active filters, got: %s", body)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/_search?q=needle&meta.owner=alice", nil)
+	req.Header.Set("HX-Request", "true")
+	srv.Handler().ServeHTTP(rec, req)
+	if strings.Contains(rec.Body.String(), "Hidden") || !strings.Contains(rec.Body.String(), "Visible <mark>needle</mark>") {
+		t.Fatalf("search must use the metadata filter, got: %s", rec.Body.String())
+	}
+}
+
 func TestPageCommentsCanBeAddedAndRendered(t *testing.T) {
 	srv := newTestServer(t)
 	store, err := comments.NewJSONLStore(filepath.Join(t.TempDir(), "comments.jsonl"))
@@ -346,6 +388,41 @@ func TestFooterUsesBuildMetadata(t *testing.T) {
 	}
 }
 
+func TestSidebarSectionsHaveIndependentToggleAndTitleTooltips(t *testing.T) {
+	srv := newTestServer(t)
+	writeTestFile(t, filepath.Join(srv.contentDir, "guides", "index.md"), "# Guides\n")
+	nav, err := navigation.BuildTree(srv.contentDir, srv.basePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, err := search.BuildIndex(nav, func(src string) (string, error) {
+		return srv.renderer.ToPlainText([]byte(src))
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv.Reload(nav, idx)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rec.Code)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{
+		`data-nav-section data-nav-path="/guides/"`,
+		`data-nav-toggle aria-expanded="true"`,
+		`aria-controls="nav-children-%2Fguides%2F"`,
+		`title="Guides"`,
+		`title="Api Widget"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("expected sidebar markup %q, got: %s", want, body)
+		}
+	}
+}
+
 func TestSyntheticIndexForMissingIndexPage(t *testing.T) {
 	siteRoot := t.TempDir()
 	contentDir := filepath.Join(siteRoot, "wiki")
@@ -432,12 +509,12 @@ func TestLibrarySearchUsesBasePath(t *testing.T) {
 	contentB := filepath.Join(rootB, "wiki-b")
 
 	writeTestFile(t, filepath.Join(contentA, "index.md"), "# Alpha\n\nShared term.\n")
-	writeTestFile(t, filepath.Join(contentA, "guides", "first.md"), "# First\n\nLibrary search target alpha.\n")
+	writeTestFile(t, filepath.Join(contentA, "guides", "first.md"), "---\nowner: alice\n---\n# First\n\nLibrary search target alpha.\n")
 	writeTestFile(t, filepath.Join(contentB, "index.md"), "# Beta\n\nOther docs.\n")
-	writeTestFile(t, filepath.Join(contentB, "guides", "second.md"), "# Second\n\nAnother alpha match.\n")
+	writeTestFile(t, filepath.Join(contentB, "guides", "second.md"), "---\nowner: bob\n---\n# Second\n\nAnother alpha match.\n")
 
-	cfgA := "title: Alpha Docs\nslug: alpha\nbase_path: /docs\n"
-	cfgB := "title: Beta Docs\nslug: beta\n"
+	cfgA := "title: Alpha Docs\nslug: alpha\nbase_path: /docs\nfrontmatter:\n  fields:\n    owner:\n      filterable: true\n"
+	cfgB := "title: Beta Docs\nslug: beta\nfrontmatter:\n  fields:\n    owner:\n      filterable: true\n"
 	writeTestFile(t, filepath.Join(contentA, "dyno.yaml"), cfgA)
 	writeTestFile(t, filepath.Join(contentB, "dyno.yaml"), cfgB)
 
@@ -479,8 +556,15 @@ func TestLibrarySearchUsesBasePath(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected dashboard 200, got %d", rec.Code)
 	}
-	if !strings.Contains(rec.Body.String(), `hx-get="/docs/search"`) {
+	if !strings.Contains(rec.Body.String(), `hx-get="/docs/_search"`) {
 		t.Fatalf("expected dashboard search to use base path, got: %s", rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/docs/?meta.owner=alice", nil)
+	ls.Handler().ServeHTTP(rec, req)
+	if !strings.Contains(rec.Body.String(), "Alpha Docs") || strings.Contains(rec.Body.String(), "Beta Docs") {
+		t.Fatalf("library dashboard must filter books by metadata, got: %s", rec.Body.String())
 	}
 
 	rec = httptest.NewRecorder()

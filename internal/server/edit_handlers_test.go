@@ -9,6 +9,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/mares/dyno/internal/config"
+	"github.com/mares/dyno/internal/frontmatter"
 )
 
 func TestEditPageSupportsRootIndexWithoutExposingFilePath(t *testing.T) {
@@ -31,6 +35,9 @@ func TestEditPageSupportsRootIndexWithoutExposingFilePath(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Fatalf("expected %q in metadata-aware editor", want)
 		}
+	}
+	if !strings.Contains(body, `id="git-file-status"`) || !strings.Contains(body, `style="display: none"`) {
+		t.Fatal("expected Git status badge to be hidden for a clean non-Git document")
 	}
 }
 
@@ -77,6 +84,104 @@ func TestEditSaveUsesRevisionAndAtomicWrite(t *testing.T) {
 	}, http.StatusOK)
 	if !retry.OK || retry.Revision != response.Revision {
 		t.Fatalf("unexpected retry response: %+v", retry)
+	}
+}
+
+func TestEditSavePreservesExistingLineEndings(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		original string
+		edited   string
+		want     string
+	}{
+		{
+			name:     "LF input is restored after multipart CRLF normalization",
+			original: "# Home\n\nOriginal.\n",
+			edited:   "# Home\r\n\r\nChanged.\r\n",
+			want:     "# Home\n\nChanged.\n",
+		},
+		{
+			name:     "CRLF document remains CRLF",
+			original: "# Home\r\n\r\nOriginal.\r\n",
+			edited:   "# Home\n\nChanged.\n",
+			want:     "# Home\r\n\r\nChanged.\r\n",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			srv := newTestServer(t)
+			path := filepath.Join(srv.contentDir, "index.md")
+			if err := os.WriteFile(path, []byte(test.original), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			response := saveEditedDocument(t, srv, url.Values{
+				"page_path": {"/"},
+				"revision":  {contentRevision([]byte(test.original))},
+				"source":    {test.edited},
+			}, http.StatusOK)
+			if !response.OK {
+				t.Fatalf("unexpected save response: %+v", response)
+			}
+			got, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(got) != test.want {
+				t.Fatalf("unexpected line endings: got %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestEditSaveUpdatesConfiguredTimestampOnlyAfterContentChange(t *testing.T) {
+	srv := newTestServer(t)
+	srv.siteCfg.Frontmatter = config.FrontmatterConfig{Fields: map[string]config.FrontmatterFieldConfig{
+		"updated": {Type: "datetime", ReadOnly: true, UpdateOnSave: true},
+	}}
+	path := filepath.Join(srv.contentDir, "index.md")
+	original := []byte("---\nupdated: 2025-01-02T03:04:05+01:00\n---\n# Home\n\nOriginal.\n")
+	if err := os.WriteFile(path, original, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	unchanged := saveEditedDocument(t, srv, url.Values{
+		"page_path": {"/"},
+		"revision":  {contentRevision(original)},
+		"source":    {string(original)},
+	}, http.StatusOK)
+	if !unchanged.OK {
+		t.Fatalf("unexpected unchanged response: %+v", unchanged)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(original) {
+		t.Fatalf("unchanged save modified timestamp: %q", got)
+	}
+
+	started := time.Now().Add(-time.Second)
+	response := saveEditedDocument(t, srv, url.Values{
+		"page_path": {"/"},
+		"revision":  {contentRevision(original)},
+		"source":    {"---\nupdated: 2025-01-02T03:04:05+01:00\n---\n# Home\n\nChanged.\n"},
+	}, http.StatusOK)
+	if !response.OK {
+		t.Fatalf("unexpected changed response: %+v", response)
+	}
+	got, err = os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	values, err := frontmatter.Read(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated, ok := values["updated"].(time.Time)
+	if !ok || updated.Before(started) || updated.After(time.Now().Add(time.Second)) {
+		t.Fatalf("unexpected updated timestamp %#v in %q", values["updated"], got)
+	}
+	if !strings.Contains(string(got), "Changed.") {
+		t.Fatalf("edited content was not saved: %q", got)
 	}
 }
 

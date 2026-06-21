@@ -12,6 +12,7 @@ import (
 	"github.com/mares/dyno/internal/comments"
 	"github.com/mares/dyno/internal/library"
 	"github.com/mares/dyno/internal/markdown"
+	"github.com/mares/dyno/internal/metadata"
 	"github.com/mares/dyno/internal/search"
 )
 
@@ -28,6 +29,7 @@ type LibraryServer struct {
 	tmpl     *template.Template
 	mux      *http.ServeMux
 	metrics  *metrics
+	metadata *metadata.Index
 }
 
 // LibraryConfig holds top-level configuration for library mode.
@@ -67,6 +69,11 @@ func NewLibrary(cfg LibraryConfig, staticFS fs.FS, books []*library.Book, render
 		mux:      http.NewServeMux(),
 		metrics:  newMetrics(),
 	}
+	metadataIndices := make([]*metadata.Index, 0, len(books))
+	for _, book := range books {
+		metadataIndices = append(metadataIndices, book.Metadata)
+	}
+	ls.metadata = metadata.Merge(metadataIndices...)
 
 	if !cfg.DevMode {
 		tmpl, err := parseTemplates(tmplFS)
@@ -157,6 +164,17 @@ func (ls *LibraryServer) ReloadBook(book *library.Book) {
 		return
 	}
 	srv.Reload(book.Nav, book.Idx)
+	for i, current := range ls.books {
+		if current.Slug == book.Slug {
+			ls.books[i] = book
+			break
+		}
+	}
+	indices := make([]*metadata.Index, 0, len(ls.books))
+	for _, current := range ls.books {
+		indices = append(indices, current.Metadata)
+	}
+	ls.metadata = metadata.Merge(indices...)
 }
 
 // Handler returns the HTTP handler with middleware applied.
@@ -207,6 +225,9 @@ func (ls *LibraryServer) dashboardHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	filter := ls.metadata.Parse(r.URL.Query())
+	filterQuery := metadata.Encode(filter)
+	allowed := ls.metadata.Allowed(filter)
 	cards := make([]bookCardData, 0, len(ls.books))
 	for _, book := range ls.books {
 		color := book.Cfg.Color
@@ -214,6 +235,18 @@ func (ls *LibraryServer) dashboardHandler(w http.ResponseWriter, r *http.Request
 			color = "#0ea5e9"
 		}
 		bookPath := strings.TrimRight(ls.basePath, "/") + "/" + book.Slug
+		pageCount := book.PageCount
+		if allowed != nil {
+			pageCount = 0
+			for pagePath := range allowed {
+				if strings.HasPrefix(pagePath, bookPath+"/") || pagePath == bookPath {
+					pageCount++
+				}
+			}
+			if pageCount == 0 {
+				continue
+			}
+		}
 		var chapters []chapterEntry
 		for _, ch := range book.TopLevel(5) {
 			chapters = append(chapters, chapterEntry{Title: ch.Title})
@@ -223,8 +256,8 @@ func (ls *LibraryServer) dashboardHandler(w http.ResponseWriter, r *http.Request
 			Description: book.Cfg.Description,
 			Icon:        book.Cfg.Icon,
 			AccentColor: color,
-			BookPath:    bookPath,
-			PageCount:   book.PageCount,
+			BookPath:    bookPath + filterQuery,
+			PageCount:   pageCount,
 			WordCount:   book.WordCount,
 			TopChapters: chapters,
 		})
@@ -242,18 +275,21 @@ func (ls *LibraryServer) dashboardHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	data := LibraryData{
-		Title:       ls.title,
-		LogoText:    ls.logoText,
-		Subtitle:    ls.subtitle,
-		Books:       cards,
-		BasePath:    ls.basePath,
-		SearchURL:   strings.TrimRight(ls.basePath, "/") + "/search",
-		AppJSURL:    appJSURL,
-		AppCSSURL:   appCSSURL,
-		TailwindURL: tailwindURL,
-		HTMXURL:     htmxURL,
-		MermaidURL:  mermaidURL,
-		IsHTMX:      r.Header.Get("HX-Request") == "true",
+		Title:          ls.title,
+		LogoText:       ls.logoText,
+		Subtitle:       ls.subtitle,
+		Books:          cards,
+		BasePath:       ls.basePath,
+		SearchURL:      strings.TrimRight(ls.basePath, "/") + "/_search" + filterQuery,
+		AppJSURL:       appJSURL,
+		AppCSSURL:      appCSSURL,
+		TailwindURL:    tailwindURL,
+		HTMXURL:        htmxURL,
+		MermaidURL:     mermaidURL,
+		IsHTMX:         r.Header.Get("HX-Request") == "true",
+		MetadataFacets: ls.metadata.Facets(filter),
+		FilterQuery:    filterQuery,
+		FiltersActive:  len(filter) > 0,
 	}
 
 	if err := tmpl.ExecuteTemplate(w, "library-base.html", data); err != nil {
@@ -263,10 +299,14 @@ func (ls *LibraryServer) dashboardHandler(w http.ResponseWriter, r *http.Request
 
 func (ls *LibraryServer) searchHandler(w http.ResponseWriter, r *http.Request) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	filter := ls.metadata.Parse(r.URL.Query())
+	allowed := ls.metadata.Allowed(filter)
+	resultValues := r.URL.Query()
+	resultValues.Set("q", q)
 	var results []search.SearchResult
 	if q != "" {
 		for _, book := range ls.books {
-			for _, res := range book.Idx.Search(q) {
+			for _, res := range book.Idx.SearchFiltered(q, allowed) {
 				res.BookTitle = book.Cfg.Title
 				res.BookSlug = book.Slug
 				results = append(results, res)
@@ -296,10 +336,12 @@ func (ls *LibraryServer) searchHandler(w http.ResponseWriter, r *http.Request) {
 		IsHTMX:      r.Header.Get("HX-Request") == "true",
 		Title:       "Search",
 		BasePath:    ls.basePath,
-		SearchURL:   strings.TrimRight(ls.basePath, "/") + "/search",
+		SearchURL:   strings.TrimRight(ls.basePath, "/") + "/_search" + metadata.Encode(filter),
 		AppJSURL:    appJSURL,
 		AppCSSURL:   appCSSURL,
 		TailwindURL: tailwindURL,
+		FilterQuery: metadata.Encode(filter),
+		ResultQuery: "?" + resultValues.Encode(),
 	}
 
 	tmpl, err := ls.getTemplate()
