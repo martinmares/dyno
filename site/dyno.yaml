@@ -6,3 +6,5 @@ icon: 🚀
 color: "#ff101f"
 base_path: ""
 copyright: Dyno Self
+comments:
+  document_id_field: comment_id

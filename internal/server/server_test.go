@@ -225,6 +225,8 @@ func TestMetadataFilterSurvivesHTMXGraphAndBacklinkNavigation(t *testing.T) {
 
 func TestPageCommentsCanBeAddedAndRendered(t *testing.T) {
 	srv := newTestServer(t)
+	srv.siteCfg.Comments.DocumentIDField = "comment_id"
+	writeTestFile(t, filepath.Join(srv.contentDir, "index.md"), "---\ncomment_id: home\n---\n# Home\n\nWelcome.\n")
 	store, err := comments.NewJSONLStore(filepath.Join(t.TempDir(), "comments.jsonl"))
 	if err != nil {
 		t.Fatal(err)
@@ -246,6 +248,19 @@ func TestPageCommentsCanBeAddedAndRendered(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &first); err != nil {
 		t.Fatal(err)
 	}
+	if first.DocumentID != "home" {
+		t.Fatalf("comment used wrong document identity: %#v", first)
+	}
+
+	highlightForm := strings.NewReader("page_path=/&kind=highlight&quote=Welcome")
+	req = httptest.NewRequest(http.MethodPost, "/_comments", highlightForm)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+	rec = httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected highlight 200, got %d: %s", rec.Code, rec.Body.String())
+	}
 
 	replyForm := strings.NewReader("page_path=/&parent_id=" + first.ID + "&author=Bob&body=Re:+agreed")
 	req = httptest.NewRequest(http.MethodPost, "/_comments", replyForm)
@@ -264,7 +279,7 @@ func TestPageCommentsCanBeAddedAndRendered(t *testing.T) {
 		t.Fatalf("expected page 200, got %d", rec.Code)
 	}
 	body := rec.Body.String()
-	for _, want := range []string{"Comments", "Alice", "<strong>good</strong>", "Selected text", "Bob", "Re: agreed", "RE"} {
+	for _, want := range []string{"Comments", "Alice", "<strong>good</strong>", "Selected text", "Bob", "Re: agreed", "RE", `data-comment-highlight`, `data-quote="Welcome"`} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("expected %q in rendered page, got: %s", want, body)
 		}
@@ -273,6 +288,8 @@ func TestPageCommentsCanBeAddedAndRendered(t *testing.T) {
 
 func TestCommentsDisablePageConditionalNotModified(t *testing.T) {
 	srv := newTestServer(t)
+	srv.siteCfg.Comments.DocumentIDField = "comment_id"
+	writeTestFile(t, filepath.Join(srv.contentDir, "index.md"), "---\ncomment_id: home\n---\n# Home\n")
 	store, err := comments.NewJSONLStore(filepath.Join(t.TempDir(), "comments.jsonl"))
 	if err != nil {
 		t.Fatal(err)

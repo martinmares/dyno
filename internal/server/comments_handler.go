@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"html/template"
 	"net/http"
+	"os"
 	"sort"
 	"strings"
 
 	"github.com/mares/dyno/internal/comments"
+	"github.com/mares/dyno/internal/frontmatter"
 	"github.com/mares/dyno/internal/navigation"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
@@ -21,11 +24,32 @@ var commentMarkdown = goldmark.New(
 	goldmark.WithRendererOptions(html.WithHardWraps()),
 )
 
-func (s *Server) listComments(pagePath string) ([]comments.Comment, error) {
+func (s *Server) listComments(documentID, pagePath string) ([]comments.Comment, error) {
 	if s.comments == nil {
 		return nil, nil
 	}
-	return s.comments.List(pagePath)
+	return s.comments.List(documentID, pagePath)
+}
+
+func (s *Server) commentDocumentID(pagePath string) string {
+	node := navigation.FindNode(s.getNav(), pagePath)
+	if node == nil || node.FSPath == "" {
+		return ""
+	}
+	source, err := os.ReadFile(node.FSPath)
+	if err != nil {
+		return ""
+	}
+	values, err := frontmatter.Read(source)
+	if err != nil {
+		return ""
+	}
+	field := strings.TrimSpace(s.siteCfg.Comments.DocumentIDField)
+	value, ok := values[field]
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(fmt.Sprint(value))
 }
 
 func (s *Server) addCommentHandler(w http.ResponseWriter, r *http.Request) {
@@ -33,7 +57,7 @@ func (s *Server) addCommentHandler(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if err := r.ParseForm(); err != nil {
+	if err := r.ParseMultipartForm(1 << 20); err != nil && !errors.Is(err, http.ErrNotMultipart) {
 		http.Error(w, "invalid form", http.StatusBadRequest)
 		return
 	}
@@ -47,25 +71,36 @@ func (s *Server) addCommentHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unknown page_path", http.StatusBadRequest)
 		return
 	}
+	documentID := s.commentDocumentID(pagePath)
+	if documentID == "" {
+		http.Error(w, "page has no configured comment document id", http.StatusBadRequest)
+		return
+	}
 
+	kind := strings.ToLower(strings.TrimSpace(r.FormValue("kind")))
+	if kind == "" {
+		kind = "comment"
+	}
 	body := strings.TrimSpace(r.FormValue("body"))
-	if body == "" {
+	if kind == "comment" && body == "" {
 		http.Error(w, "body is required", http.StatusBadRequest)
 		return
 	}
 	parentID := strings.TrimSpace(r.FormValue("parent_id"))
-	if parentID != "" && !s.commentExists(pagePath, parentID) {
+	if parentID != "" && !s.commentExists(documentID, pagePath, parentID) {
 		http.Error(w, "unknown parent_id", http.StatusBadRequest)
 		return
 	}
 
 	comment, err := s.comments.Add(comments.Comment{
-		PagePath: pagePath,
-		ParentID: parentID,
-		Anchor:   strings.TrimSpace(r.FormValue("anchor")),
-		Quote:    strings.TrimSpace(r.FormValue("quote")),
-		Author:   s.commentAuthor(r),
-		Body:     body,
+		DocumentID: documentID,
+		Kind:       kind,
+		PagePath:   pagePath,
+		ParentID:   parentID,
+		Anchor:     strings.TrimSpace(r.FormValue("anchor")),
+		Quote:      strings.TrimSpace(r.FormValue("quote")),
+		Author:     s.commentAuthor(r),
+		Body:       body,
 	})
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -78,7 +113,10 @@ func (s *Server) addCommentHandler(w http.ResponseWriter, r *http.Request) {
 
 	if wantsJSON(r) {
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(comment)
+		_ = json.NewEncoder(w).Encode(struct {
+			comments.Comment
+			BodyHTML template.HTML `json:"body_html,omitempty"`
+		}{Comment: comment, BodyHTML: renderCommentMarkdown(comment.Body)})
 		return
 	}
 	http.Redirect(w, r, pagePath+"#comments", http.StatusSeeOther)
@@ -88,8 +126,8 @@ func (s *Server) isKnownPagePath(pagePath string) bool {
 	return navigation.FindNode(s.getNav(), pagePath) != nil
 }
 
-func (s *Server) commentExists(pagePath, id string) bool {
-	existing, err := s.listComments(pagePath)
+func (s *Server) commentExists(documentID, pagePath, id string) bool {
+	existing, err := s.listComments(documentID, pagePath)
 	if err != nil {
 		return false
 	}

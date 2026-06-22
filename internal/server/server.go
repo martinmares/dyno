@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -170,6 +171,9 @@ func newFuncMap() template.FuncMap {
 // In dev mode (cfg.DevMode=true), templates are re-parsed on every request so
 // changes to templates/ and assets/ are reflected immediately without rebuilding.
 func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index, renderer *markdown.Renderer) (*Server, error) {
+	if cfg.Comments != nil && strings.TrimSpace(cfg.SiteCfg.Comments.DocumentIDField) == "" {
+		return nil, fmt.Errorf("comments.document_id_field is required when comments are enabled")
+	}
 	tmplFS, err := fs.Sub(staticFS, "templates")
 	if err != nil {
 		return nil, err

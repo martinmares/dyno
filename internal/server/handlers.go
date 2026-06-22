@@ -26,21 +26,23 @@ import (
 
 // PageData is passed to page templates.
 type PageData struct {
-	Title        string
-	Breadcrumbs  []navigation.NavNode
-	ContentHTML  template.HTML
-	Nav          *navigation.NavNode
-	CurrentPath  string
-	TOC          []markdown.TOCEntry
-	ExternalRefs []markdown.ExternalRef
-	Comments     []comments.Comment
-	CommentTree  []CommentNode
-	CommentsURL  string
-	LightCSS     template.CSS
-	DarkCSS      template.CSS
-	IsHTMX       bool
-	Site         *config.SiteConfig
-	BasePath     string
+	Title             string
+	Breadcrumbs       []navigation.NavNode
+	ContentHTML       template.HTML
+	Nav               *navigation.NavNode
+	CurrentPath       string
+	TOC               []markdown.TOCEntry
+	ExternalRefs      []markdown.ExternalRef
+	Comments          []comments.Comment
+	Highlights        []comments.Comment
+	CommentDocumentID string
+	CommentTree       []CommentNode
+	CommentsURL       string
+	LightCSS          template.CSS
+	DarkCSS           template.CSS
+	IsHTMX            bool
+	Site              *config.SiteConfig
+	BasePath          string
 	// EditURL is the GitHub edit link for this page, empty if not configured
 	EditURL    string
 	IsAgentDoc bool
@@ -270,7 +272,8 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	prev, next := navigation.PrevNext(view.Nav, node.FullPath)
-	pageComments, err := s.listComments(node.FullPath)
+	commentDocumentID := s.commentDocumentID(node.FullPath)
+	pageComments, err := s.listComments(commentDocumentID, node.FullPath)
 	if err != nil {
 		slog.Warn("failed to load comments", "path", node.FullPath, "err", err)
 	}
@@ -284,43 +287,58 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	visibleComments := make([]comments.Comment, 0, len(pageComments))
+	highlights := make([]comments.Comment, 0)
+	for _, item := range pageComments {
+		if item.Kind == "highlight" {
+			highlights = append(highlights, item)
+		} else {
+			visibleComments = append(visibleComments, item)
+		}
+	}
+	commentsURL := s.commentsPath
+	if commentDocumentID == "" {
+		commentsURL = ""
+	}
 	data := PageData{
-		Title:           title,
-		Breadcrumbs:     navigation.Breadcrumbs(s.getNav(), node.FullPath),
-		ContentHTML:     template.HTML(res.HTML),
-		Nav:             view.Nav,
-		CurrentPath:     node.FullPath,
-		TOC:             res.TOC,
-		ExternalRefs:    res.Frontmatter.ExternalRefs,
-		Comments:        pageComments,
-		CommentTree:     buildCommentTree(pageComments, renderCommentMarkdown),
-		CommentsURL:     s.commentsPath,
-		LightCSS:        template.CSS(s.renderer.LightCSS()),
-		DarkCSS:         template.CSS(s.renderer.DarkCSS()),
-		IsHTMX:          isHTMX(r),
-		Site:            s.siteCfg,
-		BasePath:        s.basePath,
-		EditURL:         editURL,
-		IsAgentDoc:      filepath.Base(node.FSPath) == "AGENTS.md",
-		Prev:            prev,
-		Next:            next,
-		TailwindURL:     s.assetURL("tailwind.css"),
-		AppCSSURL:       s.assetURL("app.css"),
-		AppJSURL:        s.assetURL("app.js"),
-		HTMXURL:         s.assetURL("htmx.min.js"),
-		MermaidURL:      s.assetURL("mermaid.min.js"),
-		FaviconURL:      s.faviconURL(),
-		SearchURL:       s.searchPath + view.Query,
-		TasksURL:        s.tasksPath,
-		GraphURL:        s.graphPath,
-		SectionTasksURL: s.sectionTaskPath + "?path=" + node.FullPath,
-		HasTasksBlock:   s.taskIndex.HasTasksBlock(node.FullPath),
-		Backlinks:       s.backlinks[node.FullPath],
-		EgoGraphURL:     s.graphPath + strings.TrimPrefix(node.FullPath, s.basePath) + view.Query,
-		LibraryURL:      s.libraryURL,
-		BuildVersion:    s.version,
-		BuildCommit:     s.commit,
-		EditMode:        s.editMode,
+		Title:             title,
+		Breadcrumbs:       navigation.Breadcrumbs(s.getNav(), node.FullPath),
+		ContentHTML:       template.HTML(res.HTML),
+		Nav:               view.Nav,
+		CurrentPath:       node.FullPath,
+		TOC:               res.TOC,
+		ExternalRefs:      res.Frontmatter.ExternalRefs,
+		Comments:          visibleComments,
+		Highlights:        highlights,
+		CommentTree:       buildCommentTree(visibleComments, renderCommentMarkdown),
+		CommentsURL:       commentsURL,
+		CommentDocumentID: commentDocumentID,
+		LightCSS:          template.CSS(s.renderer.LightCSS()),
+		DarkCSS:           template.CSS(s.renderer.DarkCSS()),
+		IsHTMX:            isHTMX(r),
+		Site:              s.siteCfg,
+		BasePath:          s.basePath,
+		EditURL:           editURL,
+		IsAgentDoc:        filepath.Base(node.FSPath) == "AGENTS.md",
+		Prev:              prev,
+		Next:              next,
+		TailwindURL:       s.assetURL("tailwind.css"),
+		AppCSSURL:         s.assetURL("app.css"),
+		AppJSURL:          s.assetURL("app.js"),
+		HTMXURL:           s.assetURL("htmx.min.js"),
+		MermaidURL:        s.assetURL("mermaid.min.js"),
+		FaviconURL:        s.faviconURL(),
+		SearchURL:         s.searchPath + view.Query,
+		TasksURL:          s.tasksPath,
+		GraphURL:          s.graphPath,
+		SectionTasksURL:   s.sectionTaskPath + "?path=" + node.FullPath,
+		HasTasksBlock:     s.taskIndex.HasTasksBlock(node.FullPath),
+		Backlinks:         s.backlinks[node.FullPath],
+		EgoGraphURL:       s.graphPath + strings.TrimPrefix(node.FullPath, s.basePath) + view.Query,
+		LibraryURL:        s.libraryURL,
+		BuildVersion:      s.version,
+		BuildCommit:       s.commit,
+		EditMode:          s.editMode,
 		EditPageURL: func() string {
 			if s.editMode && node.FSPath != "" {
 				return s.editPageURLFor(node.FullPath)

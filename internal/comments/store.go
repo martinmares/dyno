@@ -16,19 +16,21 @@ import (
 
 // Comment is a user note attached to a rendered documentation page.
 type Comment struct {
-	ID        string    `json:"id"`
-	PagePath  string    `json:"page_path"`
-	ParentID  string    `json:"parent_id,omitempty"`
-	Anchor    string    `json:"anchor,omitempty"`
-	Quote     string    `json:"quote,omitempty"`
-	Author    string    `json:"author"`
-	Body      string    `json:"body"`
-	CreatedAt time.Time `json:"created_at"`
+	ID         string    `json:"id"`
+	DocumentID string    `json:"document_id"`
+	Kind       string    `json:"kind,omitempty"`
+	PagePath   string    `json:"page_path"`
+	ParentID   string    `json:"parent_id,omitempty"`
+	Anchor     string    `json:"anchor,omitempty"`
+	Quote      string    `json:"quote,omitempty"`
+	Author     string    `json:"author"`
+	Body       string    `json:"body"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 // Store persists and reads comments.
 type Store interface {
-	List(pagePath string) ([]Comment, error)
+	List(documentID, legacyPagePath string) ([]Comment, error)
 	Add(comment Comment) (Comment, error)
 }
 
@@ -50,7 +52,7 @@ func NewJSONLStore(path string) (*JSONLStore, error) {
 	return &JSONLStore{path: path}, nil
 }
 
-func (s *JSONLStore) List(pagePath string) ([]Comment, error) {
+func (s *JSONLStore) List(documentID, legacyPagePath string) ([]Comment, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -74,7 +76,7 @@ func (s *JSONLStore) List(pagePath string) ([]Comment, error) {
 		if err := json.Unmarshal([]byte(line), &c); err != nil {
 			continue
 		}
-		if c.PagePath == pagePath {
+		if c.DocumentID == documentID || (c.DocumentID == "" && c.PagePath == legacyPagePath) {
 			out = append(out, c)
 		}
 	}
@@ -92,18 +94,29 @@ func (s *JSONLStore) Add(comment Comment) (Comment, error) {
 	defer s.mu.Unlock()
 
 	comment.PagePath = normalizePagePath(comment.PagePath)
+	comment.DocumentID = truncate(strings.TrimSpace(comment.DocumentID), 240)
+	comment.Kind = strings.ToLower(strings.TrimSpace(comment.Kind))
+	if comment.Kind == "" {
+		comment.Kind = "comment"
+	}
 	comment.ParentID = strings.TrimSpace(comment.ParentID)
 	comment.Anchor = strings.TrimSpace(comment.Anchor)
 	comment.Quote = truncate(strings.TrimSpace(comment.Quote), 500)
 	comment.Author = truncate(strings.TrimSpace(comment.Author), 120)
 	comment.Body = truncate(strings.TrimSpace(comment.Body), 4000)
-	if comment.PagePath == "" {
+	if comment.PagePath == "" || comment.DocumentID == "" {
 		return Comment{}, ErrValidation
 	}
-	if comment.Body == "" {
+	if comment.Kind != "comment" && comment.Kind != "highlight" {
 		return Comment{}, ErrValidation
 	}
-	if comment.Author == "" {
+	if comment.Kind == "comment" && comment.Body == "" {
+		return Comment{}, ErrValidation
+	}
+	if comment.Kind == "highlight" && comment.Quote == "" {
+		return Comment{}, ErrValidation
+	}
+	if comment.Kind == "comment" && comment.Author == "" {
 		comment.Author = "Anonymous"
 	}
 	if comment.ID == "" {

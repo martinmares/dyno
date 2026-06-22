@@ -74,13 +74,15 @@
   <section id="comments"
            class="not-prose mt-10 border-t border-gray-200 pt-5 dark:border-gray-800"
            data-comments-root
+           data-document-id="{{ .CommentDocumentID }}"
            data-page-path="{{ .CurrentPath }}">
     <div class="mb-4 flex items-center justify-between gap-3">
       <div>
         <h2 class="text-base font-semibold text-gray-950 dark:text-gray-50">Comments</h2>
         <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">Add a page note or comment on selected text.</p>
       </div>
-      <span class="inline-flex min-w-7 items-center justify-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">{{ len .Comments }}</span>
+      <span data-comments-count class="inline-flex min-w-7 items-center justify-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">{{ len .Comments }}</span>
+      <button type="button" data-comment-new class="rounded-md border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">Add comment</button>
     </div>
 
     <div class="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-950" data-comments-list>
@@ -91,38 +93,56 @@
       {{ end }}
     </div>
 
-    <form class="mt-4 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-950" method="post" action="{{ .CommentsURL }}" data-comments-form>
+    {{ range .Highlights }}<span hidden data-comment-highlight data-quote="{{ .Quote }}" data-anchor="{{ .Anchor }}"></span>{{ end }}
+
+    <dialog data-selection-actions-dialog class="m-auto w-full max-w-md rounded-xl border border-gray-200 bg-white p-0 shadow-2xl backdrop:bg-gray-950/60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
+      <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
+        <h3 class="font-semibold">Selected text</h3>
+        <p class="mt-1 line-clamp-3 text-sm text-gray-500 dark:text-gray-400" data-selection-preview></p>
+      </div>
+      <div class="flex justify-end gap-2 px-5 py-4">
+        <button type="button" data-selection-cancel class="rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">Cancel</button>
+        <button type="button" data-selection-highlight class="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200">Highlight</button>
+        <button type="button" data-selection-comment class="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700">Add comment</button>
+      </div>
+    </dialog>
+
+    <dialog data-comment-editor-dialog class="m-auto w-full max-w-2xl rounded-xl border border-gray-200 bg-white p-0 shadow-2xl backdrop:bg-gray-950/60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
+    <form method="post" action="{{ .CommentsURL }}" data-comments-form>
       <input type="hidden" name="page_path" value="{{ .CurrentPath }}">
+      <input type="hidden" name="kind" value="comment">
       <input type="hidden" name="parent_id" data-comment-parent-id>
       <input type="hidden" name="anchor" data-comment-anchor>
       <input type="hidden" name="quote" data-comment-quote>
-      <div class="mx-4 mt-4 flex items-center justify-between gap-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200" data-comment-reply hidden>
+      <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-700"><h3 class="font-semibold">Add comment</h3><button type="button" data-comment-editor-cancel class="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200" aria-label="Close">×</button></div>
+      <div class="mx-5 mt-4 flex items-center justify-between gap-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200" data-comment-reply hidden>
         <span data-comment-reply-text></span>
         <button type="button" class="text-sky-700 hover:text-sky-950 dark:text-sky-300 dark:hover:text-sky-100" data-comment-clear-reply aria-label="Clear reply">×</button>
       </div>
-      <div class="mx-4 mt-4 flex items-center justify-between gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200" data-comment-selection hidden>
+      <div class="mx-5 mt-4 flex items-center justify-between gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200" data-comment-selection hidden>
         <span data-comment-selection-text></span>
         <button type="button" class="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100" data-comment-clear-selection aria-label="Clear selection">×</button>
       </div>
-      <label class="block border-b border-gray-100 px-4 py-3 dark:border-gray-800">
-        <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Author</span>
-        <input class="block w-full border-0 bg-transparent p-0 text-sm text-gray-950 outline-none placeholder:text-gray-400 dark:text-gray-50 dark:placeholder:text-gray-600" type="text" name="author" autocomplete="name" placeholder="Anonymous">
-      </label>
-      <label class="block px-4 py-3">
+      <label class="block px-5 pt-4">
         <span class="sr-only">Comment</span>
         <textarea class="block min-h-24 w-full resize-y border-0 bg-transparent p-0 text-sm leading-6 text-gray-950 outline-none placeholder:text-gray-400 dark:text-gray-50 dark:placeholder:text-gray-600" name="body" rows="3" required data-comment-editor placeholder="Add a note here... Markdown is supported."></textarea>
       </label>
-      <div class="flex items-center justify-between gap-3 border-t border-gray-100 bg-gray-50 px-3 py-2 dark:border-gray-800 dark:bg-gray-900/70">
-        <p class="text-xs text-gray-500 dark:text-gray-400">Markdown supported. Stored outside Markdown in JSONL.</p>
+      <label class="block border-t border-gray-100 px-5 py-3 dark:border-gray-800">
+        <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Author</span>
+        <input class="block w-full border-0 bg-transparent p-0 text-sm text-gray-950 outline-none placeholder:text-gray-400 dark:text-gray-50 dark:placeholder:text-gray-600" type="text" name="author" autocomplete="name" placeholder="Anonymous">
+      </label>
+      <div class="flex items-center justify-end gap-2 border-t border-gray-100 bg-gray-50 px-5 py-3 dark:border-gray-800 dark:bg-gray-900/70">
+        <button type="button" data-comment-editor-cancel class="rounded-md px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">Cancel</button>
         <button type="submit" class="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-700 disabled:cursor-wait disabled:opacity-60" aria-label="Add comment">
           <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M22 2L11 13"/>
             <path stroke-linecap="round" stroke-linejoin="round" d="M22 2l-7 20-4-9-9-4 20-7z"/>
           </svg>
-          Add comment
+          Save
         </button>
       </div>
     </form>
+    </dialog>
   </section>
   {{ end }}
 

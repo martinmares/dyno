@@ -54,6 +54,20 @@ frontmatter:
 	}
 }
 
+func TestLoadCommentsDocumentIDField(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "dyno.yaml"), []byte("comments:\n  document_id_field: external_document_id\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Comments.DocumentIDField != "external_document_id" {
+		t.Fatalf("unexpected comment identity field %q", cfg.Comments.DocumentIDField)
+	}
+}
+
 func TestLoadRejectsUpdateOnSaveForTextField(t *testing.T) {
 	dir := t.TempDir()
 	data := []byte("frontmatter:\n  fields:\n    owner:\n      type: text\n      update_on_save: true\n")

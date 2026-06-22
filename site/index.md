@@ -2,6 +2,7 @@
 title: Welcome to Dyno Docs
 description: Self-hosted documentation server built with Go, HTMX and Tailwind CSS.
 weight: 1
+comment_id: dyno-home
 external_refs:
   - id: DYNO-001
     label: Product overview

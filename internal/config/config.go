@@ -33,9 +33,14 @@ type SiteConfig struct {
 	ContentInclude               []string          `yaml:"content_include"`
 	ContentExclude               []string          `yaml:"content_exclude"`
 	Frontmatter                  FrontmatterConfig `yaml:"frontmatter"`
+	Comments                     CommentsConfig    `yaml:"comments"`
 	// Git auto-pull (used when site is cloned from a remote repo)
 	GitPullInterval string `yaml:"git_pull_interval"` // e.g. "5m", "false" to disable
 	GitBranch       string `yaml:"git_branch"`        // overrides CLI --git-branch
+}
+
+type CommentsConfig struct {
+	DocumentIDField string `yaml:"document_id_field"`
 }
 
 // FrontmatterConfig describes metadata fields without coupling Dyno to a
@@ -242,6 +247,9 @@ func (c *SiteConfig) MergeDefaults(ext SiteConfig) {
 	}
 	if len(c.Frontmatter.Fields) == 0 && len(ext.Frontmatter.Fields) > 0 {
 		c.Frontmatter = ext.Frontmatter
+	}
+	if c.Comments.DocumentIDField == "" {
+		c.Comments = ext.Comments
 	}
 }
 

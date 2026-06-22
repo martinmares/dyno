@@ -250,7 +250,14 @@ dyno --site ./site --dev --watch
 dyno --site ./site --enable-comments --comments-file ./comments.jsonl
 ```
 
-Komentáře jsou zatím MVP. Ukládají se mimo Markdown soubory do append-only JSONL. Pokud auth proxy nastaví `X-Auth-Request-User`, `X-Forwarded-User` nebo `Remote-User`, dyno použije tuto hodnotu jako autora; jinak se použije autor z formuláře.
+Komentáře a zvýraznění se ukládají mimo Markdown soubory do append-only JSONL. V konfiguraci určete frontmatter pole poskytující jejich stabilní identitu dokumentu:
+
+```yaml
+comments:
+  document_id_field: comment_id
+```
+
+Každý komentovatelný dokument musí toto pole obsahovat, například `comment_id: architecture-123`. Pokud auth proxy nastaví `X-Auth-Request-User`, `X-Forwarded-User` nebo `Remote-User`, dyno použije tuto hodnotu jako autora; jinak se použije autor z formuláře.
 
 ## Psaní obsahu
 

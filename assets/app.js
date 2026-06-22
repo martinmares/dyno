@@ -330,8 +330,10 @@ function initTaskFilters() {
 function initComments() {
   document.querySelectorAll('[data-comments-root]:not([data-comments-init])').forEach(function (root) {
     root.setAttribute('data-comments-init', '1');
-
     const form = root.querySelector('[data-comments-form]');
+    const actionDialog = root.querySelector('[data-selection-actions-dialog]');
+    const editorDialog = root.querySelector('[data-comment-editor-dialog]');
+    const preview = root.querySelector('[data-selection-preview]');
     const selectionBox = root.querySelector('[data-comment-selection]');
     const selectionText = root.querySelector('[data-comment-selection-text]');
     const quoteInput = root.querySelector('[data-comment-quote]');
@@ -344,6 +346,9 @@ function initComments() {
     const article = document.querySelector('#page-content .prose');
     const textarea = form && form.querySelector('textarea[name="body"]');
     let commentEditor = null;
+    let selectedRange = null;
+    let selectedQuote = '';
+    let selectedAnchor = '';
 
     if (textarea && typeof EasyMDE !== 'undefined' && !textarea.dataset.easymdeInit) {
       textarea.dataset.easymdeInit = '1';
@@ -374,6 +379,17 @@ function initComments() {
       }
     }
 
+    function openEditor() {
+      if (!editorDialog) return;
+      editorDialog.showModal();
+      if (commentEditor && commentEditor.codemirror) commentEditor.codemirror.refresh();
+      setTimeout(focusCommentEditor, 0);
+    }
+
+    function closeEditor() {
+      if (editorDialog && editorDialog.open) editorDialog.close();
+    }
+
     function clearSelection() {
       if (quoteInput) quoteInput.value = '';
       if (anchorInput) anchorInput.value = '';
@@ -393,8 +409,7 @@ function initComments() {
       if (replyText) replyText.textContent = 'RE: ' + (author || id || 'comment');
       if (replyBox) replyBox.hidden = false;
       if (form) {
-        form.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        focusCommentEditor();
+        openEditor();
       }
     }
 
@@ -417,14 +432,14 @@ function initComments() {
       if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
       const range = sel.getRangeAt(0);
       if (!article.contains(range.commonAncestorContainer)) return;
-      const text = sel.toString().trim().replace(/\s+/g, ' ');
+      if (root.contains(range.commonAncestorContainer)) return;
+      const text = sel.toString().trim();
       if (!text) return;
-      const quote = text.length > 280 ? text.slice(0, 277) + '...' : text;
-      quoteInput.value = quote;
-      anchorInput.value = nearestHeadingID(range.startContainer);
-      if (selectionText) selectionText.textContent = quote;
-      if (selectionBox) selectionBox.hidden = false;
-      focusCommentEditor();
+      selectedRange = range.cloneRange();
+      selectedQuote = text.length > 500 ? text.slice(0, 500) : text;
+      selectedAnchor = nearestHeadingID(range.startContainer);
+      if (preview) preview.textContent = selectedQuote;
+      if (actionDialog && !actionDialog.open) actionDialog.showModal();
     }
 
     if (window.dynoCommentsMouseupHandler) {
@@ -445,6 +460,37 @@ function initComments() {
     if (clearReplyBtn) {
       clearReplyBtn.addEventListener('click', clearReply);
     }
+    root.querySelectorAll('[data-comment-editor-cancel]').forEach(function (btn) {
+      btn.addEventListener('click', closeEditor);
+    });
+    const newComment = root.querySelector('[data-comment-new]');
+    if (newComment) newComment.addEventListener('click', function () {
+      clearSelection(); clearReply(); openEditor();
+    });
+    const actionCancel = root.querySelector('[data-selection-cancel]');
+    if (actionCancel) actionCancel.addEventListener('click', function () { actionDialog.close(); });
+    const actionComment = root.querySelector('[data-selection-comment]');
+    if (actionComment) actionComment.addEventListener('click', function () {
+      quoteInput.value = selectedQuote;
+      anchorInput.value = selectedAnchor;
+      if (selectionText) selectionText.textContent = selectedQuote;
+      if (selectionBox) selectionBox.hidden = false;
+      actionDialog.close();
+      openEditor();
+    });
+    const actionHighlight = root.querySelector('[data-selection-highlight]');
+    if (actionHighlight) actionHighlight.addEventListener('click', function () {
+      const data = new FormData();
+      data.set('page_path', root.dataset.pagePath || '');
+      data.set('kind', 'highlight');
+      data.set('quote', selectedQuote);
+      data.set('anchor', selectedAnchor);
+      actionHighlight.disabled = true;
+      fetch(form.action, { method: 'POST', body: data, headers: { 'Accept': 'application/json' } })
+        .then(function (res) { if (!res.ok) throw new Error('highlight failed'); return res.json(); })
+        .then(function () { if (selectedRange) markCommentRange(selectedRange); actionDialog.close(); })
+        .finally(function () { actionHighlight.disabled = false; });
+    });
     root.querySelectorAll('[data-comment-reply-to]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         setReply(btn.getAttribute('data-comment-reply-to'), btn.getAttribute('data-comment-reply-author'));
@@ -465,15 +511,80 @@ function initComments() {
           headers: { 'Accept': 'application/json' }
         }).then(function (res) {
           if (!res.ok) throw new Error('comment failed');
-          window.location.reload();
+          return res.json();
+        }).then(function (comment) {
+          appendSavedComment(root, comment);
+          form.reset();
+          if (commentEditor) commentEditor.value('');
+          clearSelection(); clearReply(); closeEditor();
         }).catch(function () {
-          form.submit();
+          if (btn) btn.textContent = 'Save failed';
         }).finally(function () {
           if (btn) btn.disabled = false;
         });
       });
     }
   });
+}
+
+function markCommentRange(range) {
+  const nodes = [];
+  const walker = document.createTreeWalker(range.commonAncestorContainer, NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) if (range.intersectsNode(walker.currentNode)) nodes.push(walker.currentNode);
+  if (range.commonAncestorContainer.nodeType === Node.TEXT_NODE) nodes.push(range.commonAncestorContainer);
+  nodes.reverse().forEach(function (node) {
+    const start = node === range.startContainer ? range.startOffset : 0;
+    const end = node === range.endContainer ? range.endOffset : node.nodeValue.length;
+    if (end <= start) return;
+    const middle = node.splitText(start);
+    middle.splitText(end - start);
+    const mark = document.createElement('mark');
+    mark.className = 'comment-highlight';
+    middle.parentNode.replaceChild(mark, middle);
+    mark.appendChild(middle);
+  });
+}
+
+function applyCommentHighlights() {
+  const article = document.querySelector('#page-content .prose');
+  if (!article) return;
+  document.querySelectorAll('[data-comment-highlight]').forEach(function (item) {
+    const quote = item.dataset.quote || '';
+    if (!quote) return;
+    const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT);
+    const nodes = [];
+    let text = '';
+    while (walker.nextNode()) {
+      nodes.push({ node: walker.currentNode, start: text.length });
+      text += walker.currentNode.nodeValue;
+    }
+    const index = text.indexOf(quote);
+    if (index < 0) return;
+    const endIndex = index + quote.length;
+    const startPart = nodes.find(function (part) { return index >= part.start && index <= part.start + part.node.nodeValue.length; });
+    const endPart = nodes.find(function (part) { return endIndex >= part.start && endIndex <= part.start + part.node.nodeValue.length; });
+    if (!startPart || !endPart) return;
+    const range = document.createRange();
+    range.setStart(startPart.node, index - startPart.start);
+    range.setEnd(endPart.node, endIndex - endPart.start);
+    markCommentRange(range);
+  });
+}
+
+function appendSavedComment(root, comment) {
+  const list = root.querySelector('[data-comments-list]');
+  if (!list) return;
+  const empty = list.querySelector('p');
+  if (empty) empty.remove();
+  const item = document.createElement('article');
+  item.className = 'px-4 py-3';
+  const author = document.createElement('strong');
+  author.className = 'text-sm font-semibold'; author.textContent = comment.author || 'Anonymous';
+  const body = document.createElement('div');
+  body.className = 'prose prose-sm mt-2 max-w-none dark:prose-invert'; body.innerHTML = comment.body_html || '';
+  item.append(author, body); list.appendChild(item);
+  const count = root.querySelector('[data-comments-count]');
+  if (count) count.textContent = String((parseInt(count.textContent, 10) || 0) + 1);
 }
 
 // ─── Search highlight on destination page ───────────────────────────────────
@@ -569,6 +680,7 @@ document.addEventListener('DOMContentLoaded', function () {
   initTOCScrollSpy();
   initTaskFilters();
   initComments();
+  applyCommentHighlights();
   initCopyButtons();
   initLightbox();
   applySearchHighlights();
@@ -588,6 +700,7 @@ document.addEventListener('htmx:afterSwap', function (e) {
     initTOCScrollSpy();
     initTaskFilters();
     initComments();
+    applyCommentHighlights();
     initCopyButtons();
     initLightbox();
     applySearchHighlights();

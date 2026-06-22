@@ -1487,3 +1487,14 @@ html.dark .api-resp-headers td:first-child { color: #9ca3af; }
   font-size: 0.875rem;
   padding: 0.5rem 0;
 }
+mark.comment-highlight {
+  background: rgb(250 204 21 / 45%);
+  color: inherit;
+  border-radius: 0.125rem;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+html.dark mark.comment-highlight {
+  background: rgb(250 204 21 / 35%);
+}

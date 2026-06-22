@@ -253,7 +253,14 @@ dyno --site ./site --dev --watch
 dyno --site ./site --enable-comments --comments-file ./comments.jsonl
 ```
 
-Comments are an MVP feature. They are stored outside Markdown files in append-only JSONL. If an auth proxy sets `X-Auth-Request-User`, `X-Forwarded-User`, or `Remote-User`, dyno uses that as the author; otherwise the form author field is used.
+Comments and highlights are stored outside Markdown files in append-only JSONL. Configure the frontmatter field that provides their stable document identity:
+
+```yaml
+comments:
+  document_id_field: comment_id
+```
+
+Each commentable document must contain that field, for example `comment_id: architecture-123`. If an auth proxy sets `X-Auth-Request-User`, `X-Forwarded-User`, or `Remote-User`, dyno uses that as the author; otherwise the form author field is used.
 
 ## Writing content
 
