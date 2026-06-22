@@ -75,6 +75,8 @@
            class="not-prose mt-10 border-t border-gray-200 pt-5 dark:border-gray-800"
            data-comments-root
            data-document-id="{{ .CommentDocumentID }}"
+           data-comments-url="{{ .CommentsURL }}"
+           data-comments-management="{{ if .CommentsManagement }}true{{ else }}false{{ end }}"
            data-page-path="{{ .CurrentPath }}">
     <div class="mb-4 flex items-center justify-between gap-3">
       <div>
@@ -87,13 +89,29 @@
 
     <div class="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-950" data-comments-list>
       {{ if .CommentTree }}
-        {{ template "comment-tree" dict "Nodes" .CommentTree "CommentsURL" .CommentsURL "CurrentPath" .CurrentPath }}
+        {{ template "comment-tree" dict "Nodes" .CommentTree "CommentsURL" .CommentsURL "CurrentPath" .CurrentPath "Management" .CommentsManagement }}
       {{ else }}
         <p class="px-4 py-5 text-sm text-gray-500 dark:text-gray-400">No comments yet.</p>
       {{ end }}
     </div>
 
-    {{ range .Highlights }}<span hidden data-comment-highlight data-quote="{{ .Quote }}" data-anchor="{{ .Anchor }}"></span>{{ end }}
+    <div class="mt-8" data-highlights-section>
+      <div class="mb-3 flex items-center justify-between"><h2 class="text-base font-semibold text-gray-950 dark:text-gray-50">Highlights</h2><span data-highlights-count class="text-xs font-semibold text-gray-500 dark:text-gray-400">{{ len .Highlights }}</span></div>
+      <div class="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-950" data-highlights-list>
+      {{ if .Highlights }}
+        {{ range .Highlights }}
+        <article class="flex items-start justify-between gap-3 px-4 py-3" data-highlight-row="{{ .ID }}">
+          <p class="min-w-0 flex-1 truncate text-sm text-gray-700 dark:text-gray-300" title="{{ .Quote }}">{{ .Quote }}</p>
+          <div class="flex shrink-0 items-center gap-1">
+            <button type="button" data-highlight-go="{{ .ID }}" class="rounded px-2 py-1 text-xs text-brand-600 hover:bg-gray-100 dark:text-brand-400 dark:hover:bg-gray-800">Go to</button>
+            {{ if $.CommentsManagement }}<button type="button" data-annotation-delete="{{ .ID }}" class="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40">Delete</button>{{ end }}
+          </div>
+        </article>
+        <span hidden data-comment-highlight data-highlight-id="{{ .ID }}" data-quote="{{ .Quote }}" data-anchor="{{ .Anchor }}"></span>
+        {{ end }}
+      {{ else }}<p class="px-4 py-5 text-sm text-gray-500 dark:text-gray-400">No highlights yet.</p>{{ end }}
+      </div>
+    </div>
 
     <dialog data-selection-actions-dialog class="m-auto w-full max-w-md rounded-xl border border-gray-200 bg-white p-0 shadow-2xl backdrop:bg-gray-950/60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
       <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
@@ -104,6 +122,17 @@
         <button type="button" data-selection-cancel class="rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">Cancel</button>
         <button type="button" data-selection-highlight class="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200">Highlight</button>
         <button type="button" data-selection-comment class="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700">Add comment</button>
+      </div>
+    </dialog>
+
+    <dialog data-delete-dialog class="m-auto w-full max-w-md rounded-xl border border-gray-200 bg-white p-0 shadow-2xl backdrop:bg-gray-950/60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
+      <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
+        <h3 class="font-semibold">Delete annotation?</h3>
+        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">This removes the annotation from the page. Its audit event remains in JSONL.</p>
+      </div>
+      <div class="flex justify-end gap-2 px-5 py-4">
+        <button type="button" data-delete-cancel class="rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">Cancel</button>
+        <button type="button" data-delete-confirm class="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700">Delete</button>
       </div>
     </dialog>
 
@@ -245,10 +274,14 @@
         </svg>
         Reply
       </button>
+      {{ if $.Management }}
+      <button type="button" data-annotation-edit="{{ .Comment.ID }}" data-annotation-kind="comment" data-annotation-body="{{ .Comment.Body }}" class="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800">Edit</button>
+      <button type="button" data-annotation-delete="{{ .Comment.ID }}" class="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40">Delete</button>
+      {{ end }}
     </div>
     {{ if .Children }}
     <div class="mt-3 border-l-2 border-teal-200 pl-4 dark:border-teal-800">
-      {{ template "comment-tree" dict "Nodes" .Children "CommentsURL" $.CommentsURL "CurrentPath" $.CurrentPath }}
+      {{ template "comment-tree" dict "Nodes" .Children "CommentsURL" $.CommentsURL "CurrentPath" $.CurrentPath "Management" $.Management }}
     </div>
     {{ end }}
   </article>

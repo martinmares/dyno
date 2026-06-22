@@ -1498,3 +1498,51 @@ mark.comment-highlight {
 html.dark mark.comment-highlight {
   background: rgb(250 204 21 / 35%);
 }
+
+/* EasyMDE ships with a light-only theme; keep overrides scoped to comment dialogs. */
+html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .CodeMirror,
+html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-preview,
+html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-preview-side {
+  background: #111827;
+  border-color: #374151;
+  color: #e5e7eb;
+}
+
+html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .CodeMirror-gutters {
+  background: #0f172a;
+  border-color: #374151;
+}
+
+html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .CodeMirror-linenumber,
+html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .CodeMirror-placeholder {
+  color: #6b7280;
+}
+
+html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .CodeMirror-cursor {
+  border-left-color: #e5e7eb;
+}
+
+html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .CodeMirror-selected,
+html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .CodeMirror-focused .CodeMirror-selected {
+  background: #334155;
+}
+
+html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar {
+  background: #0f172a;
+  border-color: #374151;
+}
+
+html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar button {
+  color: #d1d5db;
+}
+
+html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar button:hover,
+html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar button.active {
+  background: #1f2937;
+  border-color: #4b5563;
+}
+
+html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i.separator {
+  border-left-color: #374151;
+  border-right-color: #111827;
+}

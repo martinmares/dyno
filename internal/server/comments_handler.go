@@ -122,6 +122,88 @@ func (s *Server) addCommentHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, pagePath+"#comments", http.StatusSeeOther)
 }
 
+func (s *Server) updateCommentHandler(w http.ResponseWriter, r *http.Request) {
+	item, documentID, pagePath, ok := s.managedComment(w, r)
+	if !ok {
+		return
+	}
+	if err := r.ParseMultipartForm(1 << 20); err != nil && !errors.Is(err, http.ErrNotMultipart) {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+	if item.Kind == "highlight" {
+		item.Quote = strings.TrimSpace(r.FormValue("quote"))
+		item.Anchor = strings.TrimSpace(r.FormValue("anchor"))
+	} else {
+		item.Body = strings.TrimSpace(r.FormValue("body"))
+	}
+	item.DocumentID, item.PagePath = documentID, pagePath
+	updated, err := s.comments.Update(item)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(struct {
+		comments.Comment
+		BodyHTML template.HTML `json:"body_html,omitempty"`
+	}{Comment: updated, BodyHTML: renderCommentMarkdown(updated.Body)})
+}
+
+func (s *Server) deleteCommentHandler(w http.ResponseWriter, r *http.Request) {
+	item, documentID, pagePath, ok := s.managedComment(w, r)
+	if !ok {
+		return
+	}
+	if err := s.comments.Delete(documentID, pagePath, item.ID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) managedComment(w http.ResponseWriter, r *http.Request) (comments.Comment, string, string, bool) {
+	if s.comments == nil || s.commentsManagement == "disabled" {
+		http.Error(w, "comment management is disabled", http.StatusForbidden)
+		return comments.Comment{}, "", "", false
+	}
+	pagePath := strings.TrimSpace(r.URL.Query().Get("page_path"))
+	documentID := s.commentDocumentID(pagePath)
+	if documentID == "" {
+		http.Error(w, "unknown comment document", http.StatusBadRequest)
+		return comments.Comment{}, "", "", false
+	}
+	items, err := s.listComments(documentID, pagePath)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return comments.Comment{}, "", "", false
+	}
+	for _, item := range items {
+		if item.ID != r.PathValue("id") {
+			continue
+		}
+		if s.commentsManagement == "author" {
+			actor := s.authenticatedCommentAuthor(r)
+			if actor == "" || actor != item.Author {
+				http.Error(w, "not allowed to manage this annotation", http.StatusForbidden)
+				return comments.Comment{}, "", "", false
+			}
+		}
+		return item, documentID, pagePath, true
+	}
+	http.NotFound(w, r)
+	return comments.Comment{}, "", "", false
+}
+
+func (s *Server) authenticatedCommentAuthor(r *http.Request) string {
+	for _, name := range []string{"X-Auth-Request-User", "X-Forwarded-User", "Remote-User"} {
+		if value := strings.TrimSpace(r.Header.Get(name)); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
 func (s *Server) isKnownPagePath(pagePath string) bool {
 	return navigation.FindNode(s.getNav(), pagePath) != nil
 }
@@ -140,14 +222,8 @@ func (s *Server) commentExists(documentID, pagePath, id string) bool {
 }
 
 func (s *Server) commentAuthor(r *http.Request) string {
-	for _, name := range []string{
-		"X-Auth-Request-User",
-		"X-Forwarded-User",
-		"Remote-User",
-	} {
-		if value := strings.TrimSpace(r.Header.Get(name)); value != "" {
-			return value
-		}
+	if value := s.authenticatedCommentAuthor(r); value != "" {
+		return value
 	}
 	return strings.TrimSpace(r.FormValue("author"))
 }

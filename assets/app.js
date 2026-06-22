@@ -333,6 +333,9 @@ function initComments() {
     const form = root.querySelector('[data-comments-form]');
     const actionDialog = root.querySelector('[data-selection-actions-dialog]');
     const editorDialog = root.querySelector('[data-comment-editor-dialog]');
+    const deleteDialog = root.querySelector('[data-delete-dialog]');
+    const deleteCancel = root.querySelector('[data-delete-cancel]');
+    const deleteConfirm = root.querySelector('[data-delete-confirm]');
     const preview = root.querySelector('[data-selection-preview]');
     const selectionBox = root.querySelector('[data-comment-selection]');
     const selectionText = root.querySelector('[data-comment-selection-text]');
@@ -349,6 +352,9 @@ function initComments() {
     let selectedRange = null;
     let selectedQuote = '';
     let selectedAnchor = '';
+    let editingID = '';
+    let editingKind = '';
+    let pendingDeleteID = '';
 
     if (textarea && typeof EasyMDE !== 'undefined' && !textarea.dataset.easymdeInit) {
       textarea.dataset.easymdeInit = '1';
@@ -465,10 +471,10 @@ function initComments() {
     });
     const newComment = root.querySelector('[data-comment-new]');
     if (newComment) newComment.addEventListener('click', function () {
-      clearSelection(); clearReply(); openEditor();
+      editingID = ''; editingKind = ''; clearSelection(); clearReply(); openEditor();
     });
     const actionCancel = root.querySelector('[data-selection-cancel]');
-    if (actionCancel) actionCancel.addEventListener('click', function () { actionDialog.close(); });
+    if (actionCancel) actionCancel.addEventListener('click', function () { actionDialog.close(); editingID = ''; editingKind = ''; });
     const actionComment = root.querySelector('[data-selection-comment]');
     if (actionComment) actionComment.addEventListener('click', function () {
       quoteInput.value = selectedQuote;
@@ -486,15 +492,76 @@ function initComments() {
       data.set('quote', selectedQuote);
       data.set('anchor', selectedAnchor);
       actionHighlight.disabled = true;
-      fetch(form.action, { method: 'POST', body: data, headers: { 'Accept': 'application/json' } })
+      const method = editingKind === 'highlight' && editingID ? 'PATCH' : 'POST';
+      const endpoint = method === 'PATCH' ? annotationURL(root, editingID) : form.action;
+      fetch(endpoint, { method: method, body: data, headers: { 'Accept': 'application/json' } })
         .then(function (res) { if (!res.ok) throw new Error('highlight failed'); return res.json(); })
-        .then(function () { if (selectedRange) markCommentRange(selectedRange); actionDialog.close(); })
+        .then(function (highlight) {
+          if (editingID) removeHighlightMarks(editingID);
+          if (selectedRange) markCommentRange(selectedRange, highlight.id);
+          if (!editingID) appendSavedHighlight(root, highlight);
+          actionDialog.close();
+          if (editingID) {
+            const row = root.querySelector('[data-highlight-row="' + CSS.escape(editingID) + '"] p');
+            if (row) { row.textContent = highlight.quote; row.title = highlight.quote; }
+          }
+          editingID = ''; editingKind = '';
+        })
         .finally(function () { actionHighlight.disabled = false; });
     });
     root.querySelectorAll('[data-comment-reply-to]').forEach(function (btn) {
       btn.addEventListener('click', function () {
         setReply(btn.getAttribute('data-comment-reply-to'), btn.getAttribute('data-comment-reply-author'));
       });
+    });
+    root.addEventListener('click', function (event) {
+      const go = event.target.closest('[data-highlight-go]');
+      if (go) {
+        const mark = document.querySelector('[data-highlight-mark="' + CSS.escape(go.dataset.highlightGo) + '"]');
+        if (mark) mark.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        return;
+      }
+      const edit = event.target.closest('[data-annotation-edit]');
+      if (edit) {
+        editingID = edit.dataset.annotationEdit || '';
+        editingKind = edit.dataset.annotationKind || '';
+        if (editingKind === 'highlight') {
+          const mark = document.querySelector('[data-highlight-mark="' + CSS.escape(editingID) + '"]');
+          if (mark) mark.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          edit.textContent = 'Select new text…';
+          return;
+        }
+        clearSelection(); clearReply();
+        if (commentEditor) commentEditor.value(edit.dataset.annotationBody || '');
+        openEditor();
+        return;
+      }
+      const remove = event.target.closest('[data-annotation-delete]');
+      if (remove) {
+        pendingDeleteID = remove.dataset.annotationDelete || '';
+        if (pendingDeleteID && deleteDialog) deleteDialog.showModal();
+      }
+    });
+    if (deleteCancel) deleteCancel.addEventListener('click', function () {
+      pendingDeleteID = '';
+      deleteDialog.close();
+    });
+    if (deleteConfirm) deleteConfirm.addEventListener('click', function () {
+      const id = pendingDeleteID;
+      if (!id) return;
+      deleteConfirm.disabled = true;
+      fetch(annotationURL(root, id), { method: 'DELETE' }).then(function (res) {
+          if (!res.ok) throw new Error('delete failed');
+          const comment = document.getElementById('comment-' + id);
+          const highlight = root.querySelector('[data-highlight-row="' + CSS.escape(id) + '"]');
+          if (comment) comment.remove();
+          if (highlight) highlight.remove();
+          removeHighlightMarks(id);
+          const count = root.querySelector(highlight ? '[data-highlights-count]' : '[data-comments-count]');
+          if (count) count.textContent = String(Math.max(0, (parseInt(count.textContent, 10) || 0) - 1));
+          pendingDeleteID = '';
+          deleteDialog.close();
+        }).finally(function () { deleteConfirm.disabled = false; });
     });
     if (form) {
       form.addEventListener('submit', function (e) {
@@ -505,18 +572,25 @@ function initComments() {
         }
         const btn = form.querySelector('button[type="submit"]');
         if (btn) btn.disabled = true;
-        fetch(form.action, {
-          method: 'POST',
+        const method = editingKind === 'comment' && editingID ? 'PATCH' : 'POST';
+        const endpoint = method === 'PATCH' ? annotationURL(root, editingID) : form.action;
+        fetch(endpoint, {
+	          method: method,
           body: new FormData(form),
           headers: { 'Accept': 'application/json' }
         }).then(function (res) {
           if (!res.ok) throw new Error('comment failed');
           return res.json();
         }).then(function (comment) {
-          appendSavedComment(root, comment);
+          if (method === 'PATCH') {
+            const body = document.querySelector('#comment-' + CSS.escape(editingID) + ' .prose');
+            if (body) body.innerHTML = comment.body_html || '';
+          } else {
+            appendSavedComment(root, comment);
+          }
           form.reset();
           if (commentEditor) commentEditor.value('');
-          clearSelection(); clearReply(); closeEditor();
+          clearSelection(); clearReply(); closeEditor(); editingID = ''; editingKind = '';
         }).catch(function () {
           if (btn) btn.textContent = 'Save failed';
         }).finally(function () {
@@ -527,7 +601,20 @@ function initComments() {
   });
 }
 
-function markCommentRange(range) {
+function annotationURL(root, id) {
+  return (root.dataset.commentsUrl || '') + '/' + encodeURIComponent(id) + '?page_path=' + encodeURIComponent(root.dataset.pagePath || '');
+}
+
+function removeHighlightMarks(id) {
+  document.querySelectorAll('[data-highlight-mark="' + CSS.escape(id) + '"]').forEach(function (mark) {
+    const parent = mark.parentNode;
+    if (!parent) return;
+    parent.replaceChild(document.createTextNode(mark.textContent), mark);
+    parent.normalize();
+  });
+}
+
+function markCommentRange(range, highlightID) {
   const nodes = [];
   const walker = document.createTreeWalker(range.commonAncestorContainer, NodeFilter.SHOW_TEXT);
   while (walker.nextNode()) if (range.intersectsNode(walker.currentNode)) nodes.push(walker.currentNode);
@@ -540,6 +627,7 @@ function markCommentRange(range) {
     middle.splitText(end - start);
     const mark = document.createElement('mark');
     mark.className = 'comment-highlight';
+    if (highlightID) mark.dataset.highlightMark = highlightID;
     middle.parentNode.replaceChild(mark, middle);
     mark.appendChild(middle);
   });
@@ -567,7 +655,7 @@ function applyCommentHighlights() {
     const range = document.createRange();
     range.setStart(startPart.node, index - startPart.start);
     range.setEnd(endPart.node, endIndex - endPart.start);
-    markCommentRange(range);
+    markCommentRange(range, item.dataset.highlightId || '');
   });
 }
 
@@ -584,6 +672,27 @@ function appendSavedComment(root, comment) {
   body.className = 'prose prose-sm mt-2 max-w-none dark:prose-invert'; body.innerHTML = comment.body_html || '';
   item.append(author, body); list.appendChild(item);
   const count = root.querySelector('[data-comments-count]');
+  if (count) count.textContent = String((parseInt(count.textContent, 10) || 0) + 1);
+}
+
+function appendSavedHighlight(root, highlight) {
+  const list = root.querySelector('[data-highlights-list]');
+  if (!list) return;
+  const empty = list.querySelector('p');
+  if (empty) empty.remove();
+  const row = document.createElement('article');
+  row.className = 'flex items-start justify-between gap-3 px-4 py-3';
+  row.dataset.highlightRow = highlight.id;
+  const quote = document.createElement('p');
+  quote.className = 'min-w-0 flex-1 truncate text-sm text-gray-700 dark:text-gray-300';
+  quote.textContent = highlight.quote; quote.title = highlight.quote;
+  const actions = document.createElement('div'); actions.className = 'flex shrink-0 items-center gap-1';
+  actions.innerHTML = '<button type="button" data-highlight-go="' + highlight.id + '" class="rounded px-2 py-1 text-xs text-brand-600">Go to</button>';
+  if (root.dataset.commentsManagement === 'true') {
+    actions.innerHTML += '<button type="button" data-annotation-delete="' + highlight.id + '" class="rounded px-2 py-1 text-xs text-red-600">Delete</button>';
+  }
+  row.append(quote, actions); list.appendChild(row);
+  const count = root.querySelector('[data-highlights-count]');
   if (count) count.textContent = String((parseInt(count.textContent, 10) || 0) + 1);
 }
 

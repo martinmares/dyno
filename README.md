@@ -24,7 +24,7 @@ A self-hosted documentation server — think GitBook or Notion, but as a single 
 - **Backlinks** — every page shows which other pages link to it
 - **Ego-graph** — D2 dependency graph (±1 hop) for each page, accessible via the graph icon in the navbar
 - **Tasks** — collects `- [ ]` / `- [x]` task items across all pages; section-scoped and global views
-- **Page comments** — optional local JSONL-backed comments for page-level and selected-text notes
+- **Comments and highlights** — optional local JSONL-backed comments, threaded replies, and selected-text highlights
 - **Hot reload** — `--watch` flag reloads navigation and search index on file changes
 - **Dev mode** — `--dev` flag reloads templates from disk without rebuilding
 - **Single binary** — everything embedded, no Node.js, no build pipeline
@@ -216,6 +216,7 @@ Flags:
       --library string          Path to dyno-library.yaml with site list and metadata (cannot be combined with --site or --git-repo-site)
       --enable-comments         Enable page comments
       --comments-file string    JSONL file for comments (default: <site-root>/.dyno-comments.jsonl)
+      --comments-management string  Comment management: disabled, author, or all (default "disabled")
       --dev                     Dev mode: reload templates and assets from disk on every request
       --watch                   Watch site for changes and reload navigation/search (single-site only)
       --log-format string       Log format: text or json (default "text")
@@ -261,6 +262,10 @@ comments:
 ```
 
 Each commentable document must contain that field, for example `comment_id: architecture-123`. If an auth proxy sets `X-Auth-Request-User`, `X-Forwarded-User`, or `Remote-User`, dyno uses that as the author; otherwise the form author field is used.
+
+Selecting rendered text opens an action dialog for adding a comment, creating a highlight, or cancelling. Highlights remain visible in the document and are also listed below the comments with `Go to` and `Delete` actions.
+
+Annotation management is disabled by default. Use `--comments-management author` with trusted OAuth proxy headers to let users edit and delete their own comments and delete their own highlights. Use `--comments-management all` for explicit local/admin access to every annotation. Updates and deletions remain append-only JSONL events.
 
 ## Writing content
 

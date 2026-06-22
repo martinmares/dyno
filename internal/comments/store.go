@@ -17,6 +17,7 @@ import (
 // Comment is a user note attached to a rendered documentation page.
 type Comment struct {
 	ID         string    `json:"id"`
+	Event      string    `json:"event,omitempty"`
 	DocumentID string    `json:"document_id"`
 	Kind       string    `json:"kind,omitempty"`
 	PagePath   string    `json:"page_path"`
@@ -26,12 +27,15 @@ type Comment struct {
 	Author     string    `json:"author"`
 	Body       string    `json:"body"`
 	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at,omitempty"`
 }
 
 // Store persists and reads comments.
 type Store interface {
 	List(documentID, legacyPagePath string) ([]Comment, error)
 	Add(comment Comment) (Comment, error)
+	Update(comment Comment) (Comment, error)
+	Delete(documentID, pagePath, id string) error
 }
 
 var ErrValidation = errors.New("invalid comment")
@@ -65,7 +69,8 @@ func (s *JSONLStore) List(documentID, legacyPagePath string) ([]Comment, error) 
 	}
 	defer file.Close()
 
-	var out []Comment
+	items := make(map[string]Comment)
+	var order []string
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -77,11 +82,24 @@ func (s *JSONLStore) List(documentID, legacyPagePath string) ([]Comment, error) 
 			continue
 		}
 		if c.DocumentID == documentID || (c.DocumentID == "" && c.PagePath == legacyPagePath) {
-			out = append(out, c)
+			if c.Event == "delete" {
+				delete(items, c.ID)
+				continue
+			}
+			if _, exists := items[c.ID]; !exists {
+				order = append(order, c.ID)
+			}
+			items[c.ID] = c
 		}
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, err
+	}
+	var out []Comment
+	for _, id := range order {
+		if item, ok := items[id]; ok {
+			out = append(out, item)
+		}
 	}
 	sort.Slice(out, func(i, j int) bool {
 		return out[i].CreatedAt.Before(out[j].CreatedAt)
@@ -126,20 +144,50 @@ func (s *JSONLStore) Add(comment Comment) (Comment, error) {
 		comment.CreatedAt = time.Now().UTC()
 	}
 
+	return comment, s.append(comment)
+}
+
+func (s *JSONLStore) Update(comment Comment) (Comment, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	comment.ID = strings.TrimSpace(comment.ID)
+	comment.DocumentID = strings.TrimSpace(comment.DocumentID)
+	comment.PagePath = normalizePagePath(comment.PagePath)
+	comment.Body = truncate(strings.TrimSpace(comment.Body), 4000)
+	comment.Quote = truncate(strings.TrimSpace(comment.Quote), 500)
+	comment.Anchor = strings.TrimSpace(comment.Anchor)
+	if comment.ID == "" || comment.DocumentID == "" || (comment.Kind == "comment" && comment.Body == "") || (comment.Kind == "highlight" && comment.Quote == "") {
+		return Comment{}, ErrValidation
+	}
+	comment.Event = "update"
+	comment.UpdatedAt = time.Now().UTC()
+	return comment, s.append(comment)
+}
+
+func (s *JSONLStore) Delete(documentID, pagePath, id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if strings.TrimSpace(documentID) == "" || strings.TrimSpace(id) == "" {
+		return ErrValidation
+	}
+	return s.append(Comment{ID: id, Event: "delete", DocumentID: documentID, PagePath: normalizePagePath(pagePath), UpdatedAt: time.Now().UTC()})
+}
+
+func (s *JSONLStore) append(comment Comment) error {
 	file, err := os.OpenFile(s.path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
-		return Comment{}, err
+		return err
 	}
 	defer file.Close()
 
 	enc, err := json.Marshal(comment)
 	if err != nil {
-		return Comment{}, err
+		return err
 	}
 	if _, err := file.Write(append(enc, '\n')); err != nil {
-		return Comment{}, err
+		return err
 	}
-	return comment, nil
+	return nil
 }
 
 func normalizePagePath(path string) string {

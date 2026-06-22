@@ -34,15 +34,16 @@ type LibraryServer struct {
 
 // LibraryConfig holds top-level configuration for library mode.
 type LibraryConfig struct {
-	Title     string // used in <title> (e.g. "Dyno Docs")
-	LogoText  string // short name in navbar (e.g. "Dyno")
-	Subtitle  string
-	BasePath  string
-	DevMode   bool
-	Version   string
-	Commit    string
-	BuildTime time.Time
-	Comments  comments.Store
+	Title              string // used in <title> (e.g. "Dyno Docs")
+	LogoText           string // short name in navbar (e.g. "Dyno")
+	Subtitle           string
+	BasePath           string
+	DevMode            bool
+	Version            string
+	Commit             string
+	BuildTime          time.Time
+	Comments           comments.Store
+	CommentsManagement string
 }
 
 // NewLibrary creates a LibraryServer that routes across all books.
@@ -118,16 +119,17 @@ func NewLibrary(cfg LibraryConfig, staticFS fs.FS, books []*library.Book, render
 			dashboardURL = "/"
 		}
 		bookCfg := Config{
-			SiteRoot:   book.SiteRoot,
-			ContentDir: book.ContentDir,
-			Port:       "",
-			DevMode:    cfg.DevMode,
-			SiteCfg:    book.Cfg,
-			Version:    cfg.Version,
-			Commit:     cfg.Commit,
-			BuildTime:  cfg.BuildTime,
-			LibraryURL: dashboardURL,
-			Comments:   cfg.Comments,
+			SiteRoot:           book.SiteRoot,
+			ContentDir:         book.ContentDir,
+			Port:               "",
+			DevMode:            cfg.DevMode,
+			SiteCfg:            book.Cfg,
+			Version:            cfg.Version,
+			Commit:             cfg.Commit,
+			BuildTime:          cfg.BuildTime,
+			LibraryURL:         dashboardURL,
+			Comments:           cfg.Comments,
+			CommentsManagement: cfg.CommentsManagement,
 		}
 		// Override the book's base_path to bookBasePath so nav links are correct.
 		bookCfg.SiteCfg = cloneCfgWithBasePath(book.Cfg, bookBasePath)

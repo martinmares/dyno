@@ -34,27 +34,28 @@ type Server struct {
 	gitComparePath  string // e.g. "/docs/_git/compare" — empty if not a git repo
 	commentsPath    string // e.g. "/docs/_comments" — empty when comments are disabled
 
-	libraryURL string // non-empty when running as a book inside a LibraryServer
-	editMode   bool   // --edit / DYNO_EDIT=true: enables in-browser markdown editor
-	siteCfg    *config.SiteConfig
-	version    string
-	commit     string
-	nav        *navigation.NavNode
-	idx        *search.Index
-	metadata   *metadata.Index
-	taskIndex  *tasks.Index
-	backlinks  navigation.BacklinkIndex
-	taskHTML   string
-	comments   comments.Store
-	renderer   *markdown.Renderer
-	buildTime  time.Time
-	tmpl       *template.Template // nil in dev mode (re-parsed per request)
-	tmplFS     fs.FS              // used in dev mode for live reloading
-	devMode    bool
-	mux        *http.ServeMux
-	pageCache  map[string]pageCacheEntry
-	assetMeta  map[string]assetMetadata
-	metrics    *metrics
+	libraryURL         string // non-empty when running as a book inside a LibraryServer
+	editMode           bool   // --edit / DYNO_EDIT=true: enables in-browser markdown editor
+	siteCfg            *config.SiteConfig
+	version            string
+	commit             string
+	nav                *navigation.NavNode
+	idx                *search.Index
+	metadata           *metadata.Index
+	taskIndex          *tasks.Index
+	backlinks          navigation.BacklinkIndex
+	taskHTML           string
+	comments           comments.Store
+	commentsManagement string
+	renderer           *markdown.Renderer
+	buildTime          time.Time
+	tmpl               *template.Template // nil in dev mode (re-parsed per request)
+	tmplFS             fs.FS              // used in dev mode for live reloading
+	devMode            bool
+	mux                *http.ServeMux
+	pageCache          map[string]pageCacheEntry
+	assetMeta          map[string]assetMetadata
+	metrics            *metrics
 }
 
 type pageCacheEntry struct {
@@ -115,17 +116,18 @@ func (s *Server) renderTasks(query, anchorID string) (string, error) {
 
 // Config holds server configuration.
 type Config struct {
-	SiteRoot   string
-	ContentDir string
-	Port       string
-	DevMode    bool
-	EditMode   bool // --edit / DYNO_EDIT=true
-	SiteCfg    *config.SiteConfig
-	Version    string
-	Commit     string
-	BuildTime  time.Time
-	LibraryURL string // set by LibraryServer: URL back to the dashboard
-	Comments   comments.Store
+	SiteRoot           string
+	ContentDir         string
+	Port               string
+	DevMode            bool
+	EditMode           bool // --edit / DYNO_EDIT=true
+	SiteCfg            *config.SiteConfig
+	Version            string
+	Commit             string
+	BuildTime          time.Time
+	LibraryURL         string // set by LibraryServer: URL back to the dashboard
+	Comments           comments.Store
+	CommentsManagement string
 }
 
 func newFuncMap() template.FuncMap {
@@ -185,24 +187,25 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 	}
 
 	s := &Server{
-		siteRoot:   cfg.SiteRoot,
-		contentDir: cfg.ContentDir,
-		basePath:   cfg.SiteCfg.GetBasePath(),
-		libraryURL: cfg.LibraryURL,
-		editMode:   cfg.EditMode,
-		siteCfg:    cfg.SiteCfg,
-		version:    cfg.Version,
-		commit:     cfg.Commit,
-		nav:        nav,
-		idx:        idx,
-		metadata:   metadataIndex,
-		comments:   cfg.Comments,
-		renderer:   renderer,
-		buildTime:  cfg.BuildTime,
-		tmplFS:     tmplFS,
-		devMode:    cfg.DevMode,
-		mux:        http.NewServeMux(),
-		pageCache:  make(map[string]pageCacheEntry),
+		siteRoot:           cfg.SiteRoot,
+		contentDir:         cfg.ContentDir,
+		basePath:           cfg.SiteCfg.GetBasePath(),
+		libraryURL:         cfg.LibraryURL,
+		editMode:           cfg.EditMode,
+		siteCfg:            cfg.SiteCfg,
+		version:            cfg.Version,
+		commit:             cfg.Commit,
+		nav:                nav,
+		idx:                idx,
+		metadata:           metadataIndex,
+		comments:           cfg.Comments,
+		commentsManagement: cfg.CommentsManagement,
+		renderer:           renderer,
+		buildTime:          cfg.BuildTime,
+		tmplFS:             tmplFS,
+		devMode:            cfg.DevMode,
+		mux:                http.NewServeMux(),
+		pageCache:          make(map[string]pageCacheEntry),
 	}
 	if taskIndex, err := tasks.BuildIndex("", cfg.SiteCfg.Title, cfg.ContentDir, nav); err == nil {
 		s.taskIndex = taskIndex
@@ -258,6 +261,8 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 		}
 		s.commentsPath = commentsPath
 		s.mux.HandleFunc("POST "+commentsPath, s.addCommentHandler)
+		s.mux.HandleFunc("PATCH "+commentsPath+"/{id}", s.updateCommentHandler)
+		s.mux.HandleFunc("DELETE "+commentsPath+"/{id}", s.deleteCommentHandler)
 	}
 
 	// Only expose git history route when content lives inside a git repository.

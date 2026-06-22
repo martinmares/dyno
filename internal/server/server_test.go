@@ -232,6 +232,7 @@ func TestPageCommentsCanBeAddedAndRendered(t *testing.T) {
 		t.Fatal(err)
 	}
 	srv.comments = store
+	srv.commentsManagement = "all"
 	srv.commentsPath = "/_comments"
 	srv.mux.HandleFunc("POST /_comments", srv.addCommentHandler)
 
@@ -272,6 +273,16 @@ func TestPageCommentsCanBeAddedAndRendered(t *testing.T) {
 		t.Fatalf("expected reply 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
+	updateForm := strings.NewReader("body=Looks+*updated*")
+	req = httptest.NewRequest(http.MethodPatch, "/_comments/"+first.ID+"?page_path=/", updateForm)
+	req.SetPathValue("id", first.ID)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec = httptest.NewRecorder()
+	srv.updateCommentHandler(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected update 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
 	req = httptest.NewRequest(http.MethodGet, "/", nil)
 	rec = httptest.NewRecorder()
 	srv.Handler().ServeHTTP(rec, req)
@@ -279,10 +290,13 @@ func TestPageCommentsCanBeAddedAndRendered(t *testing.T) {
 		t.Fatalf("expected page 200, got %d", rec.Code)
 	}
 	body := rec.Body.String()
-	for _, want := range []string{"Comments", "Alice", "<strong>good</strong>", "Selected text", "Bob", "Re: agreed", "RE", `data-comment-highlight`, `data-quote="Welcome"`} {
+	for _, want := range []string{"Comments", "Highlights", "Alice", "<em>updated</em>", "Selected text", "Bob", "Re: agreed", "RE", `data-comment-highlight`, `data-quote="Welcome"`, `data-annotation-edit`, `data-annotation-delete`, `data-delete-dialog`, "Delete annotation?"} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("expected %q in rendered page, got: %s", want, body)
 		}
+	}
+	if strings.Contains(body, `data-annotation-kind="highlight"`) {
+		t.Fatalf("highlights must not expose an edit action, got: %s", body)
 	}
 }
 

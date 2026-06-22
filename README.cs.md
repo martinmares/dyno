@@ -24,7 +24,7 @@ Samostatně hostovaný dokumentační server — něco jako GitBook nebo Notion,
 - **Zpětné odkazy** — každá stránka zobrazuje, které jiné stránky na ni odkazují
 - **Graf závislostí** — D2 graf (±1 hop) pro každou stránku, dostupný přes ikonu grafu v navbaru
 - **Úkoly** — sbírá `- [ ]` / `- [x]` položky ze všech stránek; zobrazení za sekci i globálně
-- **Komentáře ke stránkám** — volitelné lokální komentáře uložené v JSONL pro poznámky ke stránce nebo označenému textu
+- **Komentáře a zvýraznění** — volitelné lokální komentáře, vláknové odpovědi a zvýraznění označeného textu uložené v JSONL
 - **Hot reload** — příznak `--watch` přenačte navigaci a vyhledávací index při změně souborů
 - **Dev režim** — příznak `--dev` načítá šablony z disku bez nutnosti rebuildu
 - **Jediný binární soubor** — vše je embedováno, žádný Node.js, žádný build pipeline
@@ -213,6 +213,7 @@ Příznaky:
       --library string          Cesta k dyno-library.yaml se seznamem webů a metadaty (nelze kombinovat s --site ani --git-repo-site)
       --enable-comments         Zapne komentáře ke stránkám
       --comments-file string    JSONL soubor pro komentáře (výchozí <site-root>/.dyno-comments.jsonl)
+      --comments-management string  Správa komentářů: disabled, author nebo all (výchozí "disabled")
       --dev                     Dev režim: načítá šablony z disku při každém požadavku
       --watch                   Sleduje web a přenačítá navigaci a vyhledávání (pouze single-site)
       --log-format string       Formát logů: text nebo json (výchozí "text")
@@ -258,6 +259,10 @@ comments:
 ```
 
 Každý komentovatelný dokument musí toto pole obsahovat, například `comment_id: architecture-123`. Pokud auth proxy nastaví `X-Auth-Request-User`, `X-Forwarded-User` nebo `Remote-User`, dyno použije tuto hodnotu jako autora; jinak se použije autor z formuláře.
+
+Označení textu na vyrenderované stránce otevře dialog pro přidání komentáře, vytvoření zvýraznění nebo zrušení akce. Zvýraznění zůstávají viditelná v dokumentu a zároveň jsou uvedena pod komentáři s akcemi `Go to` a `Delete`.
+
+Správa anotací je ve výchozím stavu vypnutá. Režim `--comments-management author` dovolí uživatelům s důvěryhodnou OAuth proxy identitou upravovat a mazat vlastní komentáře a mazat vlastní zvýraznění. `--comments-management all` zpřístupní explicitnímu lokálnímu/admin uživateli správu všech anotací. Změny a smazání zůstávají append-only JSONL událostmi.
 
 ## Psaní obsahu
 
