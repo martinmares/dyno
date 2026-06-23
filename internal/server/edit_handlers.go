@@ -115,7 +115,7 @@ func (s *Server) editPageHandler(w http.ResponseWriter, r *http.Request) {
 			EditPageURL:   s.editPageURLFor(node.FullPath),
 			GitCompareURL: s.gitCompareURLFor(node.FullPath),
 		},
-		PageURL:        node.FullPath,
+		PageURL:        appendFilterQuery(node.FullPath, r.URL.RawQuery),
 		Source:         string(src),
 		PreviewHTML:    template.HTML(res.HTML),
 		PreviewURL:     previewURL,

@@ -223,6 +223,22 @@ func TestMetadataFilterSurvivesHTMXGraphAndBacklinkNavigation(t *testing.T) {
 	}
 }
 
+func TestEditLinkPreservesMetadataQuery(t *testing.T) {
+	srv := newTestServer(t)
+	srv.editMode = true
+
+	req := httptest.NewRequest(http.MethodGet, "/?meta.document-owner=martin.mares%40datalite.cz", nil)
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, `href="/_edit/?meta.document-owner=martin.mares%40datalite.cz"`) {
+		t.Fatalf("expected edit link to preserve query, got: %s", body)
+	}
+}
+
 func TestPageCommentsCanBeAddedAndRendered(t *testing.T) {
 	srv := newTestServer(t)
 	srv.siteCfg.Comments.DocumentIDField = "comment_id"

@@ -41,6 +41,20 @@ func TestEditPageSupportsRootIndexWithoutExposingFilePath(t *testing.T) {
 	}
 }
 
+func TestEditPagePreservesQueryInBackLink(t *testing.T) {
+	srv := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/_edit/?meta.document-owner=martin.mares%40datalite.cz", nil)
+	rec := httptest.NewRecorder()
+	srv.editPageHandler(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, `href="/?meta.document-owner=martin.mares%40datalite.cz"`) {
+		t.Fatalf("expected back link to preserve query, got: %s", body)
+	}
+}
+
 func TestEditSaveUsesRevisionAndAtomicWrite(t *testing.T) {
 	srv := newTestServer(t)
 	path := filepath.Join(srv.contentDir, "index.md")

@@ -343,7 +343,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		EditMode:           s.editMode,
 		EditPageURL: func() string {
 			if s.editMode && node.FSPath != "" {
-				return s.editPageURLFor(node.FullPath)
+				return appendFilterQuery(s.editPageURLFor(node.FullPath), r.URL.RawQuery)
 			}
 			return ""
 		}(),
