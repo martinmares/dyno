@@ -9,27 +9,27 @@
   </div>
 
   <div class="max-h-[72vh] overflow-auto px-5 py-4">
-    <table class="w-full border-separate border-spacing-y-2">
+    <table class="w-full table-fixed border-separate border-spacing-y-2">
       <thead>
         <tr class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-          <th class="sticky top-0 bg-white px-2 py-1 dark:bg-gray-900">Document</th>
+          <th class="sticky top-0 w-[24rem] bg-white px-2 py-1 dark:bg-gray-900">Document</th>
           {{ range .Columns }}
-          <th class="sticky top-0 bg-white px-2 py-1 dark:bg-gray-900">{{ .Label }}</th>
+          <th class="sticky top-0 w-[10rem] bg-white px-2 py-1 dark:bg-gray-900">{{ .Label }}</th>
           {{ end }}
         </tr>
       </thead>
       <tbody data-bulk-frontmatter-rows>
         {{ range .Rows }}
         {{ $row := . }}
-        <tr data-bulk-frontmatter-row data-page-path="{{ .FullPath }}" data-revision="{{ .Revision }}" class="align-top">
-          <td class="w-72 px-2">
+        <tr data-bulk-frontmatter-row data-page-path="{{ .FullPath }}" data-revision="{{ .Revision }}" class="align-top transition-colors">
+          <td class="w-[24rem] px-2 py-1" style="{{ .Style }}">
             <div class="min-w-0">
               <div class="truncate text-sm font-medium text-gray-950 dark:text-gray-50" title="{{ .Title }}">{{ .Title }}</div>
               <div class="truncate text-xs text-gray-500 dark:text-gray-400" title="{{ .FullPath }}">{{ .FullPath }}</div>
             </div>
           </td>
           {{ range $i, $col := $.Columns }}
-          <td class="px-2">
+          <td class="w-[10rem] px-2 py-1" style="{{ $row.Style }}">
             {{ $value := index $row.Values $i }}
             {{ if eq $col.InputType "datetime-local" }}
             <input type="datetime-local"
@@ -37,17 +37,17 @@
                    data-bulk-frontmatter-input
                    data-field-name="{{ $col.Name }}"
                    data-default-value="{{ $col.Default }}"
-                   class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100">
+                   class="w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:text-gray-100">
             {{ else if eq $col.InputType "date" }}
             <input type="date"
                    value="{{ $value }}"
                    data-bulk-frontmatter-input
                    data-field-name="{{ $col.Name }}"
                    data-default-value="{{ $col.Default }}"
-                   class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100">
+                   class="w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:text-gray-100">
             {{ else if eq $col.Type "select" }}
             <select data-bulk-frontmatter-input data-field-name="{{ $col.Name }}" data-default-value="{{ $col.Default }}"
-                    class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100">
+                    class="w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:text-gray-100">
               <option value=""></option>
               {{ range $col.Options }}
               <option value="{{ .Value }}" {{ if eq .Value $value }}selected{{ end }}>{{ .Value }}</option>
@@ -59,13 +59,13 @@
                    data-bulk-frontmatter-input
                    data-field-name="{{ $col.Name }}"
                    data-default-value="{{ $col.Default }}"
-                   class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100">
+                   class="w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:text-gray-100">
             {{ else }}
             <textarea rows="2"
                       data-bulk-frontmatter-input
                       data-field-name="{{ $col.Name }}"
                       data-default-value="{{ $col.Default }}"
-                      class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100">{{ $value }}</textarea>
+                      class="w-full rounded-md border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:text-gray-100">{{ $value }}</textarea>
             {{ end }}
           </td>
           {{ end }}

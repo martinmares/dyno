@@ -33,6 +33,7 @@ type bulkFrontmatterRowData struct {
 	FullPath string
 	Revision string
 	Values   []string
+	Style    string
 }
 
 type bulkFrontmatterEditorData struct {
@@ -274,6 +275,7 @@ func (s *Server) bulkFrontmatterRows(allowed map[string]bool, columns []bulkFron
 				FullPath: node.FullPath,
 				Revision: revision,
 				Values:   values,
+				Style:    rowStyle(len(rows)),
 			})
 		}
 		for _, child := range node.Children {
@@ -318,4 +320,11 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(payload)
+}
+
+func rowStyle(index int) string {
+	if index%2 == 0 {
+		return "background-color: rgba(255, 255, 255, 0.05);"
+	}
+	return "background-color: rgba(255, 255, 255, 0.11);"
 }
