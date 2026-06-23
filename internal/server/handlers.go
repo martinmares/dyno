@@ -48,36 +48,40 @@ type PageData struct {
 	EditURL    string
 	IsAgentDoc bool
 	// Prev/Next for bottom navigation
-	Prev              *navigation.NavNode
-	Next              *navigation.NavNode
-	TailwindURL       string
-	AppCSSURL         string
-	AppJSURL          string
-	EasyMDECSSURL     string
-	EasyMDEJSURL      string
-	FontAwesomeURL    string
-	HTMXURL           string
-	MermaidURL        string
-	FaviconURL        string
-	SearchURL         string
-	TasksURL          string
-	SectionTasksURL   string // URL for section-scoped task view (current folder)
-	HasTasksBlock     bool
-	TasksAnchorURL    string
-	Backlinks         []navigation.Backlink // pages that link to this page
-	GraphURL          string                // URL for the site link graph page
-	EgoGraphURL       string                // URL for ego-graph of current page
-	LibraryURL        string                // non-empty in library mode: URL back to the dashboard
-	BuildVersion      string
-	BuildCommit       string
-	EditMode          bool   // true when --edit is active
-	EditPageURL       string // URL to open the editor for this page (empty if not editable)
-	GitHistoryURL     string // non-empty when git history is available
-	GitCompareURL     string // compare revisions of the current document
-	MetadataFacets    []metadata.Facet
-	FilterQuery       string
-	FiltersActive     bool
-	MetadataFilterURL string
+	Prev                *navigation.NavNode
+	Next                *navigation.NavNode
+	TailwindURL         string
+	AppCSSURL           string
+	AppJSURL            string
+	EasyMDECSSURL       string
+	EasyMDEJSURL        string
+	FontAwesomeURL      string
+	HTMXURL             string
+	MermaidURL          string
+	FaviconURL          string
+	SearchURL           string
+	TasksURL            string
+	SectionTasksURL     string // URL for section-scoped task view (current folder)
+	HasTasksBlock       bool
+	TasksAnchorURL      string
+	Backlinks           []navigation.Backlink // pages that link to this page
+	GraphURL            string                // URL for the site link graph page
+	EgoGraphURL         string                // URL for ego-graph of current page
+	LibraryURL          string                // non-empty in library mode: URL back to the dashboard
+	BuildVersion        string
+	BuildCommit         string
+	EditMode            bool   // true when --edit is active
+	EditPageURL         string // URL to open the editor for this page (empty if not editable)
+	GitHistoryURL       string // non-empty when git history is available
+	GitCompareURL       string // compare revisions of the current document
+	MetadataFacets      []metadata.Facet
+	FilterQuery         string
+	FiltersActive       bool
+	MetadataFilterURL   string
+	FrontmatterEntries  []FrontmatterEntryData
+	FrontmatterEditURL  string
+	FrontmatterRevision string
+	BulkFrontmatterURL  string
 }
 
 type CommentNode struct {
@@ -278,6 +282,15 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Warn("failed to load comments", "path", node.FullPath, "err", err)
 	}
+	src, err := os.ReadFile(fsPath)
+	if err != nil {
+		s.internalError(w, r, err)
+		return
+	}
+	frontmatterEntries, err := buildFrontmatterEntries(src)
+	if err != nil {
+		slog.Warn("failed to load frontmatter entries", "path", node.FullPath, "err", err)
+	}
 
 	editURL := ""
 	if s.siteCfg.GitHubURL != "" && node.FSPath != "" {
@@ -347,12 +360,26 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			return ""
 		}(),
-		GitHistoryURL:     s.gitHistoryPath,
-		GitCompareURL:     s.gitCompareURLFor(node.FullPath),
-		MetadataFacets:    view.Facets,
-		FilterQuery:       view.Query,
-		FiltersActive:     view.Active,
-		MetadataFilterURL: node.FullPath,
+		GitHistoryURL:      s.gitHistoryPath,
+		GitCompareURL:      s.gitCompareURLFor(node.FullPath),
+		MetadataFacets:     view.Facets,
+		FilterQuery:        view.Query,
+		FiltersActive:      view.Active,
+		MetadataFilterURL:  node.FullPath,
+		FrontmatterEntries: frontmatterEntries,
+		FrontmatterEditURL: func() string {
+			if s.editMode && node.FSPath != "" {
+				return s.editBasePath() + "/frontmatter"
+			}
+			return ""
+		}(),
+		FrontmatterRevision: contentRevision(src),
+		BulkFrontmatterURL: func() string {
+			if s.editMode && view.Active && len(s.siteCfg.Frontmatter.DefaultFields()) > 0 {
+				return s.editBasePath() + "/frontmatter/bulk" + view.Query
+			}
+			return ""
+		}(),
 	}
 	if data.HasTasksBlock {
 		data.TasksAnchorURL = node.FullPath + "#tasks-0-filter"

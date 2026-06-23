@@ -1,8 +1,10 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"io/fs"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -237,6 +239,9 @@ func TestEditLinkPreservesMetadataQuery(t *testing.T) {
 	if !strings.Contains(body, `href="/_edit/?meta.document-owner=martin.mares%40datalite.cz"`) {
 		t.Fatalf("expected edit link to preserve query, got: %s", body)
 	}
+	if !strings.Contains(body, `aria-label="Edit frontmatter"`) {
+		t.Fatalf("expected frontmatter edit button in edit mode, got: %s", body)
+	}
 }
 
 func TestPageCommentsCanBeAddedAndRendered(t *testing.T) {
@@ -261,12 +266,21 @@ func TestPageCommentsCanBeAddedAndRendered(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
-	var first comments.Comment
+	var first struct {
+		comments.Comment
+		BodyHTML    string `json:"body_html"`
+		CommentHTML string `json:"comment_html"`
+	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &first); err != nil {
 		t.Fatal(err)
 	}
 	if first.DocumentID != "home" {
 		t.Fatalf("comment used wrong document identity: %#v", first)
+	}
+	for _, want := range []string{"Reply", "Edit", "Delete"} {
+		if !strings.Contains(first.CommentHTML, want) {
+			t.Fatalf("expected %q in comment html, got: %s", want, first.CommentHTML)
+		}
 	}
 
 	highlightForm := strings.NewReader("page_path=/&kind=highlight&quote=Welcome")
@@ -289,7 +303,7 @@ func TestPageCommentsCanBeAddedAndRendered(t *testing.T) {
 		t.Fatalf("expected reply 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	updateForm := strings.NewReader("body=Looks+*updated*")
+	updateForm := strings.NewReader("body=Looks+*updated*&author=Alicia")
 	req = httptest.NewRequest(http.MethodPatch, "/_comments/"+first.ID+"?page_path=/", updateForm)
 	req.SetPathValue("id", first.ID)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -297,6 +311,17 @@ func TestPageCommentsCanBeAddedAndRendered(t *testing.T) {
 	srv.updateCommentHandler(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("expected update 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var updated struct {
+		comments.Comment
+		BodyHTML    string `json:"body_html"`
+		CommentHTML string `json:"comment_html"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &updated); err != nil {
+		t.Fatal(err)
+	}
+	if updated.Author != "Alicia" {
+		t.Fatalf("expected updated author, got %#v", updated.Comment)
 	}
 
 	req = httptest.NewRequest(http.MethodGet, "/", nil)
@@ -306,13 +331,102 @@ func TestPageCommentsCanBeAddedAndRendered(t *testing.T) {
 		t.Fatalf("expected page 200, got %d", rec.Code)
 	}
 	body := rec.Body.String()
-	for _, want := range []string{"Comments", "Highlights", "Alice", "<em>updated</em>", "Selected text", "Bob", "Re: agreed", "RE", `data-comment-highlight`, `data-quote="Welcome"`, `data-annotation-edit`, `data-annotation-delete`, `data-delete-dialog`, "Delete annotation?"} {
+	for _, want := range []string{"Comments", "Highlights", "Alicia", "<em>updated</em>", "Selected text", "Bob", "Re: agreed", "RE", `data-comment-highlight`, `data-quote="Welcome"`, `data-annotation-edit`, `data-annotation-delete`, `data-delete-dialog`, "Delete annotation?"} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("expected %q in rendered page, got: %s", want, body)
 		}
 	}
 	if strings.Contains(body, `data-annotation-kind="highlight"`) {
 		t.Fatalf("highlights must not expose an edit action, got: %s", body)
+	}
+}
+
+func TestBulkFrontmatterSaveAcceptsMultipartForm(t *testing.T) {
+	srv := newTestServer(t)
+	srv.editMode = true
+	srv.siteCfg.Frontmatter = config.FrontmatterConfig{
+		Fields: map[string]config.FrontmatterFieldConfig{
+			"document-owner": {Label: "Document owner", Type: "text", Filterable: true},
+		},
+		Defaults: map[string]any{
+			"document-owner": "anonymous",
+		},
+	}
+	original := `---
+title: "API Widget"
+# Keep this comment.
+document-owner: alice
+---
+# API Widget
+`
+	writeTestFile(t, filepath.Join(srv.contentDir, "guides", "api-widget.md"), original)
+	nav, err := navigation.BuildTree(srv.contentDir, srv.basePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	idx, err := search.BuildIndex(nav, func(src string) (string, error) {
+		return srv.renderer.ToPlainText([]byte(src))
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv.Reload(nav, idx)
+
+	current, err := os.ReadFile(filepath.Join(srv.contentDir, "guides", "api-widget.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows := []bulkFrontmatterRowPayload{{
+		PagePath: "/guides/api-widget",
+		Revision: contentRevision(current),
+		Values: map[string]string{
+			"document-owner": "bob",
+		},
+	}}
+	payload, err := json.Marshal(rows)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	if err := writer.WriteField("rows", string(payload)); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/_edit/frontmatter/bulk/save", &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	rec := httptest.NewRecorder()
+	srv.bulkFrontmatterSaveHandler(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp bulkFrontmatterSaveResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if !resp.OK || len(resp.Rows) != 1 || !resp.Rows[0].OK {
+		t.Fatalf("unexpected response: %+v", resp)
+	}
+	updated, err := os.ReadFile(filepath.Join(srv.contentDir, "guides", "api-widget.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(updated)
+	for _, want := range []string{
+		`title: "API Widget"`,
+		`# Keep this comment.`,
+		`document-owner: bob`,
+		`# API Widget`,
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("expected %q in updated source, got: %s", want, text)
+		}
+	}
+	if strings.Contains(text, `document-owner: alice`) {
+		t.Fatalf("expected only targeted field update, got: %s", text)
 	}
 }
 

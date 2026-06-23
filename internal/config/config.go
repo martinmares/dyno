@@ -46,8 +46,9 @@ type CommentsConfig struct {
 // FrontmatterConfig describes metadata fields without coupling Dyno to a
 // particular documentation repository or frontmatter vocabulary.
 type FrontmatterConfig struct {
-	Display []string                          `yaml:"display"`
-	Fields  map[string]FrontmatterFieldConfig `yaml:"fields"`
+	Display  []string                          `yaml:"display"`
+	Fields   map[string]FrontmatterFieldConfig `yaml:"fields"`
+	Defaults map[string]any                    `yaml:"defaults"`
 }
 
 type FrontmatterFieldConfig struct {
@@ -125,7 +126,28 @@ func (c *FrontmatterConfig) Normalize() error {
 		}
 		c.Fields[name] = field
 	}
+	for name := range c.Defaults {
+		trimmedName := strings.TrimSpace(name)
+		if trimmedName == "" || trimmedName != name || strings.ContainsAny(name, "\r\n") {
+			return fmt.Errorf("frontmatter default field name %q is invalid", name)
+		}
+		if _, ok := c.Fields[name]; !ok {
+			return fmt.Errorf("frontmatter default field %q is not defined in fields", name)
+		}
+	}
 	return nil
+}
+
+// DefaultFields returns configured fields that have a default value, in display order.
+func (c FrontmatterConfig) DefaultFields() []NamedFrontmatterField {
+	ordered := c.OrderedFields()
+	out := make([]NamedFrontmatterField, 0, len(ordered))
+	for _, field := range ordered {
+		if _, ok := c.Defaults[field.Name]; ok && !field.ReadOnly {
+			out = append(out, field)
+		}
+	}
+	return out
 }
 
 // GetSlug returns the URL slug for this site in library mode.

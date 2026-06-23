@@ -342,6 +342,7 @@ function initComments() {
     const quoteInput = root.querySelector('[data-comment-quote]');
     const anchorInput = root.querySelector('[data-comment-anchor]');
     const parentInput = root.querySelector('[data-comment-parent-id]');
+    const authorInput = form && form.querySelector('input[name="author"]');
     const clearBtn = root.querySelector('[data-comment-clear-selection]');
     const replyBox = root.querySelector('[data-comment-reply]');
     const replyText = root.querySelector('[data-comment-reply-text]');
@@ -471,7 +472,10 @@ function initComments() {
     });
     const newComment = root.querySelector('[data-comment-new]');
     if (newComment) newComment.addEventListener('click', function () {
-      editingID = ''; editingKind = ''; clearSelection(); clearReply(); openEditor();
+      editingID = ''; editingKind = ''; clearSelection(); clearReply();
+      if (authorInput) authorInput.value = '';
+      if (commentEditor) commentEditor.value('');
+      openEditor();
     });
     const actionCancel = root.querySelector('[data-selection-cancel]');
     if (actionCancel) actionCancel.addEventListener('click', function () { actionDialog.close(); editingID = ''; editingKind = ''; });
@@ -509,12 +513,12 @@ function initComments() {
         })
         .finally(function () { actionHighlight.disabled = false; });
     });
-    root.querySelectorAll('[data-comment-reply-to]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        setReply(btn.getAttribute('data-comment-reply-to'), btn.getAttribute('data-comment-reply-author'));
-      });
-    });
     root.addEventListener('click', function (event) {
+      const reply = event.target.closest('[data-comment-reply-to]');
+      if (reply) {
+        setReply(reply.getAttribute('data-comment-reply-to'), reply.getAttribute('data-comment-reply-author'));
+        return;
+      }
       const go = event.target.closest('[data-highlight-go]');
       if (go) {
         const mark = document.querySelector('[data-highlight-mark="' + CSS.escape(go.dataset.highlightGo) + '"]');
@@ -533,6 +537,7 @@ function initComments() {
         }
         clearSelection(); clearReply();
         if (commentEditor) commentEditor.value(edit.dataset.annotationBody || '');
+        if (authorInput) authorInput.value = edit.dataset.annotationAuthor || '';
         openEditor();
         return;
       }
@@ -582,9 +587,14 @@ function initComments() {
           if (!res.ok) throw new Error('comment failed');
           return res.json();
         }).then(function (comment) {
-          if (method === 'PATCH') {
-            const body = document.querySelector('#comment-' + CSS.escape(editingID) + ' .prose');
-            if (body) body.innerHTML = comment.body_html || '';
+              if (method === 'PATCH') {
+            const target = document.getElementById('comment-' + CSS.escape(editingID));
+            if (target && comment.comment_html) {
+              target.outerHTML = comment.comment_html;
+            } else if (target) {
+              const body = target.querySelector('.prose');
+              if (body) body.innerHTML = comment.body_html || '';
+            }
           } else {
             appendSavedComment(root, comment);
           }
@@ -660,17 +670,34 @@ function applyCommentHighlights() {
 }
 
 function appendSavedComment(root, comment) {
+  const html = comment.comment_html || '';
+  if (!html) return;
+  const parser = document.createElement('template');
+  parser.innerHTML = html.trim();
+  const item = parser.content.firstElementChild;
+  if (!item) return;
   const list = root.querySelector('[data-comments-list]');
   if (!list) return;
-  const empty = list.querySelector('p');
-  if (empty) empty.remove();
-  const item = document.createElement('article');
-  item.className = 'px-4 py-3';
-  const author = document.createElement('strong');
-  author.className = 'text-sm font-semibold'; author.textContent = comment.author || 'Anonymous';
-  const body = document.createElement('div');
-  body.className = 'prose prose-sm mt-2 max-w-none dark:prose-invert'; body.innerHTML = comment.body_html || '';
-  item.append(author, body); list.appendChild(item);
+  const parentID = comment.parent_id || '';
+  if (parentID) {
+    const parent = root.querySelector('#comment-' + CSS.escape(parentID));
+    if (parent) {
+      let childList = parent.querySelector('[data-comment-children]');
+      if (!childList) {
+        childList = document.createElement('div');
+        childList.className = 'mt-3 border-l-2 border-teal-200 pl-4 dark:border-teal-800';
+        childList.setAttribute('data-comment-children', '');
+        parent.appendChild(childList);
+      }
+      childList.appendChild(item);
+    } else {
+      list.appendChild(item);
+    }
+  } else {
+    const empty = list.querySelector('p');
+    if (empty) empty.remove();
+    list.appendChild(item);
+  }
   const count = root.querySelector('[data-comments-count]');
   if (count) count.textContent = String((parseInt(count.textContent, 10) || 0) + 1);
 }
@@ -694,6 +721,319 @@ function appendSavedHighlight(root, highlight) {
   row.append(quote, actions); list.appendChild(row);
   const count = root.querySelector('[data-highlights-count]');
   if (count) count.textContent = String((parseInt(count.textContent, 10) || 0) + 1);
+}
+
+// ─── Bulk frontmatter editor ─────────────────────────────────────────────────
+
+function initBulkFrontmatterEditor() {
+  if (window.dynoBulkFrontmatterInit) return;
+  window.dynoBulkFrontmatterInit = true;
+
+  async function openBulkEditor(url) {
+    if (!url) return;
+    const existing = document.querySelector('[data-bulk-frontmatter-dialog]');
+    if (existing) existing.remove();
+    const response = await fetch(url, { headers: { Accept: 'text/html' } });
+    if (!response.ok) {
+      throw new Error('Failed to load bulk editor.');
+    }
+    const html = await response.text();
+    const tpl = document.createElement('template');
+    tpl.innerHTML = html.trim();
+    const dialog = tpl.content.querySelector('[data-bulk-frontmatter-dialog]');
+    if (!dialog) throw new Error('Bulk editor markup missing.');
+    document.body.appendChild(dialog);
+    bindBulkEditor(dialog);
+    dialog.showModal();
+  }
+
+  function bindBulkEditor(dialog) {
+    if (dialog.dataset.bulkInit === '1') return;
+    dialog.dataset.bulkInit = '1';
+    const rowsRoot = dialog.querySelector('[data-bulk-frontmatter-rows]');
+    const status = dialog.querySelector('[data-bulk-frontmatter-status]');
+    const saveBtn = dialog.querySelector('[data-bulk-frontmatter-save]');
+    const closeButtons = dialog.querySelectorAll('[data-bulk-frontmatter-close]');
+    const fillBtn = dialog.querySelector('[data-bulk-frontmatter-fill]');
+
+    function setStatus(message, kind) {
+      if (!status) return;
+      status.textContent = message || '';
+      status.className = 'text-xs';
+      if (kind === 'error') {
+        status.classList.add('text-red-500', 'dark:text-red-400');
+      } else if (kind === 'success') {
+        status.classList.add('text-green-600', 'dark:text-green-400');
+      } else {
+        status.classList.add('text-gray-500', 'dark:text-gray-400');
+      }
+    }
+
+    function markDirty(input) {
+      input.dataset.dirty = 'true';
+    }
+
+    dialog.querySelectorAll('[data-bulk-frontmatter-input]').forEach(function (input) {
+      input.addEventListener('input', function () { markDirty(input); });
+      input.addEventListener('change', function () { markDirty(input); });
+    });
+
+    if (fillBtn) {
+      fillBtn.addEventListener('click', function () {
+        rowsRoot.querySelectorAll('[data-bulk-frontmatter-row]').forEach(function (row) {
+          row.querySelectorAll('[data-bulk-frontmatter-input]').forEach(function (input) {
+            if ((input.value || '').trim() !== '') return;
+            const def = input.getAttribute('data-default-value') || '';
+            if (!def) return;
+            if (input.tagName === 'SELECT') {
+              if (input.value === '') {
+                input.value = def;
+                markDirty(input);
+              }
+            } else {
+              input.value = def;
+              markDirty(input);
+            }
+          });
+        });
+        setStatus('Defaults filled. Review changes and save.');
+      });
+    }
+
+    closeButtons.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (dialog.open) dialog.close();
+        dialog.remove();
+      });
+    });
+    dialog.addEventListener('close', function () {
+      dialog.remove();
+    });
+    dialog.addEventListener('click', function (event) {
+      if (event.target === dialog && dialog.open) {
+        dialog.close();
+      }
+    });
+
+    if (saveBtn) {
+      saveBtn.addEventListener('click', async function () {
+        const rows = [];
+        rowsRoot.querySelectorAll('[data-bulk-frontmatter-row]').forEach(function (row) {
+          const values = {};
+          row.querySelectorAll('[data-bulk-frontmatter-input][data-dirty="true"]').forEach(function (input) {
+            values[input.dataset.fieldName] = input.value;
+          });
+          if (Object.keys(values).length === 0) return;
+          rows.push({
+            page_path: row.dataset.pagePath || '',
+            revision: row.dataset.revision || '',
+            values: values,
+          });
+        });
+        if (rows.length === 0) {
+          setStatus('No changes to save.');
+          return;
+        }
+        saveBtn.disabled = true;
+        setStatus('Saving...');
+        try {
+          const fd = new FormData();
+          fd.set('rows', JSON.stringify(rows));
+          const response = await fetch(dialog.getAttribute('data-save-url') || '', {
+            method: 'POST',
+            body: fd,
+            headers: { Accept: 'application/json' },
+          });
+          const data = await response.json();
+          if (!response.ok) throw data;
+          const errors = [];
+          const results = new Map((data.rows || []).map(function (row) {
+            return [row.page_path, row];
+          }));
+          rowsRoot.querySelectorAll('[data-bulk-frontmatter-row]').forEach(function (row) {
+            const result = results.get(row.dataset.pagePath || '');
+            row.classList.remove('ring-1', 'ring-red-300', 'dark:ring-red-800');
+            if (!result) return;
+            if (result.ok) {
+              row.querySelectorAll('[data-bulk-frontmatter-input]').forEach(function (input) {
+                delete input.dataset.dirty;
+              });
+            } else {
+              errors.push((row.dataset.pagePath || 'document') + ': ' + (result.error || 'save failed'));
+              row.classList.add('ring-1', 'ring-red-300', 'dark:ring-red-800');
+            }
+          });
+          if (errors.length > 0) {
+            setStatus(errors.join(' | '), 'error');
+            return;
+          }
+          setStatus('Saved. Reloading...');
+          dialog.close();
+          window.location.reload();
+        } catch (error) {
+          setStatus(error && error.error ? error.error : 'Failed to save bulk edits.', 'error');
+        } finally {
+          saveBtn.disabled = false;
+        }
+      });
+    }
+  }
+
+  document.addEventListener('click', function (event) {
+    const btn = event.target.closest('[data-bulk-frontmatter-open]');
+    if (!btn) return;
+    event.preventDefault();
+    openBulkEditor(btn.getAttribute('data-bulk-frontmatter-url') || '').catch(function (err) {
+      console.error(err);
+      alert(err && err.message ? err.message : 'Failed to open bulk editor.');
+    });
+  });
+}
+
+// ─── Frontmatter editor ──────────────────────────────────────────────────────
+
+function initFrontmatterEditor() {
+  document.querySelectorAll('[data-frontmatter-dialog]:not([data-frontmatter-init])').forEach(function (dialog) {
+    dialog.setAttribute('data-frontmatter-init', '1');
+
+    const form = dialog.querySelector('[data-frontmatter-form]');
+    const rows = dialog.querySelector('[data-frontmatter-rows]');
+    const template = dialog.querySelector('[data-frontmatter-row-template]');
+    const openBtn = document.querySelector('[data-frontmatter-open]');
+    const addBtn = dialog.querySelector('[data-frontmatter-add]');
+    const status = dialog.querySelector('[data-frontmatter-status]');
+    const cancelButtons = dialog.querySelectorAll('[data-frontmatter-cancel]');
+    const entriesInput = dialog.querySelector('[data-frontmatter-entries]');
+    const saveBtn = form && form.querySelector('button[type="submit"]');
+
+    if (!form || !rows || !template || !entriesInput) return;
+
+    function setStatus(message, kind) {
+      if (!status) return;
+      status.textContent = message || '';
+      status.className = 'text-xs';
+      if (kind === 'error') {
+        status.classList.add('text-red-500', 'dark:text-red-400');
+      } else if (kind === 'success') {
+        status.classList.add('text-green-600', 'dark:text-green-400');
+      } else {
+        status.classList.add('text-gray-500', 'dark:text-gray-400');
+      }
+    }
+
+    function rowTemplate() {
+      const fragment = template.content.cloneNode(true);
+      const row = fragment.querySelector('[data-frontmatter-row]');
+      if (!row) return null;
+      bindRow(row);
+      return row;
+    }
+
+    function bindRow(row) {
+      row.querySelectorAll('[data-frontmatter-remove]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          row.remove();
+          if (!rows.querySelector('[data-frontmatter-row]')) addRow();
+        });
+      });
+      return row;
+    }
+
+    function addRow(key, value) {
+      const row = rowTemplate();
+      if (!row) return null;
+      const keyInput = row.querySelector('[data-frontmatter-key]');
+      const valueInput = row.querySelector('[data-frontmatter-value]');
+      if (keyInput) keyInput.value = key || '';
+      if (valueInput) valueInput.value = value || '';
+      rows.appendChild(row);
+      return row;
+    }
+
+    function collectEntries() {
+      const payload = [];
+      const seen = new Set();
+      const rowList = Array.from(rows.querySelectorAll('[data-frontmatter-row]'));
+      for (const row of rowList) {
+        const keyInput = row.querySelector('[data-frontmatter-key]');
+        const valueInput = row.querySelector('[data-frontmatter-value]');
+        const key = keyInput ? keyInput.value.trim() : '';
+        const value = valueInput ? valueInput.value : '';
+        if (!key && !value.trim()) continue;
+        if (!key) return { error: 'Frontmatter key cannot be empty.' };
+        if (seen.has(key)) return { error: 'Duplicate frontmatter key: ' + key };
+        seen.add(key);
+        payload.push({ key: key, value: value });
+      }
+      return { entries: payload };
+    }
+
+    function open() {
+      if (!dialog.open) dialog.showModal();
+      if (!rows.querySelector('[data-frontmatter-row]')) addRow();
+      const firstKey = dialog.querySelector('[data-frontmatter-key]');
+      if (firstKey) firstKey.focus();
+    }
+
+    function close() {
+      if (dialog.open) dialog.close();
+    }
+
+    if (openBtn) {
+      openBtn.addEventListener('click', open);
+    }
+    cancelButtons.forEach(function (btn) {
+      btn.addEventListener('click', close);
+    });
+    if (addBtn) {
+      addBtn.addEventListener('click', function () {
+        const row = addRow();
+        const keyInput = row && row.querySelector('[data-frontmatter-key]');
+        if (keyInput) keyInput.focus();
+      });
+    }
+    dialog.addEventListener('click', function (event) {
+      if (event.target === dialog) close();
+    });
+    if (!rows.querySelector('[data-frontmatter-row]')) {
+      addRow();
+    }
+    rows.querySelectorAll('[data-frontmatter-row]').forEach(bindRow);
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      const result = collectEntries();
+      if (result.error) {
+        setStatus(result.error, 'error');
+        return;
+      }
+      setStatus('Saving frontmatter...');
+      if (saveBtn) saveBtn.disabled = true;
+
+      const fd = new FormData();
+      fd.set('page_path', form.querySelector('input[name="page_path"]').value);
+      fd.set('revision', form.querySelector('input[name="revision"]').value);
+      fd.set('entries', JSON.stringify(result.entries || []));
+
+      fetch(form.action, {
+        method: 'POST',
+        body: fd,
+        headers: { Accept: 'application/json' },
+      }).then(function (res) {
+        return res.json().then(function (data) {
+          if (!res.ok) throw data;
+          return data;
+        });
+      }).then(function () {
+        close();
+        window.location.reload();
+      }).catch(function (error) {
+        setStatus(error && error.error ? error.error : 'Failed to save frontmatter.', 'error');
+      }).finally(function () {
+        if (saveBtn) saveBtn.disabled = false;
+      });
+    });
+  });
 }
 
 // ─── Search highlight on destination page ───────────────────────────────────
@@ -789,6 +1129,8 @@ document.addEventListener('DOMContentLoaded', function () {
   initTOCScrollSpy();
   initTaskFilters();
   initComments();
+  initBulkFrontmatterEditor();
+  initFrontmatterEditor();
   applyCommentHighlights();
   initCopyButtons();
   initLightbox();
@@ -809,6 +1151,8 @@ document.addEventListener('htmx:afterSwap', function (e) {
     initTOCScrollSpy();
     initTaskFilters();
     initComments();
+    initBulkFrontmatterEditor();
+    initFrontmatterEditor();
     applyCommentHighlights();
     initCopyButtons();
     initLightbox();

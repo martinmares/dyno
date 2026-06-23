@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/mares/dyno/internal/config"
 	"github.com/mares/dyno/internal/frontmatter"
+	"github.com/mares/dyno/internal/metadata"
 	"gopkg.in/yaml.v3"
 )
 
@@ -32,11 +34,23 @@ type MetadataOption struct {
 	Selected bool
 }
 
+type FrontmatterEntryData struct {
+	Key   string
+	Value string
+}
+
+type frontmatterEntryPayload struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
 type metadataApplyResponse struct {
-	OK     bool   `json:"ok"`
-	Source string `json:"source,omitempty"`
-	Error  string `json:"error,omitempty"`
-	Code   string `json:"code,omitempty"`
+	OK        bool   `json:"ok"`
+	Source    string `json:"source,omitempty"`
+	Error     string `json:"error,omitempty"`
+	Code      string `json:"code,omitempty"`
+	Revision  string `json:"revision,omitempty"`
+	GitStatus string `json:"git_status,omitempty"`
 }
 
 func buildMetadataFields(cfg config.FrontmatterConfig, source []byte) ([]MetadataFieldData, error) {
@@ -73,6 +87,18 @@ func buildMetadataFields(cfg config.FrontmatterConfig, source []byte) ([]Metadat
 		fields = append(fields, data)
 	}
 	return fields, nil
+}
+
+func buildFrontmatterEntries(source []byte) ([]FrontmatterEntryData, error) {
+	entries, err := frontmatter.ReadEntries(source)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]FrontmatterEntryData, 0, len(entries))
+	for _, entry := range entries {
+		out = append(out, FrontmatterEntryData{Key: entry.Key, Value: entry.Value})
+	}
+	return out, nil
 }
 
 func metadataFieldValue(value any, fieldType string) (string, bool) {
@@ -160,6 +186,81 @@ func (s *Server) editMetadataHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeMetadataResponse(w, http.StatusOK, metadataApplyResponse{OK: true, Source: string(updated)})
+}
+
+func (s *Server) editFrontmatterHandler(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 12<<20)
+	if err := r.ParseForm(); err != nil {
+		writeMetadataResponse(w, http.StatusBadRequest, metadataApplyResponse{Error: "invalid form", Code: "invalid_request"})
+		return
+	}
+	pagePath := strings.TrimSpace(r.FormValue("page_path"))
+	expectedRevision := strings.TrimSpace(r.FormValue("revision"))
+	var submitted []frontmatterEntryPayload
+	if err := json.Unmarshal([]byte(r.FormValue("entries")), &submitted); err != nil {
+		writeMetadataResponse(w, http.StatusBadRequest, metadataApplyResponse{Error: "invalid frontmatter entries", Code: "invalid_entries"})
+		return
+	}
+	if pagePath == "" || expectedRevision == "" {
+		writeMetadataResponse(w, http.StatusBadRequest, metadataApplyResponse{Error: "page_path and revision are required", Code: "invalid_request"})
+		return
+	}
+
+	fsPath, err := s.editableFilePath(pagePath)
+	if err != nil {
+		writeMetadataResponse(w, http.StatusNotFound, metadataApplyResponse{Error: "document not found", Code: "not_found"})
+		return
+	}
+	nav := s.getNav()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	current, err := os.ReadFile(fsPath)
+	if err != nil {
+		writeMetadataResponse(w, http.StatusInternalServerError, metadataApplyResponse{Error: "failed to read document", Code: "read_failed"})
+		return
+	}
+	currentRevision := contentRevision(current)
+	if currentRevision != expectedRevision {
+		writeMetadataResponse(w, http.StatusConflict, metadataApplyResponse{Error: "document changed on disk; reload before saving", Code: "conflict", Revision: currentRevision})
+		return
+	}
+
+	entries := make([]frontmatter.Entry, 0, len(submitted))
+	for _, item := range submitted {
+		entries = append(entries, frontmatter.Entry{
+			Key:   strings.TrimSpace(item.Key),
+			Value: item.Value,
+		})
+	}
+	updated, err := frontmatter.ApplyEntries(current, entries)
+	if err != nil {
+		writeMetadataResponse(w, http.StatusBadRequest, metadataApplyResponse{Error: err.Error(), Code: "invalid_frontmatter"})
+		return
+	}
+	newRevision := contentRevision(updated)
+	if newRevision == currentRevision {
+		writeMetadataResponse(w, http.StatusOK, metadataApplyResponse{OK: true, Revision: currentRevision, Source: string(updated)})
+		return
+	}
+
+	info, err := os.Stat(fsPath)
+	if err != nil {
+		writeMetadataResponse(w, http.StatusInternalServerError, metadataApplyResponse{Error: "failed to inspect document", Code: "stat_failed"})
+		return
+	}
+	if err := writeFileAtomic(fsPath, updated, info.Mode().Perm()); err != nil {
+		writeMetadataResponse(w, http.StatusInternalServerError, metadataApplyResponse{Error: "failed to write document", Code: "write_failed"})
+		return
+	}
+
+	delete(s.pageCache, fsPath)
+	if idx, err := metadata.Build(nav, s.siteCfg.Frontmatter); err == nil {
+		s.metadata = idx
+	}
+
+	writeMetadataResponse(w, http.StatusOK, metadataApplyResponse{OK: true, Source: string(updated), Revision: newRevision, GitStatus: gitFileStatus(fsPath)})
 }
 
 func coerceMetadataValue(field config.FrontmatterFieldConfig, value any) (any, error) {

@@ -24,6 +24,7 @@ import (
 type EditPageData struct {
 	PageData
 	PageURL        string        // dyno URL of the page (for "View page" link)
+	PagePath       string        // stable page path used for save requests
 	Source         string        // raw markdown source
 	PreviewHTML    template.HTML // initial rendered preview
 	PreviewURL     string        // POST endpoint for live preview
@@ -116,6 +117,7 @@ func (s *Server) editPageHandler(w http.ResponseWriter, r *http.Request) {
 			GitCompareURL: s.gitCompareURLFor(node.FullPath),
 		},
 		PageURL:        appendFilterQuery(node.FullPath, r.URL.RawQuery),
+		PagePath:       node.FullPath,
 		Source:         string(src),
 		PreviewHTML:    template.HTML(res.HTML),
 		PreviewURL:     previewURL,

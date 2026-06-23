@@ -110,13 +110,19 @@ func (s *Server) addCommentHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), status)
 		return
 	}
+	commentHTML, err := s.renderCommentHTML(comment)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	if wantsJSON(r) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(struct {
 			comments.Comment
-			BodyHTML template.HTML `json:"body_html,omitempty"`
-		}{Comment: comment, BodyHTML: renderCommentMarkdown(comment.Body)})
+			BodyHTML    template.HTML `json:"body_html,omitempty"`
+			CommentHTML template.HTML `json:"comment_html,omitempty"`
+		}{Comment: comment, BodyHTML: renderCommentMarkdown(comment.Body), CommentHTML: commentHTML})
 		return
 	}
 	http.Redirect(w, r, pagePath+"#comments", http.StatusSeeOther)
@@ -136,6 +142,10 @@ func (s *Server) updateCommentHandler(w http.ResponseWriter, r *http.Request) {
 		item.Anchor = strings.TrimSpace(r.FormValue("anchor"))
 	} else {
 		item.Body = strings.TrimSpace(r.FormValue("body"))
+		author := strings.TrimSpace(r.FormValue("author"))
+		if author != "" {
+			item.Author = author
+		}
 	}
 	item.DocumentID, item.PagePath = documentID, pagePath
 	updated, err := s.comments.Update(item)
@@ -143,11 +153,17 @@ func (s *Server) updateCommentHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	commentHTML, err := s.renderCommentHTML(updated)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(struct {
 		comments.Comment
-		BodyHTML template.HTML `json:"body_html,omitempty"`
-	}{Comment: updated, BodyHTML: renderCommentMarkdown(updated.Body)})
+		BodyHTML    template.HTML `json:"body_html,omitempty"`
+		CommentHTML template.HTML `json:"comment_html,omitempty"`
+	}{Comment: updated, BodyHTML: renderCommentMarkdown(updated.Body), CommentHTML: commentHTML})
 }
 
 func (s *Server) deleteCommentHandler(w http.ResponseWriter, r *http.Request) {
@@ -239,6 +255,31 @@ func renderCommentMarkdown(src string) template.HTML {
 		return template.HTML(template.HTMLEscapeString(src))
 	}
 	return template.HTML(buf.String())
+}
+
+type commentFragmentData struct {
+	Nodes       []CommentNode
+	CommentsURL string
+	CurrentPath string
+	Management  string
+}
+
+func (s *Server) renderCommentHTML(comment comments.Comment) (template.HTML, error) {
+	tmpl, err := s.getTemplate()
+	if err != nil {
+		return "", err
+	}
+	var buf bytes.Buffer
+	data := commentFragmentData{
+		Nodes:       []CommentNode{{Comment: comment, BodyHTML: renderCommentMarkdown(comment.Body)}},
+		CommentsURL: s.commentsPath,
+		CurrentPath: comment.PagePath,
+		Management:  s.commentsManagement,
+	}
+	if err := tmpl.ExecuteTemplate(&buf, "comment-tree", data); err != nil {
+		return "", err
+	}
+	return template.HTML(buf.String()), nil
 }
 
 func buildCommentTree(items []comments.Comment, render func(string) template.HTML) []CommentNode {

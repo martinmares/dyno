@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -98,6 +100,59 @@ func TestEditMetadataHandlerRejectsReadOnlyAndInvalidSelect(t *testing.T) {
 		srv.editMetadataHandler(rec, req)
 		if rec.Code != http.StatusBadRequest {
 			t.Fatalf("expected %s to be rejected, got %d", name, rec.Code)
+		}
+	}
+}
+
+func TestEditFrontmatterHandlerUpdatesAddsAndRemovesFields(t *testing.T) {
+	srv := newTestServer(t)
+	path := filepath.Join(srv.contentDir, "index.md")
+	original := `---
+title: Home
+owner: alice
+status: DRAFT
+tags:
+  - one
+---
+# Home
+`
+	if err := os.WriteFile(path, []byte(original), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	payload, err := json.Marshal([]map[string]string{
+		{"key": "title", "value": "Home"},
+		{"key": "owner", "value": "bob"},
+		{"key": "summary", "value": "Added"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/_edit/frontmatter", strings.NewReader(url.Values{
+		"page_path": {"/"},
+		"revision":  {contentRevision([]byte(original))},
+		"entries":   {string(payload)},
+	}.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec := httptest.NewRecorder()
+	srv.editFrontmatterHandler(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	updated, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(updated)
+	for _, want := range []string{"title: Home", "owner: bob", "summary: Added"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("expected %q in:\n%s", want, text)
+		}
+	}
+	for _, want := range []string{"status:", "tags:"} {
+		if strings.Contains(text, want) {
+			t.Fatalf("did not expect %q in:\n%s", want, text)
 		}
 	}
 }

@@ -91,6 +91,10 @@ frontmatter:
       type: datetime
       readonly: true
       update_on_save: true
+  defaults:
+    nabidka-md-stav: INTERNAL_REVISION
+    nabidka-md-analyza: 0
+    nabidka-md-vyvoj: 0
 ```
 
 All fields are optional — dyno works with no config file at all.
@@ -100,7 +104,7 @@ All fields are optional — dyno works with no config file at all.
 
 `content_include` and `content_exclude` limit which Markdown files are exposed in navigation, search, prev/next, and rendered pages. Patterns are slash-separated globs relative to the content directory; `**` matches across directories. Empty `content_include` means all Markdown files are included, and `content_exclude` always wins.
 
-`frontmatter.fields` defines repository-specific metadata without hard-coding a vocabulary in Dyno. Supported types are `text`, `textarea`, `select`, `boolean`, `number`, `date`, `datetime`, and `tags`. `display` controls the preferred order, `readonly` prevents form edits, and `required` enables validation. For `date` and `datetime` fields, `update_on_save: true` writes the current server date or RFC 3339 timestamp whenever the document content is actually changed. Setting `filterable: true` adds a runtime facet to the sidebar, navigation, and full-text search in normal, edit, and library modes. Facet values and document counts are indexed at startup; values within one field use OR and different fields use AND. Filters are working views stored in the URL, not publication or access restrictions. Applying the editor form patches only changed top-level fields; unknown YAML and untouched complex blocks remain unchanged. The same `frontmatter` block can be configured per site in `dyno-library.yaml`.
+`frontmatter.fields` defines repository-specific metadata without hard-coding a vocabulary in Dyno. Supported types are `text`, `textarea`, `select`, `boolean`, `number`, `date`, `datetime`, and `tags`. `display` controls the preferred order, `readonly` prevents form edits, and `required` enables validation. `frontmatter.defaults` defines the fields that appear in the bulk metadata editor and provides the suggested values for the `Fill defaults` action. For `date` and `datetime` fields, `update_on_save: true` writes the current server date or RFC 3339 timestamp whenever the document content is actually changed. Setting `filterable: true` adds a runtime facet to the sidebar, navigation, and full-text search in normal, edit, and library modes. Facet values and document counts are indexed at startup; values within one field use OR and different fields use AND. Filters are working views stored in the URL, not publication or access restrictions. Applying the editor form patches only changed top-level fields; unknown YAML and untouched complex blocks remain unchanged. The same `frontmatter` block can be configured per site in `dyno-library.yaml`.
 
 ### `dyno-library.yaml`
 

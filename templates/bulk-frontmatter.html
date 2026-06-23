@@ -1,0 +1,92 @@
+{{ define "bulk-frontmatter.html" }}
+<dialog data-bulk-frontmatter-dialog data-save-url="{{ .SaveURL }}" class="m-auto w-full max-w-6xl rounded-xl border border-gray-200 bg-white p-0 shadow-2xl backdrop:bg-gray-950/60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
+  <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-700">
+    <div>
+      <h3 class="font-semibold">{{ .Title }}</h3>
+      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Editing {{ .Count }} document(s) in the current metadata filter.</p>
+    </div>
+    <button type="button" data-bulk-frontmatter-close class="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200" aria-label="Close">×</button>
+  </div>
+
+  <div class="max-h-[72vh] overflow-auto px-5 py-4">
+    <table class="w-full border-separate border-spacing-y-2">
+      <thead>
+        <tr class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          <th class="sticky top-0 bg-white px-2 py-1 dark:bg-gray-900">Document</th>
+          {{ range .Columns }}
+          <th class="sticky top-0 bg-white px-2 py-1 dark:bg-gray-900">{{ .Label }}</th>
+          {{ end }}
+        </tr>
+      </thead>
+      <tbody data-bulk-frontmatter-rows>
+        {{ range .Rows }}
+        {{ $row := . }}
+        <tr data-bulk-frontmatter-row data-page-path="{{ .FullPath }}" data-revision="{{ .Revision }}" class="align-top">
+          <td class="w-72 px-2">
+            <div class="min-w-0">
+              <div class="truncate text-sm font-medium text-gray-950 dark:text-gray-50" title="{{ .Title }}">{{ .Title }}</div>
+              <div class="truncate text-xs text-gray-500 dark:text-gray-400" title="{{ .FullPath }}">{{ .FullPath }}</div>
+            </div>
+          </td>
+          {{ range $i, $col := $.Columns }}
+          <td class="px-2">
+            {{ $value := index $row.Values $i }}
+            {{ if eq $col.InputType "datetime-local" }}
+            <input type="datetime-local"
+                   value="{{ $value }}"
+                   data-bulk-frontmatter-input
+                   data-field-name="{{ $col.Name }}"
+                   data-default-value="{{ $col.Default }}"
+                   class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100">
+            {{ else if eq $col.InputType "date" }}
+            <input type="date"
+                   value="{{ $value }}"
+                   data-bulk-frontmatter-input
+                   data-field-name="{{ $col.Name }}"
+                   data-default-value="{{ $col.Default }}"
+                   class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100">
+            {{ else if eq $col.Type "select" }}
+            <select data-bulk-frontmatter-input data-field-name="{{ $col.Name }}" data-default-value="{{ $col.Default }}"
+                    class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100">
+              <option value=""></option>
+              {{ range $col.Options }}
+              <option value="{{ .Value }}" {{ if eq .Value $value }}selected{{ end }}>{{ .Value }}</option>
+              {{ end }}
+            </select>
+            {{ else if eq $col.InputType "number" }}
+            <input type="number"
+                   value="{{ $value }}"
+                   data-bulk-frontmatter-input
+                   data-field-name="{{ $col.Name }}"
+                   data-default-value="{{ $col.Default }}"
+                   class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100">
+            {{ else }}
+            <textarea rows="2"
+                      data-bulk-frontmatter-input
+                      data-field-name="{{ $col.Name }}"
+                      data-default-value="{{ $col.Default }}"
+                      class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100">{{ $value }}</textarea>
+            {{ end }}
+          </td>
+          {{ end }}
+        </tr>
+        {{ end }}
+      </tbody>
+    </table>
+    {{ if not .Rows }}
+    <div class="rounded-lg border border-dashed border-gray-300 px-4 py-6 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">No documents match the current filter.</div>
+    {{ end }}
+  </div>
+
+  <div class="flex items-center justify-between gap-2 border-t border-gray-100 bg-gray-50 px-5 py-3 dark:border-gray-800 dark:bg-gray-900/70">
+    <div class="flex items-center gap-2">
+      <button type="button" data-bulk-frontmatter-fill class="rounded-md border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">Fill defaults</button>
+      <p data-bulk-frontmatter-status class="text-xs text-gray-500 dark:text-gray-400"></p>
+    </div>
+    <div class="flex items-center gap-2">
+      <button type="button" data-bulk-frontmatter-close class="rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">Cancel</button>
+      <button type="button" data-bulk-frontmatter-save class="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700">Save all</button>
+    </div>
+  </div>
+</dialog>
+{{ end }}

@@ -12,6 +12,11 @@ import (
 
 var ErrInvalid = errors.New("invalid YAML frontmatter")
 
+type Entry struct {
+	Key   string
+	Value string
+}
+
 type section struct {
 	contentStart int
 	contentEnd   int
@@ -129,6 +134,127 @@ func Apply(source []byte, updates map[string]any) ([]byte, error) {
 	return out, nil
 }
 
+// ReadEntries returns top-level frontmatter entries in document order.
+// The returned values are rendered as YAML snippets, one per entry.
+func ReadEntries(source []byte) ([]Entry, error) {
+	part, ok := findSection(source)
+	if !ok {
+		return nil, nil
+	}
+	content := source[part.contentStart:part.contentEnd]
+	if len(bytes.TrimSpace(content)) == 0 {
+		return nil, nil
+	}
+
+	var doc yaml.Node
+	if err := yaml.Unmarshal(content, &doc); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalid, err)
+	}
+	mapping, err := rootMapping(&doc)
+	if err != nil {
+		return nil, err
+	}
+
+	entries := make([]Entry, 0, len(mapping.Content)/2)
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		value, err := renderNodeValue(mapping.Content[i+1])
+		if err != nil {
+			return nil, err
+		}
+		entries = append(entries, Entry{Key: mapping.Content[i].Value, Value: value})
+	}
+	return entries, nil
+}
+
+// ApplyEntries replaces the top-level frontmatter entries with the supplied
+// key/value rows. Missing frontmatter is created automatically and omitted
+// rows are removed.
+func ApplyEntries(source []byte, entries []Entry) ([]byte, error) {
+	part, ok := findSection(source)
+	if !ok {
+		return addSectionEntries(source, entries)
+	}
+	if len(entries) == 0 {
+		end, nl := nextLine(source, part.contentEnd)
+		if end < 0 {
+			return append([]byte(nil), source...), nil
+		}
+		return append([]byte(nil), source[end+nl:]...), nil
+	}
+	content := source[part.contentStart:part.contentEnd]
+	var doc yaml.Node
+	if len(bytes.TrimSpace(content)) > 0 {
+		if err := yaml.Unmarshal(content, &doc); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrInvalid, err)
+		}
+	}
+	mapping, err := rootMapping(&doc)
+	if err != nil {
+		return nil, err
+	}
+
+	wanted := make(map[string]Entry, len(entries))
+	order := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		name := strings.TrimSpace(entry.Key)
+		if name == "" {
+			return nil, fmt.Errorf("%w: frontmatter key cannot be empty", ErrInvalid)
+		}
+		if _, exists := wanted[name]; exists {
+			return nil, fmt.Errorf("%w: duplicate frontmatter key %q", ErrInvalid, name)
+		}
+		entry.Key = name
+		wanted[name] = entry
+		order = append(order, name)
+	}
+
+	lines := make([]string, 0, len(entries)*2)
+	for i := 0; i+1 < len(mapping.Content); i += 2 {
+		keyNode := mapping.Content[i]
+		valueNode := mapping.Content[i+1]
+		entry, ok := wanted[keyNode.Value]
+		if !ok {
+			continue
+		}
+		parsed, err := parseEntryValue(entry.Value)
+		if err != nil {
+			return nil, fmt.Errorf("%w: invalid value for %q: %v", ErrInvalid, entry.Key, err)
+		}
+		block, err := marshalField(keyNode.Value, parsed, keyNode, valueNode)
+		if err != nil {
+			return nil, err
+		}
+		lines = append(lines, strings.Split(strings.TrimSuffix(block, "\n"), "\n")...)
+		delete(wanted, keyNode.Value)
+	}
+
+	for _, name := range order {
+		entry, ok := wanted[name]
+		if !ok {
+			continue
+		}
+		parsed, err := parseEntryValue(entry.Value)
+		if err != nil {
+			return nil, fmt.Errorf("%w: invalid value for %q: %v", ErrInvalid, entry.Key, err)
+		}
+		block, err := marshalField(entry.Key, parsed, nil, nil)
+		if err != nil {
+			return nil, err
+		}
+		lines = append(lines, strings.Split(strings.TrimSuffix(block, "\n"), "\n")...)
+	}
+
+	patched := strings.Join(lines, part.newline)
+	if patched != "" {
+		patched += part.newline
+	}
+	out := make([]byte, 0, len(source)+len(patched)-len(content))
+	out = append(out, source[:part.contentStart]...)
+	out = append(out, patched...)
+	out = append(out, source[part.contentEnd:]...)
+	return out, nil
+}
+
 func findSection(source []byte) (section, bool) {
 	firstEnd, firstNewline := nextLine(source, 0)
 	if firstEnd < 0 || string(bytes.TrimSuffix(source[:firstEnd], []byte("\r"))) != "---" {
@@ -184,6 +310,29 @@ func addSection(source []byte, updates map[string]any) ([]byte, error) {
 	return []byte("---\n" + body.String() + "---\n" + string(source)), nil
 }
 
+func addSectionEntries(source []byte, entries []Entry) ([]byte, error) {
+	if len(entries) == 0 {
+		return append([]byte(nil), source...), nil
+	}
+	var body strings.Builder
+	for _, entry := range entries {
+		name := strings.TrimSpace(entry.Key)
+		if name == "" {
+			return nil, fmt.Errorf("%w: frontmatter key cannot be empty", ErrInvalid)
+		}
+		parsed, err := parseEntryValue(entry.Value)
+		if err != nil {
+			return nil, fmt.Errorf("%w: invalid value for %q: %v", ErrInvalid, name, err)
+		}
+		block, err := marshalField(name, parsed, nil, nil)
+		if err != nil {
+			return nil, err
+		}
+		body.WriteString(block)
+	}
+	return []byte("---\n" + body.String() + "---\n" + string(source)), nil
+}
+
 func rootMapping(doc *yaml.Node) (*yaml.Node, error) {
 	if len(doc.Content) == 0 {
 		return &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}, nil
@@ -224,6 +373,32 @@ func marshalField(name string, value any, oldKey, oldValue *yaml.Node) (string, 
 		return "", fmt.Errorf("encode frontmatter field %q: %w", name, err)
 	}
 	return string(encoded), nil
+}
+
+func renderNodeValue(node *yaml.Node) (string, error) {
+	var current any
+	if err := node.Decode(&current); err != nil {
+		return "", err
+	}
+	if current == nil {
+		return "", nil
+	}
+	encoded, err := yaml.Marshal(current)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(encoded)), nil
+}
+
+func parseEntryValue(text string) (any, error) {
+	if strings.TrimSpace(text) == "" {
+		return nil, nil
+	}
+	var value any
+	if err := yaml.Unmarshal([]byte(text), &value); err != nil {
+		return nil, err
+	}
+	return value, nil
 }
 
 func nodeEndLine(node *yaml.Node) int {

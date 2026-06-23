@@ -479,7 +479,7 @@
     const src = cm.getValue();
     const fd = new FormData();
     fd.append('source', src);
-    fd.append('page_path', '{{ .PageURL }}');
+    fd.append('page_path', '{{ .PagePath }}');
     fd.append('revision', revision);
     saveButton.disabled = true;
     saveStatus.textContent = 'Saving...';

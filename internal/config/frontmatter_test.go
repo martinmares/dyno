@@ -11,6 +11,9 @@ func TestLoadFrontmatterConfiguration(t *testing.T) {
 	data := []byte(`title: Metadata docs
 frontmatter:
   display: [document-status, document-owner]
+  defaults:
+    document-status: DRAFT
+    document-owner: martin.mares@datalite.cz
   fields:
     document-owner:
       label: Owner
@@ -51,6 +54,10 @@ frontmatter:
 	}
 	if !cfg.Frontmatter.Fields["document-owner"].Filterable {
 		t.Fatal("expected owner to be filterable")
+	}
+	defaultFields := cfg.Frontmatter.DefaultFields()
+	if len(defaultFields) != 2 || defaultFields[0].Name != "document-status" || defaultFields[1].Name != "document-owner" {
+		t.Fatalf("unexpected default fields: %#v", defaultFields)
 	}
 }
 

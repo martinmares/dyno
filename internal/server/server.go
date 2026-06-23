@@ -307,6 +307,9 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 		s.mux.HandleFunc("GET "+editPath+"/{pagepath...}", s.editPageHandler)
 		s.mux.HandleFunc("POST "+editPath+"/preview", s.editPreviewHandler)
 		s.mux.HandleFunc("POST "+editPath+"/metadata", s.editMetadataHandler)
+		s.mux.HandleFunc("POST "+editPath+"/frontmatter", s.editFrontmatterHandler)
+		s.mux.HandleFunc("GET "+editPath+"/frontmatter/bulk", s.bulkFrontmatterHandler)
+		s.mux.HandleFunc("POST "+editPath+"/frontmatter/bulk/save", s.bulkFrontmatterSaveHandler)
 		s.mux.HandleFunc("POST "+editPath+"/save", s.editSaveHandler)
 	}
 

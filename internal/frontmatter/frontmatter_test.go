@@ -66,6 +66,66 @@ func TestApplyCreatesFrontmatter(t *testing.T) {
 	}
 }
 
+func TestReadEntriesAndApplyEntries(t *testing.T) {
+	source := []byte(`---
+title: Example
+status: DRAFT
+owner: alice@example.test
+tags:
+  - one
+  - two
+---
+# Page
+`)
+	entries, err := ReadEntries(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := len(entries); got != 4 {
+		t.Fatalf("expected 4 entries, got %d", got)
+	}
+	if entries[0].Key != "title" || entries[0].Value != "Example" {
+		t.Fatalf("unexpected first entry: %#v", entries[0])
+	}
+	if entries[3].Key != "tags" || entries[3].Value != "- one\n- two" {
+		t.Fatalf("unexpected tags entry: %#v", entries[3])
+	}
+
+	updated, err := ApplyEntries(source, []Entry{
+		{Key: "title", Value: "Renamed"},
+		{Key: "owner", Value: "bob@example.test"},
+		{Key: "summary", Value: "Added"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(updated)
+	for _, want := range []string{"title: Renamed", "owner: bob@example.test", "summary: Added"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("expected %q in:\n%s", want, text)
+		}
+	}
+	for _, want := range []string{"status:", "tags:"} {
+		if strings.Contains(text, want) {
+			t.Fatalf("did not expect %q in:\n%s", want, text)
+		}
+	}
+}
+
+func TestApplyEntriesCreatesFrontmatter(t *testing.T) {
+	updated, err := ApplyEntries([]byte("# Page\n"), []Entry{
+		{Key: "title", Value: "Example"},
+		{Key: "tags", Value: "- one\n- two"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(updated)
+	if !strings.HasPrefix(text, "---\ntitle: Example\ntags:\n    - one\n    - two\n---\n# Page") {
+		t.Fatalf("unexpected source:\n%s", text)
+	}
+}
+
 func TestApplyPreservesCRLF(t *testing.T) {
 	source := []byte("---\r\nstatus: DRAFT\r\nowner: old\r\n---\r\n# Page\r\n")
 	updated, err := Apply(source, map[string]any{"status": "FINAL"})

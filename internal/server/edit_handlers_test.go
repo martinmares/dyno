@@ -53,6 +53,9 @@ func TestEditPagePreservesQueryInBackLink(t *testing.T) {
 	if !strings.Contains(body, `href="/?meta.document-owner=martin.mares%40datalite.cz"`) {
 		t.Fatalf("expected back link to preserve query, got: %s", body)
 	}
+	if !strings.Contains(body, `fd.append('page_path', '\/')`) {
+		t.Fatalf("expected save path to stay stable without query, got: %s", body)
+	}
 }
 
 func TestEditSaveUsesRevisionAndAtomicWrite(t *testing.T) {
