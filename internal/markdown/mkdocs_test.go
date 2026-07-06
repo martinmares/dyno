@@ -89,6 +89,31 @@ func TestRendererOmitsEmptyMkDocsAdmonitionBody(t *testing.T) {
 	}
 }
 
+func TestRendererEndsMkDocsBlockBeforeFollowingParagraph(t *testing.T) {
+	r, err := markdown.NewRenderer()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	src := `???+ danger "Endpointy obecně"
+    Žádná z mikro-služeb ` + "`TSM`" + ` nevolá externí službu.
+
+Na grafu je naznačen ` + "`datový tok`" + ` do ` + "`OpenShift`" + ` clusteru a další **klíčové** služby.
+`
+	res, err := r.RenderString(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{
+		`Žádná z mikro-služeb <code>TSM</code> nevolá externí službu.`,
+		`<p>Na grafu je naznačen <code>datový tok</code> do <code>OpenShift</code> clusteru a další <strong>klíčové</strong> služby.</p>`,
+	} {
+		if !strings.Contains(res.HTML, expected) {
+			t.Fatalf("expected %q after MkDocs block boundary, got: %s", expected, res.HTML)
+		}
+	}
+}
+
 func TestRendererLeavesMkDocsInlineSyntaxInsideCode(t *testing.T) {
 	r, err := markdown.NewRenderer()
 	if err != nil {

@@ -108,7 +108,10 @@ func replaceMkDocsBlocksWithPlaceholders(src []byte, blocks map[string]mkDocsBlo
 			Details: match[1] == "???",
 			Open:    match[1] == "???" && match[2] == "+",
 		}
-		out.WriteString("<div>" + key + "</div>\n")
+		// A blank line must follow the HTML placeholder. Otherwise Goldmark keeps
+		// the next unindented paragraph inside the raw HTML block and skips its
+		// Markdown inline parsing.
+		out.WriteString("<div>" + key + "</div>\n\n")
 		i = j
 	}
 

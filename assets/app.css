@@ -1126,33 +1126,43 @@ html.dark .mkdocs-admonition.callout {
 }
 .mkdocs-admonition.callout-note > .mkdocs-admonition-title {
   background: #e0f2fe;
+  color: #0284c7;
 }
 .mkdocs-admonition.callout-info > .mkdocs-admonition-title {
   background: #ede9fe;
+  color: #7c3aed;
 }
 .mkdocs-admonition.callout-tip > .mkdocs-admonition-title {
   background: #dcfce7;
+  color: #16a34a;
 }
 .mkdocs-admonition.callout-warning > .mkdocs-admonition-title {
   background: #fef3c7;
+  color: #d97706;
 }
 .mkdocs-admonition.callout-danger > .mkdocs-admonition-title {
   background: #ffe4e6;
+  color: #e11d48;
 }
 html.dark .mkdocs-admonition.callout-note > .mkdocs-admonition-title {
   background: rgba(14, 165, 233, 0.17);
+  color: #38bdf8;
 }
 html.dark .mkdocs-admonition.callout-info > .mkdocs-admonition-title {
   background: rgba(124, 58, 237, 0.17);
+  color: #a78bfa;
 }
 html.dark .mkdocs-admonition.callout-tip > .mkdocs-admonition-title {
   background: rgba(34, 197, 94, 0.16);
+  color: #4ade80;
 }
 html.dark .mkdocs-admonition.callout-warning > .mkdocs-admonition-title {
   background: rgba(245, 158, 11, 0.17);
+  color: #fbbf24;
 }
 html.dark .mkdocs-admonition.callout-danger > .mkdocs-admonition-title {
   background: rgba(244, 63, 94, 0.18);
+  color: #fb7185;
 }
 .mkdocs-admonition-icon {
   display: inline-flex;
