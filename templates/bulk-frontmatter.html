@@ -14,7 +14,7 @@
         <tr class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
           <th class="sticky top-0 w-[24rem] bg-white px-2 py-1 dark:bg-gray-900">Document</th>
           {{ range .Columns }}
-          <th class="sticky top-0 w-[10rem] bg-white px-2 py-1 dark:bg-gray-900">{{ .Label }}</th>
+          <th class="sticky top-0 {{ if eq .InputType "number" }}w-[7rem]{{ else }}w-[10rem]{{ end }} bg-white px-2 py-1 dark:bg-gray-900">{{ .Label }}</th>
           {{ end }}
         </tr>
       </thead>
@@ -29,7 +29,7 @@
             </div>
           </td>
           {{ range $i, $col := $.Columns }}
-          <td class="w-[10rem] px-2 py-1" style="{{ $row.Style }}">
+          <td class="{{ if eq $col.InputType "number" }}w-[7rem]{{ else }}w-[10rem]{{ end }} px-2 py-1" style="{{ $row.Style }}">
             {{ $value := index $row.Values $i }}
             {{ if eq $col.InputType "datetime-local" }}
             <input type="datetime-local"
