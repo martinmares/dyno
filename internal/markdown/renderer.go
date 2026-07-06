@@ -810,7 +810,11 @@ func renderAPIWidget(src string, insecure, noAuth bool) string {
 	b.WriteString(`<button type="button" class="api-resp-tab active" data-api-action="resp-tab" data-api-resp="body">Body</button>`)
 	b.WriteString(`<button type="button" class="api-resp-tab" data-api-action="resp-tab" data-api-resp="headers">Headers</button>`)
 	b.WriteString(`</div>`)
-	b.WriteString(`<div class="api-resp-panel" data-resp="body"><pre class="api-resp-pre" data-role="resp-body"></pre></div>`)
+	b.WriteString(`<div class="api-resp-panel api-resp-body" data-resp="body">`)
+	b.WriteString(`<button type="button" class="api-resp-copy" data-api-action="copy-response" aria-label="Copy response body" title="Copy response body">`)
+	b.WriteString(`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`)
+	b.WriteString(`</button>`)
+	b.WriteString(`<pre class="api-resp-pre" data-role="resp-body"></pre></div>`)
 	b.WriteString(`<div class="api-resp-panel" data-resp="headers" style="display:none"><table class="api-resp-headers" data-role="resp-headers"></table></div>`)
 	b.WriteString(`</div>`) // api-response
 

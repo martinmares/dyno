@@ -1328,6 +1328,26 @@ function apiRespTab(widget, tab, btn) {
   });
 }
 
+function apiCopyResponse(widget, btn) {
+  if (!widget || !btn) return;
+  const body = widget.querySelector('[data-role="resp-body"]');
+  if (!body) return;
+
+  navigator.clipboard.writeText(body.textContent || '').then(() => {
+    const original = btn.innerHTML;
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>';
+    btn.classList.add('copied');
+    btn.setAttribute('aria-label', 'Response copied');
+    btn.setAttribute('title', 'Response copied');
+    setTimeout(() => {
+      btn.innerHTML = original;
+      btn.classList.remove('copied');
+      btn.setAttribute('aria-label', 'Copy response body');
+      btn.setAttribute('title', 'Copy response body');
+    }, 2000);
+  });
+}
+
 function apiSend(widget) {
   if (!widget) return;
   const id = widget.id;
@@ -1465,6 +1485,10 @@ document.addEventListener('click', function (e) {
   }
   if (action === 'resp-tab') {
     apiRespTab(widget, btn.getAttribute('data-api-resp') || 'body', btn);
+    return;
+  }
+  if (action === 'copy-response') {
+    apiCopyResponse(widget, btn);
     return;
   }
   if (action === 'send') {

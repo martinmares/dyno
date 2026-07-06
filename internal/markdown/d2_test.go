@@ -138,6 +138,9 @@ func TestRendererCanHideAPIWidgetAuth(t *testing.T) {
 	if !strings.Contains(res.HTML, `"insecure":true`) {
 		t.Fatalf("expected no-auth option to preserve insecure mode, got: %s", res.HTML)
 	}
+	if !strings.Contains(res.HTML, `data-api-action="copy-response"`) {
+		t.Fatalf("expected response copy button, got: %s", res.HTML)
+	}
 }
 
 func TestRendererParsesExternalRefsFrontmatter(t *testing.T) {
