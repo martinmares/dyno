@@ -16,13 +16,14 @@ import (
 
 // NavNode represents a single item in the navigation tree.
 type NavNode struct {
-	Title    string
-	Slug     string
-	FullPath string // URL path: "/docs/guide/getting-started"
-	FSPath   string // Absolute filesystem path to .md file (empty for dirs)
-	IsDir    bool
-	Children []*NavNode
-	Depth    int
+	Title      string
+	Slug       string
+	SourceName string // Original file or directory name, used by .pages ordering.
+	FullPath   string // URL path: "/docs/guide/getting-started"
+	FSPath     string // Absolute filesystem path to .md file (empty for dirs)
+	IsDir      bool
+	Children   []*NavNode
+	Depth      int
 }
 
 // Filter limits which markdown files are exposed in navigation and search.
@@ -135,12 +136,13 @@ func BuildTreeWithFilter(contentDir, basePath string, filter Filter) (*NavNode, 
 	siteDir := contentDir
 
 	root := &NavNode{
-		Title:    "Home",
-		Slug:     "",
-		FullPath: basePath + "/",
-		FSPath:   "",
-		IsDir:    true,
-		Depth:    0,
+		Title:      "Home",
+		Slug:       "",
+		SourceName: filepath.Base(siteDir),
+		FullPath:   basePath + "/",
+		FSPath:     "",
+		IsDir:      true,
+		Depth:      0,
 	}
 
 	// dirNodes maps absolute dir path → *NavNode so we can attach children
@@ -189,13 +191,14 @@ func BuildTreeWithFilter(contentDir, basePath string, filter Filter) (*NavNode, 
 			fullPath := basePath + "/" + strings.Join(urlParts, "/") + "/"
 
 			node := &NavNode{
-				Title:    titleFromSlug(name),
-				Slug:     slug,
-				FullPath: fullPath,
-				FSPath:   "",
-				IsDir:    true,
-				Children: nil,
-				Depth:    depth,
+				Title:      titleFromSlug(name),
+				Slug:       slug,
+				SourceName: name,
+				FullPath:   fullPath,
+				FSPath:     "",
+				IsDir:      true,
+				Children:   nil,
+				Depth:      depth,
 			}
 			parentNode.Children = append(parentNode.Children, node)
 			dirNodes[path] = node
@@ -254,12 +257,13 @@ func BuildTreeWithFilter(contentDir, basePath string, filter Filter) (*NavNode, 
 		}
 
 		node := &NavNode{
-			Title:    title,
-			Slug:     slug,
-			FullPath: fullPath,
-			FSPath:   path,
-			IsDir:    false,
-			Depth:    depth,
+			Title:      title,
+			Slug:       slug,
+			SourceName: name,
+			FullPath:   fullPath,
+			FSPath:     path,
+			IsDir:      false,
+			Depth:      depth,
 		}
 		parentNode.Children = append(parentNode.Children, node)
 		return nil
@@ -274,6 +278,7 @@ func BuildTreeWithFilter(contentDir, basePath string, filter Filter) (*NavNode, 
 
 	// Remove directories that contain no markdown files (directly or recursively)
 	pruneEmpty(root)
+	applyPagesFiles(root, siteDir)
 
 	return root, nil
 }
