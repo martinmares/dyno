@@ -99,6 +99,29 @@ func TestRendererAppliesUppercaseTemplateEnv(t *testing.T) {
 	}
 }
 
+func TestRendererMarksInsecureAPIWidget(t *testing.T) {
+	r, err := markdown.NewRenderer()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := r.RenderString("```api-insecure\nGET https://api.example.test/status\n```")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(res.HTML, `"insecure":true`) {
+		t.Fatalf("expected insecure API widget metadata, got: %s", res.HTML)
+	}
+
+	res, err = r.RenderString("```api\nGET https://api.example.test/status\n```")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(res.HTML, `"insecure":false`) {
+		t.Fatalf("expected secure API widget metadata, got: %s", res.HTML)
+	}
+}
+
 func TestRendererParsesExternalRefsFrontmatter(t *testing.T) {
 	r, err := markdown.NewRenderer()
 	if err != nil {

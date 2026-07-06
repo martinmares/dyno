@@ -1382,7 +1382,7 @@ function apiSend(widget) {
   fetch('/api-proxy', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ method: spec.method, url, headers, body }),
+    body: JSON.stringify({ method: spec.method, url, headers, body, insecure: spec.insecure === true }),
   })
     .then(r => r.text())
     .then(html => {

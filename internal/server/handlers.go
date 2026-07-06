@@ -1,6 +1,7 @@
 package server
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"html"
@@ -1047,13 +1048,31 @@ func buildDepsTable(root *navigation.NavNode, bl navigation.BacklinkIndex, graph
 
 // apiProxyRequest is the JSON body sent by the browser JS.
 type apiProxyRequest struct {
-	Method  string            `json:"method"`
-	URL     string            `json:"url"`
-	Headers map[string]string `json:"headers"`
-	Body    string            `json:"body"`
+	Method   string            `json:"method"`
+	URL      string            `json:"url"`
+	Headers  map[string]string `json:"headers"`
+	Body     string            `json:"body"`
+	Insecure bool              `json:"insecure"`
 }
 
 var apiHTTPClient = &http.Client{Timeout: 30 * time.Second}
+
+var insecureAPIHTTPClient = &http.Client{
+	Timeout:   30 * time.Second,
+	Transport: insecureAPITransport(),
+}
+
+func insecureAPITransport() http.RoundTripper {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	tlsConfig := &tls.Config{}
+	if transport.TLSClientConfig != nil {
+		tlsConfig = transport.TLSClientConfig.Clone()
+	}
+	// This transport is selected only by an explicit api-insecure Markdown block.
+	tlsConfig.InsecureSkipVerify = true //nolint:gosec
+	transport.TLSClientConfig = tlsConfig
+	return transport
+}
 
 func (s *Server) apiProxyHandler(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
@@ -1096,7 +1115,11 @@ func (s *Server) apiProxyHandler(w http.ResponseWriter, r *http.Request) {
 		outReq.Header.Set(k, v)
 	}
 
-	resp, err := apiHTTPClient.Do(outReq)
+	client := apiHTTPClient
+	if req.Insecure {
+		client = insecureAPIHTTPClient
+	}
+	resp, err := client.Do(outReq)
 	elapsed := time.Since(start)
 	if err != nil {
 		observeProxy("5xx")

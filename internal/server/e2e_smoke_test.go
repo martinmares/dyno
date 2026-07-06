@@ -71,6 +71,39 @@ func TestEndToEndSmokeFlow(t *testing.T) {
 		t.Fatalf("api proxy failed: %d %s", rec.Code, rec.Body.String())
 	}
 
+	tlsUpstream := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"secure":true}`))
+	}))
+	defer tlsUpstream.Close()
+
+	body, _ = json.Marshal(map[string]any{
+		"method":  "GET",
+		"url":     tlsUpstream.URL,
+		"headers": map[string]string{},
+		"body":    "",
+	})
+	req = httptest.NewRequest(http.MethodPost, "/api-proxy", bytes.NewReader(body))
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "Request failed") {
+		t.Fatalf("secure api proxy unexpectedly accepted self-signed certificate: %d %s", rec.Code, rec.Body.String())
+	}
+
+	body, _ = json.Marshal(map[string]any{
+		"method":   "GET",
+		"url":      tlsUpstream.URL,
+		"headers":  map[string]string{},
+		"body":     "",
+		"insecure": true,
+	})
+	req = httptest.NewRequest(http.MethodPost, "/api-proxy", bytes.NewReader(body))
+	rec = httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `\"secure\": true`) {
+		t.Fatalf("insecure api proxy failed: %d %s", rec.Code, rec.Body.String())
+	}
+
 	req = httptest.NewRequest(http.MethodGet, "/metrics", nil)
 	rec = httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)

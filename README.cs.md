@@ -313,6 +313,14 @@ Proměnné prostředí procesu mají přednost před oběma `.env` soubory.
 API base URL: {{HTTPBIN_URL}}
 ```
 
+Pro endpoint se self-signed TLS certifikátem použijte explicitní blok `api-insecure`. Ověření certifikátu se vypne pouze pro tento widget:
+
+````markdown
+```api-insecure
+GET https://internal-api.example.test/status
+```
+````
+
 ## dyno-mcp
 
 `dyno-mcp` je samostatný binární soubor, který zpřístupňuje dokumentaci dyno AI agentům přes MCP, zatímco hlavní `dyno` webový server zůstává zaměřen na doručování HTML.

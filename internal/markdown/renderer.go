@@ -543,11 +543,12 @@ func replaceAPIWithPlaceholders(src []byte, blocks map[string]string) []byte {
 	var out strings.Builder
 
 	type fenceState struct {
-		marker string
-		length int
-		info   string
-		api    bool
-		buf    strings.Builder
+		marker      string
+		length      int
+		info        string
+		api         bool
+		apiInsecure bool
+		buf         strings.Builder
 	}
 
 	var current *fenceState
@@ -559,11 +560,13 @@ func replaceAPIWithPlaceholders(src []byte, blocks map[string]string) []byte {
 				marker := string(subs[1][0])
 				length := len(subs[1])
 				info := strings.TrimSpace(subs[2])
+				isAPI := marker == "`" && length == 3 && (info == "api" || info == "api-insecure")
 				current = &fenceState{
-					marker: marker,
-					length: length,
-					info:   info,
-					api:    marker == "`" && length == 3 && info == "api",
+					marker:      marker,
+					length:      length,
+					info:        info,
+					api:         isAPI,
+					apiInsecure: isAPI && info == "api-insecure",
 				}
 				if !current.api {
 					out.WriteString(line)
@@ -578,7 +581,7 @@ func replaceAPIWithPlaceholders(src []byte, blocks map[string]string) []byte {
 			if current.api {
 				key := fmt.Sprintf("APIPLACEHOLDER%d", counter)
 				counter++
-				blocks[key] = renderAPIWidget(strings.TrimSuffix(current.buf.String(), "\n"))
+				blocks[key] = renderAPIWidget(strings.TrimSuffix(current.buf.String(), "\n"), current.apiInsecure)
 				out.WriteString("<div>" + key + "</div>\n")
 			} else {
 				out.WriteString(line)
@@ -596,7 +599,7 @@ func replaceAPIWithPlaceholders(src []byte, blocks map[string]string) []byte {
 
 	if current != nil {
 		if current.api {
-			out.WriteString("```api\n")
+			out.WriteString("```" + current.info + "\n")
 			out.WriteString(current.buf.String())
 		}
 	}
@@ -694,7 +697,7 @@ func methodColor(method string) string {
 }
 
 // renderAPIWidget converts a parsed ```api block to the HTML widget.
-func renderAPIWidget(src string) string {
+func renderAPIWidget(src string, insecure bool) string {
 	spec := parseAPISpec(src)
 	if spec.url == "" {
 		return `<div class="callout callout-danger"><div class="callout-title">🚨 API block error</div><div class="callout-body"><p>Missing URL in api block.</p></div></div>`
@@ -804,7 +807,7 @@ func renderAPIWidget(src string) string {
 	headersJSON += "]"
 
 	b.WriteString(`<script>window.__apiWidgets=window.__apiWidgets||{};window.__apiWidgets["` + widgetID + `"]=`)
-	b.WriteString(`{"method":"` + jsEscape(spec.method) + `","url":"` + jsEscape(spec.url) + `","headers":` + headersJSON + `}`)
+	b.WriteString(`{"method":"` + jsEscape(spec.method) + `","url":"` + jsEscape(spec.url) + `","headers":` + headersJSON + `,"insecure":` + fmt.Sprintf("%t", insecure) + `}`)
 	b.WriteString(`;` + `</script>`)
 
 	return b.String()

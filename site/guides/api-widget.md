@@ -28,6 +28,14 @@ Header-Name: value
 
 První řádek je vždy `METHOD URL`. Další řádky jsou volitelné HTTP hlavičky (`Klíč: hodnota`).
 
+Pro interní endpoint se self-signed TLS certifikátem použij explicitní variantu `api-insecure`. Vypnutí kontroly certifikátu platí pouze pro daný widget:
+
+````markdown
+```api-insecure
+GET https://internal-api.example.test/status
+```
+````
+
 ## Jednoduché GET
 
 ```api

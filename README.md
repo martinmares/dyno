@@ -327,6 +327,14 @@ Interactive API widget variables stay untouched when written in lowercase or mix
 GET {{HTTPBIN_URL}}/anything/{{userId}}
 Authorization: Bearer {{token}}
 ```
+
+For an endpoint with a self-signed TLS certificate, use the explicit `api-insecure` fence. It disables certificate verification only for that widget:
+
+````markdown
+```api-insecure
+GET https://internal-api.example.test/status
+```
+````
 ```
 
 In that example:
