@@ -648,10 +648,12 @@ func restorePlaceholders(html string, blocks map[string]string) string {
 
 // apiSpec holds a parsed ```api block.
 type apiSpec struct {
-	method  string
-	url     string
-	headers [][2]string // ordered key/value pairs
-	vars    []string    // unique {{varName}} placeholders found in url+headers
+	method         string
+	url            string
+	headers        [][2]string // ordered key/value pairs
+	vars           []string    // unique {{varName}} placeholders found in url+headers
+	followJSONPath string
+	followMethod   string
 }
 
 // parseAPISpec parses the content of a ```api fence.
@@ -682,6 +684,19 @@ func parseAPISpec(src string) apiSpec {
 			}
 			continue
 		}
+		if strings.HasPrefix(line, "@") {
+			name, value, ok := strings.Cut(line, ":")
+			if !ok {
+				continue
+			}
+			switch strings.TrimSpace(name) {
+			case "@follow-jsonpath":
+				spec.followJSONPath = strings.TrimSpace(value)
+			case "@follow-method":
+				spec.followMethod = strings.ToUpper(strings.TrimSpace(value))
+			}
+			continue
+		}
 		// Header line: Key: Value
 		if idx := strings.Index(line, ":"); idx > 0 {
 			k := strings.TrimSpace(line[:idx])
@@ -694,6 +709,9 @@ func parseAPISpec(src string) apiSpec {
 				}
 			}
 		}
+	}
+	if spec.followJSONPath != "" && spec.followMethod == "" {
+		spec.followMethod = "GET"
 	}
 	return spec
 }
@@ -817,6 +835,13 @@ func renderAPIWidget(src string, insecure, noAuth bool) string {
 	b.WriteString(`<pre class="api-resp-pre" data-role="resp-body"></pre></div>`)
 	b.WriteString(`<div class="api-resp-panel" data-resp="headers" style="display:none"><table class="api-resp-headers" data-role="resp-headers"></table></div>`)
 	b.WriteString(`</div>`) // api-response
+	if spec.followJSONPath != "" {
+		b.WriteString(`<div class="api-followups" data-role="followups" hidden>`)
+		b.WriteString(`<div class="api-section-title">Discovered requests <span class="api-followup-count" data-role="followup-count"></span></div>`)
+		b.WriteString(`<div class="api-followup-message" data-role="followup-message"></div>`)
+		b.WriteString(`<div class="api-followup-list" data-role="followup-list"></div>`)
+		b.WriteString(`</div>`)
+	}
 
 	b.WriteString(`</div>`) // api-panel
 	b.WriteString(`</div>`) // api-widget
@@ -832,7 +857,7 @@ func renderAPIWidget(src string, insecure, noAuth bool) string {
 	headersJSON += "]"
 
 	b.WriteString(`<script>window.__apiWidgets=window.__apiWidgets||{};window.__apiWidgets["` + widgetID + `"]=`)
-	b.WriteString(`{"method":"` + jsEscape(spec.method) + `","url":"` + jsEscape(spec.url) + `","headers":` + headersJSON + `,"insecure":` + fmt.Sprintf("%t", insecure) + `}`)
+	b.WriteString(`{"method":"` + jsEscape(spec.method) + `","url":"` + jsEscape(spec.url) + `","headers":` + headersJSON + `,"insecure":` + fmt.Sprintf("%t", insecure) + `,"noAuth":` + fmt.Sprintf("%t", noAuth) + `,"followJsonPath":"` + jsEscape(spec.followJSONPath) + `","followMethod":"` + jsEscape(spec.followMethod) + `"}`)
 	b.WriteString(`;` + `</script>`)
 
 	return b.String()

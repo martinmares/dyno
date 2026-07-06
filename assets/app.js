@@ -1294,10 +1294,19 @@ function closeLightbox() {
 
 // ── API widget ────────────────────────────────────────────────────────────
 
+function apiOwnElements(widget, selector) {
+  return Array.from(widget.querySelectorAll(selector))
+    .filter(el => el.closest('.api-widget') === widget);
+}
+
+function apiOwnElement(widget, selector) {
+  return apiOwnElements(widget, selector)[0] || null;
+}
+
 function apiToggle(widget) {
   if (!widget) return;
-  const panel = widget.querySelector('.api-panel');
-  const btn = widget.querySelector('.api-toggle');
+  const panel = apiOwnElement(widget, '.api-panel');
+  const btn = apiOwnElement(widget, '.api-toggle');
   const open = panel.hasAttribute('hidden');
   if (open) {
     panel.removeAttribute('hidden');
@@ -1312,25 +1321,25 @@ function apiToggle(widget) {
 
 function apiAuthTab(widget, mode, btn) {
   if (!widget) return;
-  widget.querySelectorAll('.api-auth-tab').forEach(b => b.classList.remove('active'));
+  apiOwnElements(widget, '.api-auth-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  widget.querySelectorAll('.api-auth-panel').forEach(p => {
+  apiOwnElements(widget, '.api-auth-panel').forEach(p => {
     p.style.display = p.dataset.auth === mode ? '' : 'none';
   });
 }
 
 function apiRespTab(widget, tab, btn) {
   if (!widget) return;
-  widget.querySelectorAll('.api-resp-tab').forEach(b => b.classList.remove('active'));
+  apiOwnElements(widget, '.api-resp-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  widget.querySelectorAll('.api-resp-panel').forEach(p => {
+  apiOwnElements(widget, '.api-resp-panel').forEach(p => {
     p.style.display = p.dataset.resp === tab ? '' : 'none';
   });
 }
 
 function apiCopyResponse(widget, btn) {
   if (!widget || !btn) return;
-  const body = widget.querySelector('[data-role="resp-body"]');
+  const body = apiOwnElement(widget, '[data-role="resp-body"]');
   if (!body) return;
 
   navigator.clipboard.writeText(body.textContent || '').then(() => {
@@ -1348,6 +1357,217 @@ function apiCopyResponse(widget, btn) {
   });
 }
 
+function apiJSONPathValues(value, path) {
+  if (typeof path !== 'string' || !path.startsWith('$')) {
+    throw new Error('JSONPath must start with $');
+  }
+
+  const tokens = [];
+  let pos = 1;
+  while (pos < path.length) {
+    if (path[pos] === '.') {
+      const match = path.slice(pos + 1).match(/^[A-Za-z0-9_$-]+/);
+      if (!match) throw new Error('Invalid property at position ' + pos);
+      tokens.push({ type: 'property', value: match[0] });
+      pos += match[0].length + 1;
+      continue;
+    }
+    if (path[pos] === '[') {
+      const end = path.indexOf(']', pos + 1);
+      if (end < 0) throw new Error('Unclosed bracket at position ' + pos);
+      const content = path.slice(pos + 1, end).trim();
+      if (content === '*') {
+        tokens.push({ type: 'wildcard' });
+      } else if (/^\d+$/.test(content)) {
+        tokens.push({ type: 'index', value: Number(content) });
+      } else if ((content.startsWith('"') && content.endsWith('"')) ||
+                 (content.startsWith("'") && content.endsWith("'"))) {
+        tokens.push({ type: 'property', value: content.slice(1, -1) });
+      } else {
+        throw new Error('Unsupported bracket expression [' + content + ']');
+      }
+      pos = end + 1;
+      continue;
+    }
+    throw new Error('Unsupported JSONPath syntax at position ' + pos);
+  }
+
+  let values = [value];
+  tokens.forEach(token => {
+    const next = [];
+    values.forEach(item => {
+      if (token.type === 'wildcard' && Array.isArray(item)) {
+        next.push(...item);
+      } else if (token.type === 'index' && Array.isArray(item) && token.value < item.length) {
+        next.push(item[token.value]);
+      } else if (token.type === 'property' && item !== null && typeof item === 'object' &&
+                 Object.prototype.hasOwnProperty.call(item, token.value)) {
+        next.push(item[token.value]);
+      }
+    });
+    values = next;
+  });
+  return values;
+}
+
+function apiResolveFollowURL(rawValue, parentURL) {
+  const value = String(rawValue || '').trim();
+  if (!value) return '';
+  if (/^https?:\/\//i.test(value)) return new URL(value).href;
+
+  const parent = new URL(parentURL, window.location.href);
+  const rootPath = '/' + value.replace(/^\/+/, '');
+  return new URL(rootPath, parent.origin).href;
+}
+
+function apiCreateFollowupWidget(parentSpec, method, url) {
+  window.__apiFollowupCounter = (window.__apiFollowupCounter || 0) + 1;
+  const id = 'api-followup-' + window.__apiFollowupCounter;
+  const widget = document.createElement('div');
+  widget.className = 'api-widget api-followup-widget';
+  widget.id = id;
+
+  const auth = parentSpec.noAuth ? '' : `
+    <div class="api-section">
+      <div class="api-section-title">Auth</div>
+      <div class="api-auth-tabs">
+        <button type="button" class="api-auth-tab active" data-api-action="auth-tab" data-api-auth="none">None</button>
+        <button type="button" class="api-auth-tab" data-api-action="auth-tab" data-api-auth="bearer">Bearer</button>
+        <button type="button" class="api-auth-tab" data-api-action="auth-tab" data-api-auth="basic">Basic</button>
+      </div>
+      <div class="api-auth-panel" data-auth="bearer" style="display:none">
+        <input class="api-input" data-role="bearer-token" placeholder="Bearer token">
+      </div>
+      <div class="api-auth-panel" data-auth="basic" style="display:none">
+        <input class="api-input" data-role="basic-user" placeholder="Username" style="margin-bottom:0.4rem">
+        <input class="api-input" data-role="basic-pass" placeholder="Password" type="password">
+      </div>
+    </div>`;
+  const requestBody = ['POST', 'PUT', 'PATCH'].includes(method) ? `
+    <div class="api-section">
+      <div class="api-section-title">Body <span class="api-hint">JSON</span></div>
+      <textarea class="api-textarea" data-role="body" rows="4" placeholder='{"key": "value"}'></textarea>
+    </div>` : '';
+
+  widget.innerHTML = `
+    <div class="api-titlebar">
+      <span class="api-method"></span>
+      <span class="api-url"></span>
+      <button type="button" class="api-toggle" data-api-action="toggle" aria-expanded="false">
+        <span class="api-toggle-label">Try it</span>
+        <svg class="api-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+    </div>
+    <div class="api-panel" hidden>
+      ${auth}
+      <div data-role="followup-headers-anchor"></div>
+      ${requestBody}
+      <div class="api-send-row">
+        <button type="button" class="api-send-btn" data-api-action="send"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg> Send</button>
+        <span class="api-status-badge" data-role="status"></span>
+      </div>
+      <div class="api-response" data-role="response" style="display:none">
+        <div class="api-response-tabs">
+          <button type="button" class="api-resp-tab active" data-api-action="resp-tab" data-api-resp="body">Body</button>
+          <button type="button" class="api-resp-tab" data-api-action="resp-tab" data-api-resp="headers">Headers</button>
+        </div>
+        <div class="api-resp-panel api-resp-body" data-resp="body">
+          <button type="button" class="api-resp-copy" data-api-action="copy-response" aria-label="Copy response body" title="Copy response body"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+          <pre class="api-resp-pre" data-role="resp-body"></pre>
+        </div>
+        <div class="api-resp-panel" data-resp="headers" style="display:none"><table class="api-resp-headers" data-role="resp-headers"></table></div>
+      </div>
+    </div>`;
+
+  const methodBadge = widget.querySelector('.api-method');
+  methodBadge.textContent = method;
+  methodBadge.classList.add('api-method-' + (['get', 'post', 'put', 'patch', 'delete'].includes(method.toLowerCase()) ? method.toLowerCase() : 'other'));
+  widget.querySelector('.api-url').textContent = url;
+
+  const headers = Array.isArray(parentSpec.headers) ? parentSpec.headers : [];
+  if (headers.length > 0) {
+    const section = document.createElement('div');
+    section.className = 'api-section';
+    const title = document.createElement('div');
+    title.className = 'api-section-title';
+    title.textContent = 'Headers';
+    section.appendChild(title);
+    headers.forEach(([key, value]) => {
+      const row = document.createElement('div');
+      row.className = 'api-field-row';
+      const label = document.createElement('span');
+      label.className = 'api-field-label api-field-label--fixed';
+      label.textContent = key;
+      const fieldValue = document.createElement('span');
+      fieldValue.className = 'api-field-value';
+      fieldValue.textContent = value;
+      row.append(label, fieldValue);
+      section.appendChild(row);
+    });
+    widget.querySelector('[data-role="followup-headers-anchor"]').replaceWith(section);
+  }
+
+  window.__apiWidgets = window.__apiWidgets || {};
+  window.__apiWidgets[id] = {
+    method,
+    url,
+    headers,
+    insecure: parentSpec.insecure === true,
+    noAuth: parentSpec.noAuth === true,
+    followJsonPath: '',
+    followMethod: ''
+  };
+  return widget;
+}
+
+function apiRenderFollowups(widget, responseBody) {
+  const spec = (window.__apiWidgets || {})[widget.id];
+  if (!spec || !spec.followJsonPath) return;
+
+  const container = widget.querySelector(':scope > .api-panel > [data-role="followups"]');
+  if (!container) return;
+  const list = container.querySelector('[data-role="followup-list"]');
+  const message = container.querySelector('[data-role="followup-message"]');
+  const count = container.querySelector('[data-role="followup-count"]');
+  list.querySelectorAll('.api-followup-widget').forEach(child => {
+    delete window.__apiWidgets[child.id];
+  });
+  list.replaceChildren();
+  message.textContent = '';
+  count.textContent = '';
+  container.hidden = false;
+
+  try {
+    const parsed = JSON.parse(responseBody);
+    const values = apiJSONPathValues(parsed, spec.followJsonPath);
+    const parentURL = widget.dataset.apiRequestUrl || spec.url;
+    const urls = [];
+    const seen = new Set();
+    values.forEach(value => {
+      if (typeof value !== 'string') return;
+      const resolved = apiResolveFollowURL(value, parentURL);
+      if (resolved && !seen.has(resolved)) {
+        seen.add(resolved);
+        urls.push(resolved);
+      }
+    });
+
+    const limited = urls.slice(0, 50);
+    count.textContent = '(' + limited.length + ')';
+    if (limited.length === 0) {
+      message.textContent = 'No follow-up requests discovered.';
+      return;
+    }
+    const method = String(spec.followMethod || 'GET').toUpperCase();
+    limited.forEach(url => list.appendChild(apiCreateFollowupWidget(spec, method, url)));
+    if (urls.length > limited.length) {
+      message.textContent = 'Showing the first 50 of ' + urls.length + ' discovered requests.';
+    }
+  } catch (err) {
+    message.textContent = 'Follow-up discovery failed: ' + err.message;
+  }
+}
+
 function apiSend(widget) {
   if (!widget) return;
   const id = widget.id;
@@ -1356,7 +1576,7 @@ function apiSend(widget) {
 
   // Resolve {{var}} placeholders
   const vars = {};
-  widget.querySelectorAll('[data-var]').forEach(el => {
+  apiOwnElements(widget, '[data-var]').forEach(el => {
     vars[el.dataset.var] = el.value;
   });
   function resolve(s) {
@@ -1364,35 +1584,36 @@ function apiSend(widget) {
   }
 
   let url = resolve(spec.url);
+  widget.dataset.apiRequestUrl = url;
   let headers = {};
 
   // Static headers from the block
   (spec.headers || []).forEach(([k, v]) => { headers[resolve(k)] = resolve(v); });
 
   // Auth
-  const activeAuth = widget.querySelector('.api-auth-tab.active');
+  const activeAuth = apiOwnElement(widget, '.api-auth-tab.active');
   const authMode = activeAuth ? activeAuth.textContent.trim().toLowerCase() : 'none';
   if (authMode === 'bearer') {
-    const tok = widget.querySelector('[data-role="bearer-token"]');
+    const tok = apiOwnElement(widget, '[data-role="bearer-token"]');
     if (tok && tok.value) headers['Authorization'] = 'Bearer ' + tok.value;
   } else if (authMode === 'basic') {
-    const u = widget.querySelector('[data-role="basic-user"]');
-    const p = widget.querySelector('[data-role="basic-pass"]');
+    const u = apiOwnElement(widget, '[data-role="basic-user"]');
+    const p = apiOwnElement(widget, '[data-role="basic-pass"]');
     if (u && p) headers['Authorization'] = 'Basic ' + btoa(u.value + ':' + p.value);
   }
 
   // Body
   let body = '';
-  const bodyEl = widget.querySelector('[data-role="body"]');
+  const bodyEl = apiOwnElement(widget, '[data-role="body"]');
   if (bodyEl) {
     body = bodyEl.value;
     if (body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
   }
 
   // UI: show loading state
-  const sendBtn = widget.querySelector('.api-send-btn');
-  const statusBadge = widget.querySelector('[data-role="status"]');
-  const responseDiv = widget.querySelector('[data-role="response"]');
+  const sendBtn = apiOwnElement(widget, '.api-send-btn');
+  const statusBadge = apiOwnElement(widget, '[data-role="status"]');
+  const responseDiv = apiOwnElement(widget, '[data-role="response"]');
   sendBtn.disabled = true;
   sendBtn.textContent = 'Sending…';
   statusBadge.className = 'api-status-badge';
@@ -1422,7 +1643,7 @@ function apiSend(widget) {
       statusBadge.textContent = 'Error';
       statusBadge.className = 'api-status-badge visible api-status-5xx';
       responseDiv.style.display = '';
-      const bodyPre = widget.querySelector('[data-role="resp-body"]');
+      const bodyPre = apiOwnElement(widget, '[data-role="resp-body"]');
       if (bodyPre) bodyPre.textContent = err.message;
     })
     .finally(() => {
@@ -1437,15 +1658,17 @@ function applyProxyResponse(data) {
   const widget = document.getElementById(id);
   if (!widget) return;
 
-  const statusBadge = widget.querySelector('[data-role="status"]');
-  const responseDiv = widget.querySelector('[data-role="response"]');
-  const bodyPre = widget.querySelector('[data-role="resp-body"]');
-  const headersTable = widget.querySelector('[data-role="resp-headers"]');
+  const statusBadge = apiOwnElement(widget, '[data-role="status"]');
+  const responseDiv = apiOwnElement(widget, '[data-role="response"]');
+  const bodyPre = apiOwnElement(widget, '[data-role="resp-body"]');
+  const headersTable = apiOwnElement(widget, '[data-role="resp-headers"]');
 
   statusBadge.textContent = data.status + ' · ' + data.elapsed + 'ms';
   statusBadge.className = 'api-status-badge visible ' + data.statusClass;
 
   if (bodyPre) bodyPre.textContent = data.body;
+
+  apiRenderFollowups(widget, data.body);
 
   if (headersTable) {
     headersTable.innerHTML = (data.headers || [])
@@ -1455,10 +1678,10 @@ function applyProxyResponse(data) {
 
   responseDiv.style.display = '';
   // Show body tab by default
-  widget.querySelectorAll('.api-resp-tab').forEach(b => b.classList.remove('active'));
-  const bodyTab = widget.querySelector('.api-resp-tab');
+  apiOwnElements(widget, '.api-resp-tab').forEach(b => b.classList.remove('active'));
+  const bodyTab = apiOwnElement(widget, '.api-resp-tab');
   if (bodyTab) bodyTab.classList.add('active');
-  widget.querySelectorAll('.api-resp-panel').forEach(p => {
+  apiOwnElements(widget, '.api-resp-panel').forEach(p => {
     p.style.display = p.dataset.resp === 'body' ? '' : 'none';
   });
 }

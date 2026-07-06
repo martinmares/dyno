@@ -143,6 +143,30 @@ func TestRendererCanHideAPIWidgetAuth(t *testing.T) {
 	}
 }
 
+func TestRendererConfiguresAPIFollowups(t *testing.T) {
+	r, err := markdown.NewRenderer()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := r.RenderString("```api-insecure no-auth\nGET https://api.example.test/discovery\n@follow-jsonpath: $[*].labels.__metrics_path__\n@follow-method: GET\n```")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{
+		`"followJsonPath":"$[*].labels.__metrics_path__"`,
+		`"followMethod":"GET"`,
+		`data-role="followups"`,
+	} {
+		if !strings.Contains(res.HTML, expected) {
+			t.Fatalf("expected %q in follow-up API widget, got: %s", expected, res.HTML)
+		}
+	}
+	if strings.Contains(res.HTML, `api-field-label--fixed">@follow-`) {
+		t.Fatalf("follow-up directive was rendered as an HTTP header: %s", res.HTML)
+	}
+}
+
 func TestRendererParsesExternalRefsFrontmatter(t *testing.T) {
 	r, err := markdown.NewRenderer()
 	if err != nil {

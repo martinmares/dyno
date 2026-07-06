@@ -1477,6 +1477,35 @@ html.dark .api-resp-tab.active {
   border-color: #3fb950;
 }
 
+.api-followups {
+  border-top: 1px solid #e5e7eb;
+  padding-top: 0.875rem;
+}
+html.dark .api-followups {
+  border-color: #374151;
+}
+.api-followup-count {
+  color: #0284c7;
+}
+html.dark .api-followup-count {
+  color: #38bdf8;
+}
+.api-followup-message {
+  color: #6b7280;
+  font-size: 0.75rem;
+}
+html.dark .api-followup-message {
+  color: #9ca3af;
+}
+.api-followup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+.api-followup-widget {
+  margin: 0;
+}
+
 .api-resp-pre {
   background: #0d1117 !important;
   color: #e6edf3 !important;

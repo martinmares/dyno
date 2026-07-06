@@ -337,6 +337,18 @@ GET https://internal-api.example.test/status
 ````
 
 The optional `no-auth` fence flag removes the Auth controls from the widget. It also works with a regular ```` ```api no-auth ```` block.
+
+An API response can discover follow-up requests from JSON. Dyno evaluates the configured JSONPath after a successful response and creates callable API widgets without sending them automatically:
+
+````markdown
+```api-insecure no-auth
+GET {{TSM_BASE_URL}}{{GENERATE_CONFIG_PATH}}/tsm-ticket
+@follow-jsonpath: $[*].labels.__metrics_path__
+@follow-method: GET
+```
+````
+
+The supported JSONPath subset includes properties, array indexes, quoted properties, and `[*]`. Discovered relative paths, with or without a leading `/`, are resolved from the parent request origin. Absolute HTTP(S) URLs are preserved. Duplicate URLs are removed and at most 50 follow-up widgets are shown.
 ```
 
 In that example:

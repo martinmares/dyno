@@ -38,6 +38,20 @@ GET https://internal-api.example.test/status
 
 Volitelný příznak `no-auth` odstraní z widgetu celou sekci Auth. Lze jej použít také jako ```` ```api no-auth ```` bez vypnutí TLS kontroly.
 
+## Dynamicky nalezené requesty
+
+Odpověď service discovery může pomocí JSONPath vytvořit další volatelné API widgety:
+
+````markdown
+```api-insecure no-auth
+GET {{TSM_BASE_URL}}{{GENERATE_CONFIG_PATH}}/tsm-ticket
+@follow-jsonpath: $[*].labels.__metrics_path__
+@follow-method: GET
+```
+````
+
+Dyno podporuje vlastnosti, indexy polí, vlastnosti v uvozovkách a wildcard `[*]`. Nalezené cesty s úvodním `/` i bez něj skládá od originu rodičovského requestu. Absolutní HTTP(S) URL zachová. Odstraní duplicity, zobrazí nejvýše 50 widgetů a navazující requesty nespouští automaticky.
+
 ## Jednoduché GET
 
 ```api

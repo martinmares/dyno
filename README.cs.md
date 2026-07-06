@@ -323,6 +323,18 @@ GET https://internal-api.example.test/status
 
 Volitelný příznak `no-auth` odstraní z widgetu celou sekci Auth. Funguje také s běžným blokem ```` ```api no-auth ````.
 
+API odpověď může z JSONu dynamicky vytvořit navazující requesty. Dyno po úspěšné odpovědi vyhodnotí nastavený JSONPath a vytvoří volatelné API widgety, ale samo je automaticky nespustí:
+
+````markdown
+```api-insecure no-auth
+GET {{TSM_BASE_URL}}{{GENERATE_CONFIG_PATH}}/tsm-ticket
+@follow-jsonpath: $[*].labels.__metrics_path__
+@follow-method: GET
+```
+````
+
+Podporovaná podmnožina JSONPath zahrnuje vlastnosti, indexy polí, vlastnosti v uvozovkách a `[*]`. Relativní nalezené cesty s úvodním `/` i bez něj se skládají od originu rodičovského requestu. Absolutní HTTP(S) URL zůstávají beze změny. Duplicitní URL se odstraní a zobrazí se nejvýše 50 navazujících widgetů.
+
 ## dyno-mcp
 
 `dyno-mcp` je samostatný binární soubor, který zpřístupňuje dokumentaci dyno AI agentům přes MCP, zatímco hlavní `dyno` webový server zůstává zaměřen na doručování HTML.
