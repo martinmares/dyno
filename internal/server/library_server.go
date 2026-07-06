@@ -48,6 +48,10 @@ type LibraryConfig struct {
 
 // NewLibrary creates a LibraryServer that routes across all books.
 func NewLibrary(cfg LibraryConfig, staticFS fs.FS, books []*library.Book, renderer *markdown.Renderer) (*LibraryServer, error) {
+	if err := validateLibraryBookSlugs(books); err != nil {
+		return nil, err
+	}
+
 	tmplFS, err := fs.Sub(staticFS, "templates")
 	if err != nil {
 		return nil, err
@@ -156,6 +160,20 @@ func NewLibrary(cfg LibraryConfig, staticFS fs.FS, books []*library.Book, render
 	}
 
 	return ls, nil
+}
+
+func validateLibraryBookSlugs(books []*library.Book) error {
+	seen := make(map[string]*library.Book, len(books))
+	for _, book := range books {
+		if previous, ok := seen[book.Slug]; ok {
+			return fmt.Errorf(
+				"duplicate library slug %q for sites %q and %q; set a unique 'slug' in each site's dyno.yaml or in its dyno-library.yaml entry",
+				book.Slug, previous.ContentDir, book.ContentDir,
+			)
+		}
+		seen[book.Slug] = book
+	}
+	return nil
 }
 
 // ReloadBook swaps the nav/search index for a single book atomically (used by git auto-pull).

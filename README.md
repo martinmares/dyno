@@ -294,6 +294,20 @@ Place Markdown files inside `site/`. The sidebar is built automatically from the
 ![Alt text](_images/screenshot.png)
 ```
 
+**MkDocs/PyMdown compatibility:**
+
+Dyno renders MkDocs admonitions and collapsible details, including nested blocks. `???` starts closed, while `???+` starts open:
+
+````markdown
+???+ failure "Application must log"
+    * Administrator activity
+    * Security events
+
+    !!! info "Included in the product :star:"
+````
+
+Supported types are `note`, `info`, `tip`, `success`, `warning`, `todo`, `danger`, `failure`, `cite`, and `tldr`. PyMdown superscript such as `^4.1.8^` and the emoji shortcodes used by the imported MkDocs repositories are also supported. Fenced and inline code are left unchanged.
+
 **Mermaid diagrams:**
 
 ````markdown

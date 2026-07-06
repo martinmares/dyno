@@ -103,6 +103,20 @@ Images support click-to-zoom (lightbox).
 > Your message here. Can span **multiple lines** and include `inline code`.
 ```
 
+### MkDocs admonitions and details
+
+Existing MkDocs/PyMdown documentation can use static `!!!` admonitions and collapsible `???` details. Add `+` to open a details block by default. Nested blocks are supported.
+
+````markdown
+???+ failure "Application must log"
+    * Administrator activity
+    * Security events
+
+    !!! info "Included in the product :star:"
+````
+
+Supported types: `note`, `info`, `tip`, `success`, `warning`, `todo`, `danger`, `failure`, `cite`, and `tldr`. Superscript syntax such as `^4.1.8^` and common MkDocs emoji shortcodes are supported outside code.
+
 ---
 
 ## Code blocks

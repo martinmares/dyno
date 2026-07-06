@@ -149,10 +149,33 @@ func (r *Renderer) Render(src []byte) (*Result, error) {
 func (r *Renderer) RenderWithOptions(src []byte, opts RenderOptions) (*Result, error) {
 	fm, body := parseFrontmatter(src)
 	body = r.applyTemplateEnv(body)
+	htmlStr, err := r.renderMarkdownBody(body, opts)
+	if err != nil {
+		return nil, err
+	}
+	toc := extractTOC(htmlStr)
+	title := extractTitle(htmlStr)
+	if title == "" && fm.Title != "" {
+		title = fm.Title
+	}
+
+	return &Result{
+		HTML:        htmlStr,
+		TOC:         toc,
+		Title:       title,
+		Frontmatter: fm,
+	}, nil
+}
+
+func (r *Renderer) renderMarkdownBody(body []byte, opts RenderOptions) (string, error) {
+	// MkDocs admonitions/details are extracted first so their indented Markdown
+	// can be rendered recursively, including nested admonitions and code blocks.
+	mkDocsBlocks := map[string]mkDocsBlock{}
+	preprocessed := replaceMkDocsBlocksWithPlaceholders(body, mkDocsBlocks)
 
 	// API: replace ```api fences with placeholder tokens BEFORE goldmark.
 	apiBlocks := map[string]string{}
-	preprocessed := replaceAPIWithPlaceholders(body, apiBlocks)
+	preprocessed = replaceAPIWithPlaceholders(preprocessed, apiBlocks)
 
 	// D2: replace ```d2 fences with placeholder tokens BEFORE goldmark so the
 	// SVG content (which contains <style>, CDATA, etc.) is never parsed as
@@ -171,27 +194,22 @@ func (r *Renderer) RenderWithOptions(src []byte, opts RenderOptions) (*Result, e
 
 	var buf bytes.Buffer
 	if err := r.md.Convert(preprocessed, &buf); err != nil {
-		return nil, err
+		return "", err
 	}
 
 	// Restore placeholders: D2 SVGs, then API widgets.
 	htmlStr := restoreD2Placeholders(buf.String(), d2SVGs)
 	htmlStr = restorePlaceholders(htmlStr, apiBlocks)
 	htmlStr = restoreTasksPlaceholders(htmlStr, taskBlocks, opts.TaskRenderer)
+	var err error
+	htmlStr, err = r.restoreMkDocsBlocks(htmlStr, mkDocsBlocks, opts)
+	if err != nil {
+		return "", err
+	}
 	htmlStr = annotateTaskLists(htmlStr)
 	htmlStr = transformCallouts(addAnchorLinks(htmlStr))
-	toc := extractTOC(htmlStr)
-	title := extractTitle(htmlStr)
-	if title == "" && fm.Title != "" {
-		title = fm.Title
-	}
-
-	return &Result{
-		HTML:        htmlStr,
-		TOC:         toc,
-		Title:       title,
-		Frontmatter: fm,
-	}, nil
+	htmlStr = transformMkDocsInlineHTML(htmlStr)
+	return htmlStr, nil
 }
 
 var frontmatterRe = regexp.MustCompile(`(?s)^---\r?\n(.*?)\r?\n---\r?\n?`)
@@ -443,6 +461,9 @@ func addAnchorLinks(htmlStr string) string {
 			return match
 		}
 		tag, id, inner := subs[1], subs[2], subs[3]
+		if strings.Contains(inner, `class="anchor-link"`) {
+			return match
+		}
 		anchor := `<a href="#` + id + `" class="anchor-link" aria-hidden="true"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg></a>`
 		return `<` + tag + ` id="` + id + `">` + inner + anchor + `</` + tag + `>`
 	})

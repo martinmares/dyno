@@ -291,6 +291,20 @@ Markdown soubory patří do adresáře `site/`. Sidebar se generuje automaticky 
 ![Popis](_images/screenshot.png)
 ```
 
+**Kompatibilita s MkDocs/PyMdown:**
+
+Dyno renderuje MkDocs admonitions a collapsible details včetně vnořených bloků. `???` začíná zavřené a `???+` otevřené:
+
+````markdown
+???+ failure "Aplikace musí logovat"
+    * Aktivity administrátorů
+    * Bezpečnostní události
+
+    !!! info "Bude součástí produktu :star:"
+````
+
+Podporované typy jsou `note`, `info`, `tip`, `success`, `warning`, `todo`, `danger`, `failure`, `cite` a `tldr`. Podporován je také PyMdown superscript jako `^4.1.8^` a emoji shortcodes používané importovanými MkDocs repozitáři. Fenced a inline code zůstává beze změny.
+
 **Mermaid diagramy:**
 
 ````markdown

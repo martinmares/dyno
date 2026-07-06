@@ -796,6 +796,23 @@ func TestLibrarySearchUsesBasePath(t *testing.T) {
 	}
 }
 
+func TestLibraryRejectsDuplicateBookSlugs(t *testing.T) {
+	books := []*library.Book{
+		{Slug: "docs", ContentDir: "/repos/security/docs"},
+		{Slug: "docs", ContentDir: "/repos/admin/docs"},
+	}
+
+	_, err := NewLibrary(LibraryConfig{}, nil, books, nil)
+	if err == nil {
+		t.Fatal("expected duplicate library slug to fail")
+	}
+	for _, expected := range []string{"duplicate library slug \"docs\"", "/repos/security/docs", "/repos/admin/docs", "dyno.yaml"} {
+		if !strings.Contains(err.Error(), expected) {
+			t.Fatalf("expected error to contain %q, got: %v", expected, err)
+		}
+	}
+}
+
 func TestLibraryBookPageKeepsSiteHomeAndDashboardLinks(t *testing.T) {
 	rootA := t.TempDir()
 	contentA := filepath.Join(rootA, "wiki-a")
