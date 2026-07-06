@@ -548,6 +548,7 @@ func replaceAPIWithPlaceholders(src []byte, blocks map[string]string) []byte {
 		info        string
 		api         bool
 		apiInsecure bool
+		apiNoAuth   bool
 		buf         strings.Builder
 	}
 
@@ -560,13 +561,15 @@ func replaceAPIWithPlaceholders(src []byte, blocks map[string]string) []byte {
 				marker := string(subs[1][0])
 				length := len(subs[1])
 				info := strings.TrimSpace(subs[2])
-				isAPI := marker == "`" && length == 3 && (info == "api" || info == "api-insecure")
+				isAPI, insecure, noAuth := parseAPIFenceInfo(info)
+				isAPI = marker == "`" && length == 3 && isAPI
 				current = &fenceState{
 					marker:      marker,
 					length:      length,
 					info:        info,
 					api:         isAPI,
-					apiInsecure: isAPI && info == "api-insecure",
+					apiInsecure: isAPI && insecure,
+					apiNoAuth:   isAPI && noAuth,
 				}
 				if !current.api {
 					out.WriteString(line)
@@ -581,7 +584,7 @@ func replaceAPIWithPlaceholders(src []byte, blocks map[string]string) []byte {
 			if current.api {
 				key := fmt.Sprintf("APIPLACEHOLDER%d", counter)
 				counter++
-				blocks[key] = renderAPIWidget(strings.TrimSuffix(current.buf.String(), "\n"), current.apiInsecure)
+				blocks[key] = renderAPIWidget(strings.TrimSuffix(current.buf.String(), "\n"), current.apiInsecure, current.apiNoAuth)
 				out.WriteString("<div>" + key + "</div>\n")
 			} else {
 				out.WriteString(line)
@@ -605,6 +608,23 @@ func replaceAPIWithPlaceholders(src []byte, blocks map[string]string) []byte {
 	}
 
 	return []byte(out.String())
+}
+
+func parseAPIFenceInfo(info string) (isAPI, insecure, noAuth bool) {
+	fields := strings.Fields(info)
+	if len(fields) == 0 || (fields[0] != "api" && fields[0] != "api-insecure") {
+		return false, false, false
+	}
+	insecure = fields[0] == "api-insecure"
+	for _, option := range fields[1:] {
+		switch option {
+		case "no-auth":
+			noAuth = true
+		default:
+			return false, false, false
+		}
+	}
+	return true, insecure, noAuth
 }
 
 func isClosingFence(line, marker string, minLen int) bool {
@@ -697,7 +717,7 @@ func methodColor(method string) string {
 }
 
 // renderAPIWidget converts a parsed ```api block to the HTML widget.
-func renderAPIWidget(src string, insecure bool) string {
+func renderAPIWidget(src string, insecure, noAuth bool) string {
 	spec := parseAPISpec(src)
 	if spec.url == "" {
 		return `<div class="callout callout-danger"><div class="callout-title">🚨 API block error</div><div class="callout-body"><p>Missing URL in api block.</p></div></div>`
@@ -737,22 +757,23 @@ func renderAPIWidget(src string, insecure bool) string {
 		b.WriteString(`</div>`)
 	}
 
-	// Auth
-	b.WriteString(`<div class="api-section">`)
-	b.WriteString(`<div class="api-section-title">Auth</div>`)
-	b.WriteString(`<div class="api-auth-tabs">`)
-	b.WriteString(`<button type="button" class="api-auth-tab active" data-api-action="auth-tab" data-api-auth="none">None</button>`)
-	b.WriteString(`<button type="button" class="api-auth-tab" data-api-action="auth-tab" data-api-auth="bearer">Bearer</button>`)
-	b.WriteString(`<button type="button" class="api-auth-tab" data-api-action="auth-tab" data-api-auth="basic">Basic</button>`)
-	b.WriteString(`</div>`)
-	b.WriteString(`<div class="api-auth-panel" data-auth="bearer" style="display:none">`)
-	b.WriteString(`<input class="api-input" data-role="bearer-token" placeholder="Bearer token">`)
-	b.WriteString(`</div>`)
-	b.WriteString(`<div class="api-auth-panel" data-auth="basic" style="display:none">`)
-	b.WriteString(`<input class="api-input" data-role="basic-user" placeholder="Username" style="margin-bottom:0.4rem">`)
-	b.WriteString(`<input class="api-input" data-role="basic-pass" placeholder="Password" type="password">`)
-	b.WriteString(`</div>`)
-	b.WriteString(`</div>`) // api-section auth
+	if !noAuth {
+		b.WriteString(`<div class="api-section">`)
+		b.WriteString(`<div class="api-section-title">Auth</div>`)
+		b.WriteString(`<div class="api-auth-tabs">`)
+		b.WriteString(`<button type="button" class="api-auth-tab active" data-api-action="auth-tab" data-api-auth="none">None</button>`)
+		b.WriteString(`<button type="button" class="api-auth-tab" data-api-action="auth-tab" data-api-auth="bearer">Bearer</button>`)
+		b.WriteString(`<button type="button" class="api-auth-tab" data-api-action="auth-tab" data-api-auth="basic">Basic</button>`)
+		b.WriteString(`</div>`)
+		b.WriteString(`<div class="api-auth-panel" data-auth="bearer" style="display:none">`)
+		b.WriteString(`<input class="api-input" data-role="bearer-token" placeholder="Bearer token">`)
+		b.WriteString(`</div>`)
+		b.WriteString(`<div class="api-auth-panel" data-auth="basic" style="display:none">`)
+		b.WriteString(`<input class="api-input" data-role="basic-user" placeholder="Username" style="margin-bottom:0.4rem">`)
+		b.WriteString(`<input class="api-input" data-role="basic-pass" placeholder="Password" type="password">`)
+		b.WriteString(`</div>`)
+		b.WriteString(`</div>`) // api-section auth
+	}
 
 	// Static headers preview (if any defined in the block)
 	if len(spec.headers) > 0 {

@@ -122,6 +122,24 @@ func TestRendererMarksInsecureAPIWidget(t *testing.T) {
 	}
 }
 
+func TestRendererCanHideAPIWidgetAuth(t *testing.T) {
+	r, err := markdown.NewRenderer()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := r.RenderString("```api-insecure no-auth\nGET https://api.example.test/status\n```")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(res.HTML, `api-auth-tabs`) || strings.Contains(res.HTML, `>Auth<`) {
+		t.Fatalf("expected API widget without auth controls, got: %s", res.HTML)
+	}
+	if !strings.Contains(res.HTML, `"insecure":true`) {
+		t.Fatalf("expected no-auth option to preserve insecure mode, got: %s", res.HTML)
+	}
+}
+
 func TestRendererParsesExternalRefsFrontmatter(t *testing.T) {
 	r, err := markdown.NewRenderer()
 	if err != nil {

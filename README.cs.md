@@ -316,10 +316,12 @@ API base URL: {{HTTPBIN_URL}}
 Pro endpoint se self-signed TLS certifikátem použijte explicitní blok `api-insecure`. Ověření certifikátu se vypne pouze pro tento widget:
 
 ````markdown
-```api-insecure
+```api-insecure no-auth
 GET https://internal-api.example.test/status
 ```
 ````
+
+Volitelný příznak `no-auth` odstraní z widgetu celou sekci Auth. Funguje také s běžným blokem ```` ```api no-auth ````.
 
 ## dyno-mcp
 

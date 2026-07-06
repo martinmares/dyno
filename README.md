@@ -331,10 +331,12 @@ Authorization: Bearer {{token}}
 For an endpoint with a self-signed TLS certificate, use the explicit `api-insecure` fence. It disables certificate verification only for that widget:
 
 ````markdown
-```api-insecure
+```api-insecure no-auth
 GET https://internal-api.example.test/status
 ```
 ````
+
+The optional `no-auth` fence flag removes the Auth controls from the widget. It also works with a regular ```` ```api no-auth ```` block.
 ```
 
 In that example:

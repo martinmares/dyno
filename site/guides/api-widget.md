@@ -31,10 +31,12 @@ První řádek je vždy `METHOD URL`. Další řádky jsou volitelné HTTP hlavi
 Pro interní endpoint se self-signed TLS certifikátem použij explicitní variantu `api-insecure`. Vypnutí kontroly certifikátu platí pouze pro daný widget:
 
 ````markdown
-```api-insecure
+```api-insecure no-auth
 GET https://internal-api.example.test/status
 ```
 ````
+
+Volitelný příznak `no-auth` odstraní z widgetu celou sekci Auth. Lze jej použít také jako ```` ```api no-auth ```` bez vypnutí TLS kontroly.
 
 ## Jednoduché GET
 
