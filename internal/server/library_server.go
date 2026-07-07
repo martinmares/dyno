@@ -109,6 +109,7 @@ func NewLibrary(cfg LibraryConfig, staticFS fs.FS, books []*library.Book, render
 	if searchPath != "/_search" {
 		ls.mux.HandleFunc("GET "+searchPath, ls.searchHandler)
 	}
+	ls.mux.HandleFunc("GET /health", ls.healthHandler)
 	ls.mux.HandleFunc("GET /healthz", ls.healthHandler)
 	ls.mux.HandleFunc("GET /livez", ls.healthHandler)
 	ls.mux.HandleFunc("GET /readyz", ls.healthHandler)

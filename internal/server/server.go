@@ -33,6 +33,7 @@ type Server struct {
 	gitHistoryPath  string // e.g. "/docs/_git/history" — empty if not a git repo
 	gitComparePath  string // e.g. "/docs/_git/compare" — empty if not a git repo
 	commentsPath    string // e.g. "/docs/_comments" — empty when comments are disabled
+	downloadPath    string // e.g. "/docs/_download"
 
 	libraryURL         string // non-empty when running as a book inside a LibraryServer
 	editMode           bool   // --edit / DYNO_EDIT=true: enables in-browser markdown editor
@@ -254,6 +255,12 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 	s.tasksPath = tasksPath
 	s.sectionTaskPath = sectionTaskPath
 	s.graphPath = graphPath
+	downloadPath := "/_download"
+	if basePath != "" {
+		downloadPath = basePath + "/_download"
+	}
+	s.downloadPath = downloadPath
+	s.mux.HandleFunc("GET "+downloadPath+"/{filepath...}", s.fileDownloadHandler)
 	if s.comments != nil {
 		commentsPath := "/_comments"
 		if basePath != "" {
@@ -294,6 +301,7 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 	s.mux.HandleFunc("GET "+graphPath+"/_neighbours", s.graphNeighboursHandler)
 	s.mux.HandleFunc("GET "+graphPath+"/{pagepath...}", s.egoGraphHandler)
 	s.mux.HandleFunc("POST /api-proxy", s.apiProxyHandler)
+	s.mux.HandleFunc("GET /health", s.healthHandler)
 	s.mux.HandleFunc("GET /healthz", s.healthHandler)
 	s.mux.HandleFunc("GET /livez", s.livenessHandler)
 	s.mux.HandleFunc("GET /readyz", s.readinessHandler)

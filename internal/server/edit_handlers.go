@@ -81,6 +81,7 @@ func (s *Server) editPageHandler(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, fmt.Errorf("render: %w", err))
 		return
 	}
+	res.HTML = s.renderFileDownloads(res.HTML)
 
 	previewURL := s.editBasePath() + "/preview"
 	saveURL := s.editBasePath() + "/save"
@@ -143,6 +144,7 @@ func (s *Server) editPreviewHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "render error: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+	res.HTML = s.renderFileDownloads(res.HTML)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprint(w, res.HTML)
 }

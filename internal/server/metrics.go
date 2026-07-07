@@ -109,7 +109,7 @@ func classifyRoute(path string) string {
 		return "api_proxy"
 	case path == "/metrics":
 		return "metrics"
-	case path == "/healthz" || path == "/livez" || path == "/readyz":
+	case path == "/health" || path == "/healthz" || path == "/livez" || path == "/readyz":
 		return "health"
 	default:
 		return "page"

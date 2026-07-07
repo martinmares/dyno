@@ -16,6 +16,7 @@ Samostatně hostovaný dokumentační server — něco jako GitBook nebo Notion,
 - **Tlačítko kopírovat** — jedním klikem zkopíruje obsah každého bloku kódu
 - **Kotevní odkazy** — nadpisy s přímými odkazy
 - **Adresáře assetů** — adresáře s prefixem `_` (např. `_images/`) servírují soubory, ale nezobrazují se v sidebaru
+- **Soubory ke stažení** — bezpečné per-site downloady z `_downloads/` zobrazují název, MIME typ a velikost
 - **Konfigurovatelný base path** — server lze spustit pod libovolnou URL cestou (`/docs`, `/moje/docs` nebo `/`)
 - **Režim knihovny** — více dokumentačních webů pod jednou instancí dyno pomocí opakovaného `--site`
 - **Git-backed weby** — `--git-repo-site <url>` naklonuje repozitář a servíruje ho; automaticky pulluje v konfigurovatelném intervalu
@@ -38,12 +39,26 @@ Samostatně hostovaný dokumentační server — něco jako GitBook nebo Notion,
 ├── dyno.yaml          # Konfigurace webu
 ├── site/              # Sem patří Markdown obsah
 │   ├── index.md       # Úvodní stránka
+│   ├── _downloads/      # Soubory dostupné pouze přes bloky file-download
 │   ├── getting-started/
 │   │   ├── index.md
 │   │   ├── _images/   # Assety (podtržítko = skryto v sidebaru)
 │   │   └── ...
 │   └── ...
 ```
+
+## Docker image site
+
+Minimální samostatný Linux image s binárkou Dyno a kompletním adresářem jedné site vytvoříte takto:
+
+```bash
+just site-image registry.example.com/docs/moje-site:latest /cesta/k/site
+docker run --rm -p 8080:8080 registry.example.com/docs/moje-site:latest
+```
+
+Celý adresář včetně dotfiles jako `.env` a `_downloads/` se zkopíruje do `/site`. Pokud v něm není `dyno.yaml`, ale existuje v rodičovském adresáři, přidá se automaticky. Image používá `scratch`; obsahuje pouze Dyno, CA certifikáty a site. Před buildem lze nastavit `DOCKER_DEFAULT_PLATFORM=linux/amd64` nebo `linux/arm64`.
+
+Pozor: hodnoty z `.env` se stanou součástí vrstev image. Tento postup nepoužívejte pro secrets, které nesmí být uložené v image.
 
 ## Konfigurace
 

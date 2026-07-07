@@ -189,6 +189,11 @@ func (r *Renderer) renderMarkdownBody(body []byte, opts RenderOptions) (string, 
 	taskBlocks := map[string]taskPlaceholder{}
 	preprocessed = replaceTasksWithPlaceholders(preprocessed, taskBlocks)
 
+	// Downloads are resolved by the site server after Markdown rendering so it
+	// can safely read per-site file metadata without coupling the renderer to FS.
+	fileDownloads := map[string]string{}
+	preprocessed = replaceFileDownloadsWithPlaceholders(preprocessed, fileDownloads)
+
 	// Mermaid: replace ```mermaid with <pre class="mermaid"> before goldmark.
 	preprocessed = extractMermaidBlocks(preprocessed)
 
@@ -201,6 +206,7 @@ func (r *Renderer) renderMarkdownBody(body []byte, opts RenderOptions) (string, 
 	htmlStr := restoreD2Placeholders(buf.String(), d2SVGs)
 	htmlStr = restorePlaceholders(htmlStr, apiBlocks)
 	htmlStr = restoreTasksPlaceholders(htmlStr, taskBlocks, opts.TaskRenderer)
+	htmlStr = restoreFileDownloadPlaceholders(htmlStr, fileDownloads)
 	var err error
 	htmlStr, err = r.restoreMkDocsBlocks(htmlStr, mkDocsBlocks, opts)
 	if err != nil {

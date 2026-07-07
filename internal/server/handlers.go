@@ -191,7 +191,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 	// path doesn't end with "/" and the file exists on disk.
 	// Also tries prefixing the first path segment with "_" to support asset
 	// directories like "_images/" referenced as "images/" in Markdown.
-	if rawPath != "" && !strings.HasSuffix(rawPath, "/") {
+	if rawPath != "" && !strings.HasSuffix(rawPath, "/") && !isDownloadAssetPath(rawPath) {
 		staticPath := filepath.Join(s.contentDir, filepath.FromSlash(rawPath))
 		if info, err := os.Stat(staticPath); err == nil && !info.IsDir() {
 			http.ServeFile(w, r, staticPath)
@@ -207,6 +207,9 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 			candidate := make([]string, len(parts))
 			copy(candidate, parts)
 			candidate[i] = "_" + candidate[i]
+			if isDownloadAssetPath(strings.Join(candidate, "/")) {
+				continue
+			}
 			altPath := filepath.Join(s.contentDir, filepath.Join(candidate...))
 			if info, err := os.Stat(altPath); err == nil && !info.IsDir() {
 				http.ServeFile(w, r, altPath)
@@ -270,6 +273,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res.HTML = s.rewriteMDLinks(res.HTML, node.FSPath)
+	res.HTML = s.renderFileDownloads(res.HTML)
 	res.HTML = rewriteAbsoluteLinks(res.HTML, s.basePath)
 
 	title := res.Title

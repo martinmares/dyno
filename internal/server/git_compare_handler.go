@@ -190,6 +190,7 @@ func (s *Server) renderComparedMarkdown(left, right []byte) (template.HTML, temp
 		if err != nil {
 			return "", err
 		}
+		result.HTML = s.renderFileDownloads(result.HTML)
 		return template.HTML(result.HTML), nil
 	}
 	leftHTML, err := render(left)

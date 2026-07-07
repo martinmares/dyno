@@ -16,6 +16,7 @@ A self-hosted documentation server — think GitBook or Notion, but as a single 
 - **Copy button** — one-click copy on every code block
 - **Anchor links** — deep-linkable headings
 - **Asset directories** — prefix a directory with `_` (e.g. `_images/`) to serve files without showing them in the sidebar
+- **File downloads** — render safe per-site downloads with filename, MIME type, and size from `_downloads/`
 - **Configurable base path** — run under any URL prefix (e.g. `/docs`, `/myapp/docs`, or `/`)
 - **Library mode** — serve multiple documentation sites under one dyno instance with repeated `--site`
 - **Git-backed sites** — `--git-repo-site <url>` clones a repo and serves it; auto-pulls on a configurable interval
@@ -38,12 +39,26 @@ A self-hosted documentation server — think GitBook or Notion, but as a single 
 ├── dyno.yaml          # Site configuration
 ├── site/              # Your Markdown content goes here
 │   ├── index.md       # Landing page
+│   ├── _downloads/      # Files exposed only through file-download blocks
 │   ├── getting-started/
 │   │   ├── index.md
 │   │   ├── _images/   # Assets (underscore prefix = hidden from sidebar)
 │   │   └── ...
 │   └── ...
 ```
+
+## Site container image
+
+Build a minimal self-contained Linux image containing the Dyno binary and one complete site directory:
+
+```bash
+just site-image registry.example.com/docs/my-site:latest /path/to/site
+docker run --rm -p 8080:8080 registry.example.com/docs/my-site:latest
+```
+
+The complete directory, including dotfiles such as `.env` and `_downloads/`, is copied to `/site`. If `dyno.yaml` is absent there but exists in the parent directory, it is included automatically. The image uses `scratch`; the runtime contains only Dyno, CA certificates, and the site. Set `DOCKER_DEFAULT_PLATFORM=linux/amd64` or `linux/arm64` before building.
+
+Warning: values from `.env` become part of the image layers. Do not use this recipe with secrets that must remain outside the image.
 
 ## Configuration
 

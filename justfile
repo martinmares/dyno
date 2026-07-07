@@ -67,3 +67,43 @@ release-windows: assets-refresh css
     LD_FLAGS="-X main.version={{ dyno_version }} -X main.buildCommit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown) -X main.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     GOOS=windows GOARCH=amd64 go build -ldflags "$LD_FLAGS" -o dyno-windows.exe .
     echo "-> dyno-windows.exe"
+
+# Build a minimal self-contained Linux image with one documentation site.
+# Usage: just site-image registry.example.com/docs/my-site:tag /path/to/site
+site-image image site_root:
+    #!/usr/bin/env sh
+    set -eu
+
+    SITE=$(cd "{{ site_root }}" && pwd)
+    PLATFORM=${DOCKER_DEFAULT_PLATFORM:-linux/amd64}
+    case "$PLATFORM" in
+        linux/amd64) GOARCH=amd64 ;;
+        linux/arm64) GOARCH=arm64 ;;
+        *) echo "unsupported platform: $PLATFORM (supported: linux/amd64, linux/arm64)" >&2; exit 1 ;;
+    esac
+
+    CONTEXT=$(mktemp -d "${TMPDIR:-/tmp}/dyno-site-image.XXXXXX")
+    trap 'rm -rf "$CONTEXT"' EXIT INT TERM
+    mkdir -p "$CONTEXT/site" "$CONTEXT/root"
+
+    # Include dotfiles, _downloads, and every other file supplied by the site.
+    cp -a "$SITE/." "$CONTEXT/site/"
+    if [ ! -f "$SITE/dyno.yaml" ] && [ -f "$(dirname "$SITE")/dyno.yaml" ]; then
+        cp "$(dirname "$SITE")/dyno.yaml" "$CONTEXT/root/dyno.yaml"
+        echo "using parent config: $(dirname "$SITE")/dyno.yaml"
+    fi
+
+    VERSION=$(tr -d '\n' < VERSION)
+    COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
+    BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    LD_FLAGS="-s -w -X main.version=$VERSION -X main.buildCommit=$COMMIT -X main.buildDate=$BUILD_DATE"
+    CGO_ENABLED=0 GOOS=linux GOARCH="$GOARCH" go build -trimpath -ldflags "$LD_FLAGS" -o "$CONTEXT/dyno" .
+
+    docker build \
+        --platform "$PLATFORM" \
+        --build-arg "DYNO_VERSION=$VERSION" \
+        --build-arg "DYNO_COMMIT=$COMMIT" \
+        -f Dockerfile.site \
+        -t "{{ image }}" \
+        "$CONTEXT"
+    echo "-> {{ image }} ($PLATFORM, site: $SITE)"

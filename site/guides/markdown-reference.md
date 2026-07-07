@@ -68,6 +68,18 @@ Complete overview of all formatting options supported by dyno.
 
 Images support click-to-zoom (lightbox).
 
+### File downloads
+
+Store downloadable files under `_downloads/` in the site root. The path in the block is relative to that directory:
+
+````markdown
+```file-download
+prometheus/tsm-dashboard.json
+```
+````
+
+Dyno shows the filename, MIME type, and size. Downloads are isolated per site in library mode and are always served as attachments.
+
 ---
 
 ## Blockquote

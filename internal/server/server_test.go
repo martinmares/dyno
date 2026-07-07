@@ -79,7 +79,7 @@ func TestHealthEndpoints(t *testing.T) {
 	srv := newTestServer(t)
 	handler := srv.Handler()
 
-	for _, path := range []string{"/healthz", "/livez", "/readyz"} {
+	for _, path := range []string{"/health", "/healthz", "/livez", "/readyz"} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
@@ -89,6 +89,64 @@ func TestHealthEndpoints(t *testing.T) {
 		if strings.TrimSpace(rec.Body.String()) != "OK" {
 			t.Fatalf("%s returned unexpected body %q", path, rec.Body.String())
 		}
+	}
+}
+
+func TestFileDownloadCardAndAttachment(t *testing.T) {
+	srv := newTestServer(t)
+	dashboard := `{"title":"TSM"}`
+	writeTestFile(t, filepath.Join(srv.contentDir, "_downloads", "prometheus", "tsm-dashboard.json"), dashboard)
+	writeTestFile(t, filepath.Join(srv.contentDir, "download.md"), "# Download\n\n```file-download\nprometheus/tsm-dashboard.json\n```\n")
+	nav, err := navigation.BuildTree(srv.contentDir, srv.basePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv.nav = nav
+
+	handler := srv.Handler()
+	pageReq := httptest.NewRequest(http.MethodGet, "/download", nil)
+	pageRec := httptest.NewRecorder()
+	handler.ServeHTTP(pageRec, pageReq)
+	if pageRec.Code != http.StatusOK {
+		t.Fatalf("page returned %d", pageRec.Code)
+	}
+	body := pageRec.Body.String()
+	for _, want := range []string{"tsm-dashboard.json", "application/json", "15 B", `href="/_download/prometheus/tsm-dashboard.json"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("page does not contain %q: %s", want, body)
+		}
+	}
+
+	downloadReq := httptest.NewRequest(http.MethodGet, "/_download/prometheus/tsm-dashboard.json", nil)
+	downloadRec := httptest.NewRecorder()
+	handler.ServeHTTP(downloadRec, downloadReq)
+	if downloadRec.Code != http.StatusOK || downloadRec.Body.String() != dashboard {
+		t.Fatalf("unexpected download response: status=%d body=%q", downloadRec.Code, downloadRec.Body.String())
+	}
+	if got := downloadRec.Header().Get("Content-Disposition"); !strings.Contains(got, "attachment") || !strings.Contains(got, "tsm-dashboard.json") {
+		t.Fatalf("unexpected content disposition %q", got)
+	}
+	if got := downloadRec.Header().Get("X-Content-Type-Options"); got != "nosniff" {
+		t.Fatalf("unexpected X-Content-Type-Options %q", got)
+	}
+}
+
+func TestFileDownloadsCannotEscapeOrBypassAttachmentRoute(t *testing.T) {
+	srv := newTestServer(t)
+	writeTestFile(t, filepath.Join(srv.contentDir, "_downloads", "safe.json"), "{}")
+	handler := srv.Handler()
+
+	for _, requestPath := range []string{"/_downloads/safe.json", "/downloads/safe.json"} {
+		req := httptest.NewRequest(http.MethodGet, requestPath, nil)
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("expected %s to be unavailable outside download route, got %d", requestPath, rec.Code)
+		}
+	}
+
+	if _, _, err := srv.resolveDownloadFile("../index.md"); err == nil {
+		t.Fatal("expected traversal outside _downloads to fail")
 	}
 }
 
