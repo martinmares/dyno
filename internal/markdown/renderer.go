@@ -743,7 +743,7 @@ func parseAPISpec(src string) apiSpec {
 	return spec
 }
 
-// methodColor returns a Tailwind-style badge class for an HTTP method.
+// methodColor returns a badge class for an HTTP method.
 func methodColor(method string) string {
 	switch method {
 	case "GET":

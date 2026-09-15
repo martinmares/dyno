@@ -6,6 +6,7 @@
 
   function applyTheme(dark) {
     html.classList.toggle('dark', dark);
+    html.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
     const sun = document.getElementById('icon-sun');
     const moon = document.getElementById('icon-moon');
     if (sun) sun.classList.toggle('hidden', !dark);
@@ -22,10 +23,11 @@
     const btn = document.getElementById('theme-toggle');
     if (btn) {
       btn.addEventListener('click', function () {
-        const nowDark = html.classList.toggle('dark');
+        const nowDark = !html.classList.contains('dark');
         localStorage.setItem('dyno-theme', nowDark ? 'dark' : 'light');
         applyTheme(nowDark);
         rerenderMermaid();
+        rerenderSiteGraphs();
       });
     }
 
@@ -34,6 +36,7 @@
       if (!localStorage.getItem('dyno-theme')) {
         applyTheme(e.matches);
         rerenderMermaid();
+        rerenderSiteGraphs();
       }
     });
   });
@@ -47,13 +50,13 @@ document.addEventListener('DOMContentLoaded', function () {
   const toggleBtn = document.getElementById('sidebar-toggle');
 
   function openSidebar() {
-    sidebar.classList.remove('-translate-x-full');
-    overlay.classList.remove('hidden');
+    sidebar.classList.add('is-open');
+    overlay.classList.add('is-open');
   }
 
   function closeSidebar() {
-    sidebar.classList.add('-translate-x-full');
-    overlay.classList.add('hidden');
+    sidebar.classList.remove('is-open');
+    overlay.classList.remove('is-open');
   }
 
   if (toggleBtn) toggleBtn.addEventListener('click', openSidebar);
@@ -95,9 +98,9 @@ function setNavSectionExpanded(section, expanded) {
   toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
   const label = section.getAttribute('data-nav-title') || 'section';
   toggle.setAttribute('aria-label', (expanded ? 'Collapse ' : 'Expand ') + label);
-  children.classList.toggle('hidden', !expanded);
+  children.hidden = !expanded;
   const chevron = toggle.querySelector('[data-nav-chevron]');
-  if (chevron) chevron.classList.toggle('rotate-90', expanded);
+  if (chevron) chevron.classList.toggle('is-expanded', expanded);
 }
 
 function initNavTree() {
@@ -146,45 +149,50 @@ function updateActiveNavLink(path) {
 
 // ─── Mermaid ──────────────────────────────────────────────────────────────────
 
+function dynoThemeColor(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
 function initMermaid() {
   if (typeof mermaid === 'undefined') return;
 
-  const isDark = document.documentElement.classList.contains('dark');
+  const colors = {
+    background: dynoThemeColor('--tblr-body-bg'),
+    primary: dynoThemeColor('--tblr-primary'),
+    indigo: dynoThemeColor('--tblr-indigo'),
+    info: dynoThemeColor('--tblr-info'),
+    warning: dynoThemeColor('--tblr-warning'),
+    success: dynoThemeColor('--tblr-success'),
+    danger: dynoThemeColor('--tblr-danger'),
+    surface: dynoThemeColor('--tblr-bg-surface'),
+    text: dynoThemeColor('--tblr-body-color'),
+    muted: dynoThemeColor('--tblr-secondary-color'),
+  };
 
-  const themeVariables = isDark ? {
-    background: '#1e293b',
-    primaryColor: '#3b82f6',
-    secondaryColor: '#8b5cf6',
-    tertiaryColor: '#06b6d4',
-    primaryTextColor: '#f1f5f9',
-    secondaryTextColor: '#f1f5f9',
-    tertiaryTextColor: '#f1f5f9',
-    edgeLabelBackground: '#1e293b',
-    // Pie chart — explicit slice colours
-    pie1: '#3b82f6',
-    pie2: '#8b5cf6',
-    pie3: '#06b6d4',
-    pie4: '#f59e0b',
-    pie5: '#10b981',
-    pie6: '#f43f5e',
+  const themeVariables = {
+    background: colors.background,
+    primaryColor: colors.primary,
+    secondaryColor: colors.indigo,
+    tertiaryColor: colors.info,
+    primaryTextColor: colors.text,
+    secondaryTextColor: colors.text,
+    tertiaryTextColor: colors.text,
+    edgeLabelBackground: colors.surface,
+    pie1: colors.primary,
+    pie2: colors.indigo,
+    pie3: colors.info,
+    pie4: colors.warning,
+    pie5: colors.success,
+    pie6: colors.danger,
     pieStrokeWidth: '2px',
     pieOuterStrokeWidth: '2px',
-    pieSectionTextColor: '#f1f5f9',
-    pieLegendTextColor: '#cbd5e1',
-  } : {
-    pie1: '#3b82f6',
-    pie2: '#8b5cf6',
-    pie3: '#06b6d4',
-    pie4: '#f59e0b',
-    pie5: '#10b981',
-    pie6: '#f43f5e',
-    pieSectionTextColor: '#ffffff',
-    pieLegendTextColor: '#1e293b',
+    pieSectionTextColor: colors.text,
+    pieLegendTextColor: colors.muted,
   };
 
   mermaid.initialize({
     startOnLoad: false,
-    theme: isDark ? 'dark' : 'default',
+    theme: 'base',
     themeVariables,
     securityLevel: 'loose',
     pie: { textPosition: 0.75 },
@@ -347,10 +355,11 @@ function initComments() {
     const replyBox = root.querySelector('[data-comment-reply]');
     const replyText = root.querySelector('[data-comment-reply-text]');
     const clearReplyBtn = root.querySelector('[data-comment-clear-reply]');
-    const article = document.querySelector('#page-content .prose');
+    const article = document.querySelector('#page-content .dyno-prose');
     const textarea = form && form.querySelector('textarea[name="body"]');
     let commentEditor = null;
     let selectedRange = null;
+    let selectedText = '';
     let selectedQuote = '';
     let selectedAnchor = '';
     let editingID = '';
@@ -398,6 +407,10 @@ function initComments() {
     }
 
     function clearSelection() {
+      selectedRange = null;
+      selectedText = '';
+      selectedQuote = '';
+      selectedAnchor = '';
       if (quoteInput) quoteInput.value = '';
       if (anchorInput) anchorInput.value = '';
       if (selectionText) selectionText.textContent = '';
@@ -443,6 +456,7 @@ function initComments() {
       const text = sel.toString().trim();
       if (!text) return;
       selectedRange = range.cloneRange();
+      selectedText = text;
       selectedQuote = text.length > 500 ? text.slice(0, 500) : text;
       selectedAnchor = nearestHeadingID(range.startContainer);
       if (preview) preview.textContent = selectedQuote;
@@ -512,6 +526,24 @@ function initComments() {
           editingID = ''; editingKind = '';
         })
         .finally(function () { actionHighlight.disabled = false; });
+    });
+    const actionCopy = root.querySelector('[data-selection-copy]');
+    if (actionCopy) actionCopy.addEventListener('click', function () {
+      if (!selectedText) return;
+      actionCopy.disabled = true;
+      copyTextToClipboard(selectedText)
+        .then(function () {
+          actionDialog.close();
+        })
+        .catch(function () {
+          actionCopy.textContent = 'Copy failed';
+        })
+        .finally(function () {
+          setTimeout(function () {
+            actionCopy.disabled = false;
+            actionCopy.textContent = 'Copy to clipboard';
+          }, 600);
+        });
     });
     root.addEventListener('click', function (event) {
       const reply = event.target.closest('[data-comment-reply-to]');
@@ -592,7 +624,7 @@ function initComments() {
             if (target && comment.comment_html) {
               target.outerHTML = comment.comment_html;
             } else if (target) {
-              const body = target.querySelector('.prose');
+              const body = target.querySelector('.dyno-prose');
               if (body) body.innerHTML = comment.body_html || '';
             }
           } else {
@@ -608,6 +640,36 @@ function initComments() {
         });
       });
     }
+  });
+}
+
+function copyTextToClipboard(text) {
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    return navigator.clipboard.writeText(text).catch(function () {
+      return copyTextWithLegacyFallback(text);
+    });
+  }
+  return copyTextWithLegacyFallback(text);
+}
+
+function copyTextWithLegacyFallback(text) {
+  return new Promise(function (resolve, reject) {
+    const copyArea = document.createElement('textarea');
+    copyArea.value = text;
+    copyArea.setAttribute('readonly', '');
+    copyArea.style.position = 'fixed';
+    copyArea.style.opacity = '0';
+    document.body.appendChild(copyArea);
+    copyArea.select();
+    let copied = false;
+    try {
+      copied = document.execCommand('copy');
+    } catch (_) {
+      copied = false;
+    }
+    copyArea.remove();
+    if (copied) resolve();
+    else reject(new Error('clipboard unavailable'));
   });
 }
 
@@ -644,7 +706,7 @@ function markCommentRange(range, highlightID) {
 }
 
 function applyCommentHighlights() {
-  const article = document.querySelector('#page-content .prose');
+  const article = document.querySelector('#page-content .dyno-prose');
   if (!article) return;
   document.querySelectorAll('[data-comment-highlight]').forEach(function (item) {
     const quote = item.dataset.quote || '';
@@ -685,7 +747,7 @@ function appendSavedComment(root, comment) {
       let childList = parent.querySelector('[data-comment-children]');
       if (!childList) {
         childList = document.createElement('div');
-        childList.className = 'mt-3 border-l-2 border-teal-200 pl-4 dark:border-teal-800';
+        childList.className = 'dyno-comment-children';
         childList.setAttribute('data-comment-children', '');
         parent.appendChild(childList);
       }
@@ -708,15 +770,15 @@ function appendSavedHighlight(root, highlight) {
   const empty = list.querySelector('p');
   if (empty) empty.remove();
   const row = document.createElement('article');
-  row.className = 'flex items-start justify-between gap-3 px-4 py-3';
+  row.className = 'dyno-highlight-row';
   row.dataset.highlightRow = highlight.id;
   const quote = document.createElement('p');
-  quote.className = 'min-w-0 flex-1 truncate text-sm text-gray-700 dark:text-gray-300';
+  quote.className = 'dyno-highlight-quote';
   quote.textContent = highlight.quote; quote.title = highlight.quote;
-  const actions = document.createElement('div'); actions.className = 'flex shrink-0 items-center gap-1';
-  actions.innerHTML = '<button type="button" data-highlight-go="' + highlight.id + '" class="rounded px-2 py-1 text-xs text-brand-600">Go to</button>';
+  const actions = document.createElement('div'); actions.className = 'btn-list flex-nowrap';
+  actions.innerHTML = '<button type="button" data-highlight-go="' + highlight.id + '" class="btn btn-sm btn-ghost-primary">Go to</button>';
   if (root.dataset.commentsManagement === 'true') {
-    actions.innerHTML += '<button type="button" data-annotation-delete="' + highlight.id + '" class="rounded px-2 py-1 text-xs text-red-600">Delete</button>';
+    actions.innerHTML += '<button type="button" data-annotation-delete="' + highlight.id + '" class="btn btn-sm btn-ghost-danger">Delete</button>';
   }
   row.append(quote, actions); list.appendChild(row);
   const count = root.querySelector('[data-highlights-count]');
@@ -759,13 +821,13 @@ function initBulkFrontmatterEditor() {
     function setStatus(message, kind) {
       if (!status) return;
       status.textContent = message || '';
-      status.className = 'text-xs';
+      status.className = 'small mb-0 mt-1';
       if (kind === 'error') {
-        status.classList.add('text-red-500', 'dark:text-red-400');
+        status.classList.add('text-danger');
       } else if (kind === 'success') {
-        status.classList.add('text-green-600', 'dark:text-green-400');
+        status.classList.add('text-success');
       } else {
-        status.classList.add('text-gray-500', 'dark:text-gray-400');
+        status.classList.add('text-secondary');
       }
     }
 
@@ -852,7 +914,7 @@ function initBulkFrontmatterEditor() {
           }));
           rowsRoot.querySelectorAll('[data-bulk-frontmatter-row]').forEach(function (row) {
             const result = results.get(row.dataset.pagePath || '');
-            row.classList.remove('ring-1', 'ring-red-300', 'dark:ring-red-800');
+            row.classList.remove('dyno-bulk-row-error');
             if (!result) return;
             if (result.ok) {
               row.querySelectorAll('[data-bulk-frontmatter-input]').forEach(function (input) {
@@ -860,7 +922,7 @@ function initBulkFrontmatterEditor() {
               });
             } else {
               errors.push((row.dataset.pagePath || 'document') + ': ' + (result.error || 'save failed'));
-              row.classList.add('ring-1', 'ring-red-300', 'dark:ring-red-800');
+              row.classList.add('dyno-bulk-row-error');
             }
           });
           if (errors.length > 0) {
@@ -911,13 +973,13 @@ function initFrontmatterEditor() {
     function setStatus(message, kind) {
       if (!status) return;
       status.textContent = message || '';
-      status.className = 'text-xs';
+      status.className = 'small mb-0 mt-1';
       if (kind === 'error') {
-        status.classList.add('text-red-500', 'dark:text-red-400');
+        status.classList.add('text-danger');
       } else if (kind === 'success') {
-        status.classList.add('text-green-600', 'dark:text-green-400');
+        status.classList.add('text-success');
       } else {
-        status.classList.add('text-gray-500', 'dark:text-gray-400');
+        status.classList.add('text-secondary');
       }
     }
 
@@ -1068,7 +1130,7 @@ function applySearchHighlights() {
   const query = getSearchQuery();
   if (!query) return;
 
-  const prose = document.querySelector('.prose');
+  const prose = document.querySelector('.dyno-prose');
   if (!prose) return;
 
   const pattern = new RegExp('(' + escapeRegExp(query) + ')', 'gi');
@@ -1221,18 +1283,18 @@ document.addEventListener('DOMContentLoaded', function () {
       e.preventDefault();
       const links = Array.from(container.querySelectorAll('.search-result-link'));
       if (!links.length) return;
-      const active = container.querySelector('.search-result-link.ring-2');
+      const active = container.querySelector('.search-result-link.is-keyboard-active');
       let idx = active ? links.indexOf(active) : -1;
-      if (active) active.classList.remove('ring-2', 'ring-brand-500', 'bg-gray-50', 'dark:bg-gray-800');
+      if (active) active.classList.remove('is-keyboard-active');
       idx = e.key === 'ArrowDown' ? Math.min(idx + 1, links.length - 1) : Math.max(idx - 1, 0);
-      links[idx].classList.add('ring-2', 'ring-brand-500', 'bg-gray-50', 'dark:bg-gray-800');
+      links[idx].classList.add('is-keyboard-active');
       links[idx].scrollIntoView({ block: 'nearest' });
       return;
     }
 
     // Enter — navigate to focused result
     if (e.key === 'Enter' && !container.classList.contains('hidden')) {
-      const active = container.querySelector('.search-result-link.ring-2');
+      const active = container.querySelector('.search-result-link.is-keyboard-active');
       if (active) {
         e.preventDefault();
         active.click();
@@ -1272,7 +1334,7 @@ function initLightbox() {
   }
 
   // Attach to all prose images not yet initialized
-  document.querySelectorAll('.prose img:not([data-lightbox-init])').forEach(function (img) {
+  document.querySelectorAll('.dyno-prose img:not([data-lightbox-init])').forEach(function (img) {
     img.setAttribute('data-lightbox-init', '1');
     img.style.cursor = 'zoom-in';
     img.addEventListener('click', function () {
@@ -1733,11 +1795,11 @@ document.addEventListener('click', function(e) {
   var url = btn.getAttribute('data-ego-url');
   if (!url) return;
   container.hidden = false;
-  container.innerHTML = '<div style="padding:1rem;color:#9ca3af;font-size:0.8rem">Loading graph...</div>';
+  container.innerHTML = '<div class="ego-graph-status">Loading graph...</div>';
   fetch(url).then(function(r) { return r.text(); }).then(function(html) {
     container.innerHTML = html;
   }).catch(function() {
-    container.innerHTML = '<div style="padding:1rem;color:#ef4444;font-size:0.8rem">Failed to load graph.</div>';
+    container.innerHTML = '<div class="ego-graph-status is-error">Failed to load graph.</div>';
   });
 });
 
@@ -1745,15 +1807,18 @@ document.addEventListener('click', function(e) {
 function initSiteGraph(container) {
   var dataUrl = container.getAttribute('data-graph-data-url');
   if (!dataUrl) return;
+  if (container._dynoGraphTooltip) {
+    container._dynoGraphTooltip.remove();
+    container._dynoGraphTooltip = null;
+  }
 
-  var dark = document.documentElement.classList.contains('dark');
-  var bg = dark ? '#111827' : '#ffffff';
-  var nodeFill = dark ? '#1e3a5f' : '#dbeafe';
-  var nodeStroke = dark ? '#3b82f6' : '#2563eb';
-  var nodeText = dark ? '#93c5fd' : '#1d4ed8';
-  var edgeColor = dark ? '#374151' : '#d1d5db';
+  var bg = dynoThemeColor('--tblr-body-bg');
+  var nodeFill = dynoThemeColor('--tblr-primary-bg-subtle');
+  var nodeStroke = dynoThemeColor('--tblr-primary');
+  var nodeText = dynoThemeColor('--tblr-primary-text-emphasis');
+  var edgeColor = dynoThemeColor('--tblr-border-color');
 
-  container.innerHTML = '<canvas id="site-graph-canvas" style="width:100%;height:600px;display:block;border-radius:0.5rem;background:' + bg + '"></canvas>';
+  container.innerHTML = '<canvas id="site-graph-canvas" class="site-graph-canvas"></canvas>';
   var canvas = document.getElementById('site-graph-canvas');
   var W = canvas.offsetWidth; var H = 600;
   canvas.width = W; canvas.height = H;
@@ -1889,8 +1954,10 @@ function initSiteGraph(container) {
 
     // Tooltip
     var tooltip = document.createElement('div');
-    tooltip.style.cssText = 'position:fixed;background:#1f2937;color:#f9fafb;padding:4px 8px;border-radius:4px;font-size:12px;pointer-events:none;display:none;z-index:9999';
+    tooltip.className = 'site-graph-tooltip';
+    tooltip.style.display = 'none';
     document.body.appendChild(tooltip);
+    container._dynoGraphTooltip = tooltip;
     canvas.addEventListener('mousemove', function(e) {
       var rect = canvas.getBoundingClientRect();
       var mx = (e.clientX - rect.left) * (W / rect.width);
@@ -1912,7 +1979,7 @@ function initSiteGraph(container) {
     });
     canvas.addEventListener('mouseleave', function() { tooltip.style.display = 'none'; });
   }).catch(function() {
-    ctx.fillStyle = '#ef4444';
+    ctx.fillStyle = dynoThemeColor('--tblr-danger');
     ctx.font = '14px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('Failed to load graph data.', W/2, H/2);
@@ -1922,6 +1989,10 @@ function initSiteGraph(container) {
 function initGraphPages() {
   var el = document.querySelector('.graph-page[data-graph-data-url]');
   if (el) initSiteGraph(el);
+}
+
+function rerenderSiteGraphs() {
+  document.querySelectorAll('.graph-page[data-graph-data-url]').forEach(initSiteGraph);
 }
 
 document.addEventListener('DOMContentLoaded', initGraphPages);

@@ -51,7 +51,8 @@ type PageData struct {
 	// Prev/Next for bottom navigation
 	Prev                *navigation.NavNode
 	Next                *navigation.NavNode
-	TailwindURL         string
+	TablerCSSURL        string
+	TablerJSURL         string
 	AppCSSURL           string
 	AppJSURL            string
 	EasyMDECSSURL       string
@@ -100,7 +101,8 @@ type LibraryData struct {
 	Books          []bookCardData
 	BasePath       string
 	SearchURL      string
-	TailwindURL    string
+	TablerCSSURL   string
+	TablerJSURL    string
 	AppCSSURL      string
 	AppJSURL       string
 	HTMXURL        string
@@ -125,7 +127,8 @@ type SearchData struct {
 	TOC            []markdown.TOCEntry
 	Site           *config.SiteConfig
 	BasePath       string
-	TailwindURL    string
+	TablerCSSURL   string
+	TablerJSURL    string
 	AppCSSURL      string
 	AppJSURL       string
 	HTMXURL        string
@@ -169,6 +172,8 @@ func isHTMX(r *http.Request) bool {
 // render executes a named template, re-parsing from disk in dev mode.
 func (s *Server) render(w http.ResponseWriter, name string, data any) error {
 	if page, ok := data.(PageData); ok {
+		page.TablerCSSURL = s.assetURL("tabler.min.css")
+		page.TablerJSURL = s.assetURL("tabler.min.js")
 		if s.comments != nil {
 			page.EasyMDECSSURL = s.assetURL("easymde.min.css")
 			page.EasyMDEJSURL = s.assetURL("easymde.min.js")
@@ -191,7 +196,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 	// path doesn't end with "/" and the file exists on disk.
 	// Also tries prefixing the first path segment with "_" to support asset
 	// directories like "_images/" referenced as "images/" in Markdown.
-	if rawPath != "" && !strings.HasSuffix(rawPath, "/") && !isDownloadAssetPath(rawPath) {
+	if rawPath != "" && !strings.HasSuffix(rawPath, "/") && !isDownloadAssetPath(rawPath) && !isMarkdownPath(rawPath) {
 		staticPath := filepath.Join(s.contentDir, filepath.FromSlash(rawPath))
 		if info, err := os.Stat(staticPath); err == nil && !info.IsDir() {
 			http.ServeFile(w, r, staticPath)
@@ -224,6 +229,18 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if node == nil {
 		node = navigation.FindNode(s.getNav(), strings.TrimRight(urlPath, "/")+"/")
+	}
+	// Markdown files in underscore-prefixed directories are intentionally hidden
+	// from navigation, but links to them must still open as rendered documents.
+	if node == nil {
+		if fsPath, ok := s.markdownPathFromURL(rawPath); ok {
+			node = &navigation.NavNode{
+				Title:    strings.TrimSuffix(filepath.Base(fsPath), filepath.Ext(fsPath)),
+				FullPath: urlPath,
+				FSPath:   fsPath,
+				IsDir:    false,
+			}
+		}
 	}
 	if node == nil {
 		s.notFound(w, r)
@@ -342,7 +359,6 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		IsAgentDoc:         filepath.Base(node.FSPath) == "AGENTS.md",
 		Prev:               prev,
 		Next:               next,
-		TailwindURL:        s.assetURL("tailwind.css"),
 		AppCSSURL:          s.assetURL("app.css"),
 		AppJSURL:           s.assetURL("app.js"),
 		HTMXURL:            s.assetURL("htmx.min.js"),
@@ -408,6 +424,29 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func isMarkdownPath(rawPath string) bool {
+	return strings.EqualFold(filepath.Ext(rawPath), ".md")
+}
+
+func (s *Server) markdownPathFromURL(rawPath string) (string, bool) {
+	if !isMarkdownPath(rawPath) {
+		return "", false
+	}
+	root, err := filepath.Abs(s.contentDir)
+	if err != nil {
+		return "", false
+	}
+	candidate, err := filepath.Abs(filepath.Join(root, filepath.FromSlash(rawPath)))
+	if err != nil || !pathWithin(root, candidate) {
+		return "", false
+	}
+	info, err := os.Stat(candidate)
+	if err != nil || !info.Mode().IsRegular() {
+		return "", false
+	}
+	return candidate, true
+}
+
 func (s *Server) renderSyntheticIndex(w http.ResponseWriter, r *http.Request, node *navigation.NavNode) {
 	view := s.metadataView(r)
 	if filtered := navigation.FindNode(view.Nav, node.FullPath); filtered != nil {
@@ -456,7 +495,6 @@ func (s *Server) renderSyntheticIndex(w http.ResponseWriter, r *http.Request, no
 		Site:              s.siteCfg,
 		BasePath:          s.basePath,
 		IsAgentDoc:        false,
-		TailwindURL:       s.assetURL("tailwind.css"),
 		AppCSSURL:         s.assetURL("app.css"),
 		AppJSURL:          s.assetURL("app.js"),
 		HTMXURL:           s.assetURL("htmx.min.js"),
@@ -515,7 +553,8 @@ func (s *Server) searchHandler(w http.ResponseWriter, r *http.Request) {
 		Title:          "Search",
 		Site:           s.siteCfg,
 		BasePath:       s.basePath,
-		TailwindURL:    s.assetURL("tailwind.css"),
+		TablerCSSURL:   s.assetURL("tabler.min.css"),
+		TablerJSURL:    s.assetURL("tabler.min.js"),
 		AppCSSURL:      s.assetURL("app.css"),
 		AppJSURL:       s.assetURL("app.js"),
 		HTMXURL:        s.assetURL("htmx.min.js"),
@@ -547,12 +586,11 @@ func (s *Server) notFound(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 	data := PageData{
 		Title:         "Page Not Found",
-		ContentHTML:   template.HTML(`<div class="text-center py-16"><h1 class="text-4xl font-bold text-gray-400">404</h1><p class="mt-4 text-gray-500">Page not found.</p></div>`),
+		ContentHTML:   template.HTML(`<div class="dyno-error-page dyno-error-page-not-found"><h1 class="dyno-error-code">404</h1><p>Page not found.</p></div>`),
 		Nav:           s.getNav(),
 		IsHTMX:        isHTMX(r),
 		LightCSS:      template.CSS(s.renderer.LightCSS()),
 		DarkCSS:       template.CSS(s.renderer.DarkCSS()),
-		TailwindURL:   s.assetURL("tailwind.css"),
 		AppCSSURL:     s.assetURL("app.css"),
 		AppJSURL:      s.assetURL("app.js"),
 		HTMXURL:       s.assetURL("htmx.min.js"),
@@ -577,12 +615,11 @@ func (s *Server) internalError(w http.ResponseWriter, r *http.Request, err error
 	w.WriteHeader(http.StatusInternalServerError)
 	data := PageData{
 		Title:         "Internal Error",
-		ContentHTML:   template.HTML(`<div class="text-center py-16"><h1 class="text-4xl font-bold text-red-400">500</h1><p class="mt-4 text-gray-500">Internal server error.</p></div>`),
+		ContentHTML:   template.HTML(`<div class="dyno-error-page dyno-error-page-internal"><h1 class="dyno-error-code">500</h1><p>Internal server error.</p></div>`),
 		Nav:           s.getNav(),
 		IsHTMX:        isHTMX(r),
 		LightCSS:      template.CSS(s.renderer.LightCSS()),
 		DarkCSS:       template.CSS(s.renderer.DarkCSS()),
-		TailwindURL:   s.assetURL("tailwind.css"),
 		AppCSSURL:     s.assetURL("app.css"),
 		AppJSURL:      s.assetURL("app.js"),
 		HTMXURL:       s.assetURL("htmx.min.js"),
@@ -613,7 +650,6 @@ func (s *Server) tasksHandler(w http.ResponseWriter, r *http.Request) {
 		DarkCSS:       template.CSS(s.renderer.DarkCSS()),
 		Site:          s.siteCfg,
 		BasePath:      s.basePath,
-		TailwindURL:   s.assetURL("tailwind.css"),
 		AppCSSURL:     s.assetURL("app.css"),
 		AppJSURL:      s.assetURL("app.js"),
 		HTMXURL:       s.assetURL("htmx.min.js"),
@@ -662,7 +698,6 @@ func (s *Server) sectionTasksHandler(w http.ResponseWriter, r *http.Request) {
 		DarkCSS:         template.CSS(s.renderer.DarkCSS()),
 		Site:            s.siteCfg,
 		BasePath:        s.basePath,
-		TailwindURL:     s.assetURL("tailwind.css"),
 		AppCSSURL:       s.assetURL("app.css"),
 		AppJSURL:        s.assetURL("app.js"),
 		HTMXURL:         s.assetURL("htmx.min.js"),
@@ -702,7 +737,6 @@ func (s *Server) graphHandler(w http.ResponseWriter, r *http.Request) {
 		DarkCSS:      template.CSS(s.renderer.DarkCSS()),
 		Site:         s.siteCfg,
 		BasePath:     s.basePath,
-		TailwindURL:  s.assetURL("tailwind.css"),
 		AppCSSURL:    s.assetURL("app.css"),
 		AppJSURL:     s.assetURL("app.js"),
 		HTMXURL:      s.assetURL("htmx.min.js"),
@@ -843,7 +877,6 @@ func (s *Server) egoGraphHandler(w http.ResponseWriter, r *http.Request) {
 		DarkCSS:           template.CSS(s.renderer.DarkCSS()),
 		Site:              s.siteCfg,
 		BasePath:          s.basePath,
-		TailwindURL:       s.assetURL("tailwind.css"),
 		AppCSSURL:         s.assetURL("app.css"),
 		AppJSURL:          s.assetURL("app.js"),
 		HTMXURL:           s.assetURL("htmx.min.js"),

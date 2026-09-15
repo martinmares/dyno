@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -9,7 +9,8 @@
       try {
         var stored = localStorage.getItem('dyno-theme');
         var dark = stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches);
-        if (dark) document.documentElement.classList.add('dark');
+        document.documentElement.classList.toggle('dark', dark);
+        document.documentElement.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
       } catch (_) {}
     })();
   </script>
@@ -25,38 +26,39 @@
   <style>{{ .LightCSS }}</style>
   <style>{{ .DarkCSS }}</style>
 
-  <link rel="stylesheet" href="{{ .TailwindURL }}" />
+  <link rel="stylesheet" href="{{ .TablerCSSURL }}" />
   {{ if .EasyMDECSSURL }}<link rel="stylesheet" href="{{ .EasyMDECSSURL }}" />{{ end }}
   {{ if .FontAwesomeURL }}<link rel="stylesheet" href="{{ .FontAwesomeURL }}" />{{ end }}
   <link rel="stylesheet" href="{{ .AppCSSURL }}" />
 </head>
-<body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 antialiased">
+<body class="layout-fluid dyno-body">
 
   <!-- Top navbar -->
-  <header class="fixed top-0 left-0 right-0 z-50 h-14 border-b border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-gray-900/90 backdrop-blur flex items-center px-4 gap-4">
+  <header class="navbar navbar-expand-md dyno-navbar">
+    <div class="dyno-navbar-inner">
     <!-- Mobile sidebar toggle -->
-    <button id="sidebar-toggle" class="lg:hidden p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Toggle sidebar">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <button id="sidebar-toggle" class="btn btn-icon btn-ghost-secondary" aria-label="Toggle sidebar">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
       </svg>
     </button>
 
     {{ if .LibraryURL }}
-    <nav aria-label="Library breadcrumb" class="shrink-0 flex items-center gap-2 text-sm">
-      <a href="{{ .LibraryURL }}" class="text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
+    <nav aria-label="Library breadcrumb" class="dyno-navbar-breadcrumb">
+      <a href="{{ .LibraryURL }}">
         Library
       </a>
-      <svg class="w-3.5 h-3.5 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
       </svg>
     </nav>
     {{ end }}
     <!-- Logo / site title -->
-    <a href="{{ .BasePath }}/" class="flex items-center gap-2 font-bold text-lg text-brand-600 dark:text-brand-500 shrink-0">
+    <a href="{{ .BasePath }}/" class="dyno-brand">
       {{ if and .Site .Site.LogoURL }}
-        <img src="{{ .Site.LogoURL }}" class="w-6 h-6 object-contain" alt="{{ .Site.LogoText }}">
+        <img src="{{ .Site.LogoURL }}" alt="{{ .Site.LogoText }}">
       {{ else }}
-        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+        <svg fill="currentColor" viewBox="0 0 24 24">
           <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
         </svg>
       {{ end }}
@@ -64,16 +66,16 @@
     </a>
 
     <!-- Search bar -->
-    <div class="flex-1 max-w-xl relative">
-      <div class="relative">
-        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div class="dyno-search">
+      <div class="dyno-search-control">
+        <svg class="dyno-search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
         </svg>
         <input
           id="search-input"
           type="search"
           placeholder="Search docs… (Ctrl+K)"
-          class="w-full pl-9 pr-4 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-brand-500"
+          class="form-control form-control-sm"
           hx-get="{{ .SearchURL }}"
           hx-trigger="input changed delay:300ms, search"
           hx-target="#search-results-container"
@@ -82,15 +84,15 @@
           name="q"
           autocomplete="off"
         />
-        <span id="search-spinner" class="htmx-indicator absolute right-3 top-1/2 -translate-y-1/2">
-          <svg class="animate-spin w-4 h-4 text-brand-500" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+        <span id="search-spinner" class="dyno-search-spinner htmx-indicator">
+          <svg class="dyno-search-spinner-icon" fill="none" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
           </svg>
         </span>
       </div>
       <!-- Search results dropdown -->
-      <div id="search-results-container" class="absolute top-full left-0 right-0 mt-1 z-50 hidden"></div>
+      <div id="search-results-container" class="dyno-search-results-container hidden"></div>
     </div>
 
     {{ if .SectionTasksURL }}
@@ -98,29 +100,29 @@
        hx-get="{{ .SectionTasksURL }}"
        hx-target="#page-content"
        hx-push-url="true"
-       class="inline-flex items-center px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 hover:border-brand-300 dark:hover:border-brand-600 transition-colors shrink-0">
+       class="dyno-section-tasks dyno-navbar-text-action btn btn-sm btn-ghost-secondary">
       Tasks
     </a>
     {{ end }}
 
-    <div class="flex items-center gap-2 ml-auto">
+    <div class="dyno-navbar-actions">
       <!-- GitHub link -->
       {{ if and .Site .Site.GitHubURL }}
-      <a href="{{ .Site.GitHubURL }}" target="_blank" rel="noopener" class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400" aria-label="GitHub">
-        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+      <a href="{{ .Site.GitHubURL }}" target="_blank" rel="noopener" class="btn btn-icon btn-ghost-secondary" aria-label="GitHub">
+        <svg fill="currentColor" viewBox="0 0 24 24">
           <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
         </svg>
       </a>
       {{ end }}
       <!-- Graph (ego-graph of current page, or site deps table) -->
-      <span id="ego-graph-btn" class="contents">
+      <span id="ego-graph-btn" class="dyno-contents">
       {{ if .EgoGraphURL }}
       <a href="{{ .EgoGraphURL }}"
          hx-get="{{ .EgoGraphURL }}"
          hx-target="#page-content"
          hx-push-url="true"
-         class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400" aria-label="Page dependency graph">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+         class="btn btn-icon btn-ghost-secondary" aria-label="Page dependency graph">
+        <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
           <circle cx="5" cy="12" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="19" cy="19" r="2"/>
           <line x1="7" y1="11" x2="17" y2="6"/><line x1="7" y1="13" x2="17" y2="18"/>
         </svg>
@@ -133,7 +135,7 @@
          hx-get="{{ .TasksURL }}"
          hx-target="#page-content"
          hx-push-url="true"
-         class="inline-flex items-center px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 hover:border-brand-300 dark:hover:border-brand-600 transition-colors shrink-0">
+         class="dyno-navbar-text-action btn btn-sm btn-ghost-secondary">
         All tasks
       </a>
       {{ end }}
@@ -143,20 +145,20 @@
          hx-get="{{ .GitHistoryURL }}"
          hx-target="#page-content"
          hx-push-url="true"
-         class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 flex items-center"
+         class="btn btn-icon btn-ghost-secondary"
          aria-label="Git history" title="Git history">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+        <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
         </svg>
       </a>
       {{ end }}
       <!-- Compare document revisions; updated out-of-band during HTMX navigation. -->
-      <span id="git-compare-btn" class="contents">
+      <span id="git-compare-btn" class="dyno-contents">
         {{ if .GitCompareURL }}
         <a href="{{ .GitCompareURL }}"
-           class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 flex items-center"
+           class="btn btn-icon btn-ghost-secondary"
            aria-label="Compare versions" title="Compare versions">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
+          <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h11l-3-3m3 3l-3 3M16 17H5l3 3m-3-3l3-3"/>
           </svg>
         </a>
@@ -164,24 +166,24 @@
       </span>
       <!-- Edit page (only in --edit mode) — content is OOB-swapped on HTMX navigation -->
       {{ if .EditMode }}
-      <span id="edit-page-btn" class="contents">
+      <span id="edit-page-btn" class="dyno-contents">
         {{ if .EditPageURL }}
         <a href="{{ .EditPageURL }}"
-           class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 flex items-center"
+           class="btn btn-icon btn-ghost-secondary"
            aria-label="Edit page" title="Edit page">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/>
           </svg>
         </a>
         {{ end }}
       </span>
-      <span id="frontmatter-edit-btn" class="contents">
+      <span id="frontmatter-edit-btn" class="dyno-contents">
         {{ if .FrontmatterEditURL }}
         <button type="button"
            data-frontmatter-open
-           class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 flex items-center"
+           class="btn btn-icon btn-ghost-secondary"
            aria-label="Edit frontmatter" title="Edit frontmatter">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
+          <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h10"/>
             <path stroke-linecap="round" stroke-linejoin="round" d="M18 15l2 2 4-4"/>
             <circle cx="18" cy="18" r="2"/>
@@ -191,33 +193,34 @@
       </span>
       {{ end }}
       <!-- Theme toggle -->
-      <button id="theme-toggle" class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" aria-label="Toggle theme">
+      <button id="theme-toggle" class="btn btn-icon btn-ghost-secondary" aria-label="Toggle theme">
         <!-- Sun icon (shown in dark mode) -->
-        <svg id="icon-sun" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg id="icon-sun" class="dyno-theme-icon hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/>
         </svg>
         <!-- Moon icon (shown in light mode) -->
-        <svg id="icon-moon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg id="icon-moon" class="dyno-theme-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
         </svg>
       </button>
     </div>
+    </div>
   </header>
 
-  <div class="flex pt-14 min-h-screen">
+  <div class="dyno-shell">
     <!-- Sidebar -->
-    <aside id="sidebar" data-nav-storage-key="{{ .BasePath }}" class="fixed lg:sticky top-14 left-0 h-[calc(100vh-3.5rem)] w-64 shrink-0 overflow-y-auto border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 z-40 -translate-x-full lg:translate-x-0 transition-transform duration-200">
+    <aside id="sidebar" data-nav-storage-key="{{ .BasePath }}" class="dyno-sidebar">
       {{ template "sidebar-inner" . }}
     </aside>
 
     <!-- Sidebar overlay (mobile) -->
-    <div id="sidebar-overlay" class="fixed inset-0 bg-black/40 z-30 hidden lg:hidden"></div>
+    <div id="sidebar-overlay" class="dyno-sidebar-overlay"></div>
 
     <!-- Main content -->
-    <main id="main-content" class="flex-1 min-w-0 flex flex-col">
-      <div class="flex flex-1 gap-8 max-w-screen-xl mx-auto w-full px-6 py-8">
+    <main id="main-content" class="page-wrapper dyno-main">
+      <div class="dyno-content-grid">
         <!-- Page content -->
-        <div id="page-content" class="flex-1 min-w-0">
+        <div id="page-content" class="dyno-page-content">
           {{ block "page-content" . }}{{ end }}
         </div>
 
@@ -227,14 +230,15 @@
   </div>
 
   <!-- Footer -->
-  <footer class="border-t border-gray-200 dark:border-gray-700 mt-auto">
-    <div class="max-w-screen-xl mx-auto px-6 py-4 flex items-center justify-between text-xs text-gray-400 dark:text-gray-500">
+  <footer class="footer footer-transparent d-print-none dyno-footer">
+    <div class="dyno-footer-inner">
       <span>© {{ if and .Site .Site.Copyright }}{{ .Site.Copyright }}{{ else }}Dyno{{ end }}{{ if .BuildVersion }} · v{{ .BuildVersion }}{{ if and .BuildCommit (ne .BuildCommit "dev") (ne .BuildCommit "unknown") }}+{{ .BuildCommit }}{{ end }}{{ end }}</span>
-      <span>Built with <a href="https://github.com/mares/dyno" class="hover:text-brand-500 transition-colors">dyno</a></span>
+      <span>Built with <a href="https://github.com/mares/dyno">dyno</a></span>
     </div>
   </footer>
 
   {{ if .EasyMDEJSURL }}<script src="{{ .EasyMDEJSURL }}"></script>{{ end }}
+  <script src="{{ .TablerJSURL }}"></script>
   <script src="{{ .AppJSURL }}"></script>
 </body>
 
@@ -249,40 +253,40 @@
 {{ range $node.Children }}
   {{ if .IsDir }}
     {{ $childrenID := printf "nav-children-%s" (.FullPath | urlquery) }}
-    <div class="nav-section mt-4 first:mt-0" data-nav-section data-nav-path="{{ .FullPath }}" data-nav-title="{{ .Title }}">
-      <div class="flex min-w-0 items-center gap-1">
+    <div class="nav-section" data-nav-section data-nav-depth="{{ $depth }}" data-nav-path="{{ .FullPath }}" data-nav-title="{{ .Title }}">
+      <div class="dyno-nav-section-row">
       {{/* A landing-page title navigates; its separate chevron toggles children. */}}
       {{ if .FSPath }}
         <a href="{{ .FullPath }}{{ $filterQuery }}"
            hx-get="{{ .FullPath }}{{ $filterQuery }}"
            hx-target="#page-content"
            hx-push-url="true"
-           class="nav-link nav-section-title min-w-0 flex-1 rounded px-2 py-1 text-xs font-semibold uppercase tracking-widest transition-colors"
+           class="nav-link nav-section-title"
            data-path="{{ .FullPath }}"
            title="{{ .Title }}"
            data-active="{{ if eq .FullPath $current }}true{{ else }}false{{ end }}">
-          <span class="block truncate">{{ .Title }}</span>
+          <span class="dyno-truncate">{{ .Title }}</span>
         </a>
         <button type="button" data-nav-toggle aria-expanded="true" aria-controls="{{ $childrenID }}"
           aria-label="Collapse {{ .Title }}" title="Collapse {{ .Title }}"
-          class="flex h-6 w-6 shrink-0 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-200">
-          <svg data-nav-chevron class="h-3.5 w-3.5 rotate-90 transition-transform duration-150" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          class="dyno-nav-toggle">
+          <svg data-nav-chevron class="dyno-nav-chevron is-expanded" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
           </svg>
         </button>
       {{ else }}
         <button type="button" data-nav-toggle aria-expanded="true" aria-controls="{{ $childrenID }}"
           aria-label="Collapse {{ .Title }}" title="{{ .Title }}"
-          class="flex min-w-0 flex-1 items-center justify-between gap-1 rounded px-2 py-1 text-left text-xs font-semibold uppercase tracking-widest text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-200">
-          <span class="min-w-0 flex-1 truncate">{{ .Title }}</span>
-          <svg data-nav-chevron class="h-3.5 w-3.5 shrink-0 rotate-90 transition-transform duration-150" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          class="dyno-nav-toggle dyno-nav-toggle-label">
+          <span class="dyno-truncate">{{ .Title }}</span>
+          <svg data-nav-chevron class="dyno-nav-chevron is-expanded" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
           </svg>
         </button>
       {{ end }}
       </div>
       {{/* Children — indented with left border */}}
-      <div id="{{ $childrenID }}" data-nav-children class="mt-0.5 ml-0 pl-2 border-l-2 border-gray-100 dark:border-gray-700">
+      <div id="{{ $childrenID }}" data-nav-children class="dyno-nav-children">
         {{ template "nav-tree" (dict "node" . "current" $current "depth" (add $depth 1) "filterQuery" $filterQuery) }}
       </div>
     </div>
@@ -291,11 +295,12 @@
        hx-get="{{ .FullPath }}{{ $filterQuery }}"
        hx-target="#page-content"
        hx-push-url="true"
-       class="nav-link nav-page-link flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors"
+       class="nav-link nav-page-link"
        data-path="{{ .FullPath }}"
+       data-nav-depth="{{ $depth }}"
        data-active="{{ if eq .FullPath $current }}true{{ else }}false{{ end }}">
-      <span class="nav-dot w-1.5 h-1.5 rounded-full shrink-0 opacity-0 {{ if eq .FullPath $current }}opacity-100{{ end }}"></span>
-      <span class="min-w-0 truncate" title="{{ .Title }}">{{ .Title }}</span>
+      <span class="nav-dot"></span>
+      <span class="dyno-truncate" title="{{ .Title }}">{{ .Title }}</span>
       {{ if isAgentsDoc .FSPath }}
       <span class="nav-badge-agent">AGENT</span>
       {{ end }}
@@ -307,40 +312,40 @@
 {{ define "metadata-filters" }}
 {{ if .MetadataFacets }}
 <form id="metadata-filters"
-      class="border-b border-gray-200 p-4 dark:border-gray-700"
+      class="dyno-metadata-filters"
       hx-get="{{ .MetadataFilterURL }}"
       hx-trigger="change"
       hx-target="#page-content"
       hx-push-url="true">
-  <div class="mb-3 flex items-center justify-between">
-    <p class="text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400">Filters</p>
-    <div class="flex items-center gap-2">
+  <div class="dyno-sidebar-heading">
+    <p class="subheader m-0">Filters</p>
+    <div class="dyno-sidebar-actions">
       {{ if .BulkFrontmatterURL }}
       <button type="button"
               data-bulk-frontmatter-open
               data-bulk-frontmatter-url="{{ .BulkFrontmatterURL }}"
-              class="text-xs text-brand-600 hover:underline dark:text-brand-400">
+              class="btn btn-sm btn-ghost-primary">
         Bulk edit
       </button>
       {{ end }}
       {{ if .FiltersActive }}
       <a href="{{ .MetadataFilterURL }}" hx-get="{{ .MetadataFilterURL }}" hx-target="#page-content" hx-push-url="true"
-         class="text-xs text-brand-600 hover:underline dark:text-brand-400">Clear</a>
+         class="btn btn-sm btn-ghost-primary">Clear</a>
       {{ end }}
     </div>
   </div>
-  <div class="space-y-3">
+  <div class="dyno-filter-list">
     {{ range .MetadataFacets }}
     {{ $facet := . }}
-    <details class="group" open>
-      <summary class="cursor-pointer list-none text-xs font-medium text-gray-700 dark:text-gray-300">{{ .Label }}</summary>
-      <div class="mt-1.5 max-h-36 space-y-1 overflow-y-auto">
+    <details class="dyno-filter" open>
+      <summary>{{ .Label }}</summary>
+      <div class="dyno-filter-values">
         {{ range .Values }}
-        <label class="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-800">
+        <label class="form-check dyno-filter-option">
           <input type="checkbox" name="meta.{{ $facet.Name }}" value="{{ .Value }}" {{ if .Selected }}checked{{ end }}
-                 class="rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800">
-          <span class="min-w-0 flex-1 truncate" title="{{ .Value }}">{{ .Value }}</span>
-          <span class="tabular-nums text-gray-400 dark:text-gray-500">{{ .Count }}</span>
+                 class="form-check-input">
+          <span class="form-check-label dyno-truncate" title="{{ .Value }}">{{ .Value }}</span>
+          <span class="badge bg-secondary-lt">{{ .Count }}</span>
         </label>
         {{ end }}
       </div>
@@ -353,15 +358,15 @@
 
 {{ define "sidebar-inner" }}
   {{ template "metadata-filters" . }}
-  <nav class="p-4">
-    <div class="mb-3 flex items-center justify-between gap-2">
-      <p class="text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400">Contents</p>
+  <nav class="dyno-sidebar-nav">
+    <div class="dyno-sidebar-heading">
+      <p class="subheader m-0">Contents</p>
       <button type="button" data-nav-expand-all
-        class="rounded px-2 py-1 text-xs font-medium text-gray-500 transition-colors hover:bg-gray-100 hover:text-brand-600 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-brand-400">
+        class="btn btn-sm btn-ghost-secondary">
         Expand all
       </button>
     </div>
-    <div class="space-y-1">
+    <div class="dyno-nav-tree">
     {{ template "nav-tree" (dict "node" .Nav "current" .CurrentPath "depth" 0 "filterQuery" .FilterQuery) }}
     </div>
   </nav>

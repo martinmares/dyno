@@ -27,7 +27,7 @@ type SiteConfig struct {
 	// Library mode fields (used when multiple --site flags are given)
 	Slug                         string            `yaml:"slug"`  // URL segment for this book, e.g. "monitoring"
 	Icon                         string            `yaml:"icon"`  // emoji or short text shown on library card
-	Color                        string            `yaml:"color"` // accent hex color for library card, e.g. "#0ea5e9"
+	Color                        string            `yaml:"color"` // accent hex color for library card, e.g. "#066fd1"
 	APIProxyAllowedHosts         []string          `yaml:"api_proxy_allowed_hosts"`
 	APIProxyAllowPrivateNetworks *bool             `yaml:"api_proxy_allow_private_networks"`
 	ContentInclude               []string          `yaml:"content_include"`

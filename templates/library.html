@@ -1,6 +1,6 @@
 {{ define "library-base.html" }}
 <!DOCTYPE html>
-<html lang="en" class="">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,99 +10,97 @@
       try {
         var stored = localStorage.getItem('dyno-theme');
         var dark = stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches);
-        if (dark) document.documentElement.classList.add('dark');
+        document.documentElement.classList.toggle('dark', dark);
+        document.documentElement.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
       } catch (_) {}
     })();
   </script>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230284c7'%3E%3Cpath d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230d6efd'%3E%3Cpath d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/%3E%3C/svg%3E">
 
   <script src="{{ .HTMXURL }}" defer></script>
   <script src="{{ .MermaidURL }}"></script>
   <style>{{ .LightCSS }}</style>
   <style>{{ .DarkCSS }}</style>
-  <link rel="stylesheet" href="{{ .TailwindURL }}" />
+  <link rel="stylesheet" href="{{ .TablerCSSURL }}" />
   <link rel="stylesheet" href="{{ .AppCSSURL }}" />
 </head>
-<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 antialiased">
+<body class="dyno-standalone-body">
 
-  <!-- Top navbar — identical markup to base.html -->
-  <header class="fixed top-0 left-0 right-0 z-50 h-14 border-b border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-gray-900/90 backdrop-blur flex items-center px-4 gap-4">
-    <a href="{{ .BasePath }}/" class="flex items-center gap-2 font-bold text-lg text-brand-600 dark:text-brand-500 shrink-0">
-      <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-      </svg>
-      <span>{{ .LogoText }}<span class="ml-1.5 text-sm font-normal text-gray-400 dark:text-gray-500">(Library)</span></span>
-    </a>
-
-    <!-- Search — cross-library -->
-    <div class="flex-1 max-w-xl relative">
-      <div class="relative">
-        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+  <header class="navbar navbar-expand-md dyno-navbar">
+    <div class="dyno-navbar-inner">
+      <a href="{{ .BasePath }}/" class="dyno-brand dyno-library-brand">
+        <svg fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
         </svg>
-        <input
-          id="search-input"
-          type="search"
-          placeholder="Search all books… (Ctrl+K)"
-          class="w-full pl-9 pr-4 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-brand-500"
-          hx-get="{{ .SearchURL }}"
-          hx-trigger="input changed delay:300ms, search"
-          hx-target="#search-results-container"
-          hx-indicator="#search-spinner"
-          {{ if .MetadataFacets }}hx-include="#metadata-filters"{{ end }}
-          name="q"
-          autocomplete="off"
-        />
-        <span id="search-spinner" class="htmx-indicator absolute right-3 top-1/2 -translate-y-1/2">
-          <svg class="animate-spin w-4 h-4 text-brand-500" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+        <span>{{ .LogoText }}<small>(Library)</small></span>
+      </a>
+
+      <div class="dyno-search">
+        <div class="dyno-search-control">
+          <svg class="dyno-search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
           </svg>
-        </span>
+          <input
+            id="search-input"
+            type="search"
+            placeholder="Search all books… (Ctrl+K)"
+            class="form-control form-control-sm"
+            hx-get="{{ .SearchURL }}"
+            hx-trigger="input changed delay:300ms, search"
+            hx-target="#search-results-container"
+            hx-indicator="#search-spinner"
+            {{ if .MetadataFacets }}hx-include="#metadata-filters"{{ end }}
+            name="q"
+            autocomplete="off"
+          />
+          <span id="search-spinner" class="dyno-search-spinner htmx-indicator">
+            <svg class="dyno-search-spinner-icon" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+              <path fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+            </svg>
+          </span>
+        </div>
+        <div id="search-results-container" class="dyno-standalone-search-results hidden"></div>
       </div>
-      <div id="search-results-container" class="absolute top-full left-0 right-0 mt-1 z-50 hidden"></div>
-    </div>
 
-    <div class="flex items-center gap-2 ml-auto">
-      <button id="theme-toggle" class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors" aria-label="Toggle theme">
-        <svg id="icon-sun" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/>
-        </svg>
-        <svg id="icon-moon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
-        </svg>
-      </button>
+      <div class="dyno-navbar-actions">
+        <button id="theme-toggle" class="btn btn-icon btn-ghost-secondary" aria-label="Toggle theme">
+          <svg id="icon-sun" class="dyno-theme-icon hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/>
+          </svg>
+          <svg id="icon-moon" class="dyno-theme-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+          </svg>
+        </button>
+      </div>
     </div>
   </header>
 
-  <main class="pt-14 min-h-screen">
-    <div class="max-w-5xl mx-auto px-6 py-12">
-
+  <main class="dyno-standalone-main">
+    <div class="dyno-library-content">
       {{ if .Subtitle }}
-      <p class="text-gray-500 dark:text-gray-400 text-base mb-8">{{ .Subtitle }}</p>
+      <p class="dyno-library-subtitle">{{ .Subtitle }}</p>
       {{ end }}
 
       {{ if .MetadataFacets }}
-      <form id="metadata-filters" action="{{ .BasePath }}/" method="get" onchange="this.submit()"
-            class="mb-8 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-        <div class="mb-3 flex items-center justify-between">
-          <h2 class="text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400">Filters</h2>
+      <form id="metadata-filters" action="{{ .BasePath }}/" method="get" onchange="this.submit()" class="card dyno-library-filters">
+        <div class="dyno-library-filter-header">
+          <h2 class="subheader">Filters</h2>
           {{ if .FiltersActive }}
-          <a href="{{ .BasePath }}/" class="text-xs text-brand-600 hover:underline dark:text-brand-400">Clear</a>
+          <a href="{{ .BasePath }}/" class="btn btn-sm btn-ghost-primary">Clear</a>
           {{ end }}
         </div>
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div class="dyno-library-filter-grid">
           {{ range .MetadataFacets }}
           {{ $facet := . }}
-          <fieldset>
-            <legend class="mb-1.5 text-xs font-medium text-gray-700 dark:text-gray-300">{{ .Label }}</legend>
-            <div class="max-h-32 space-y-1 overflow-y-auto">
+          <fieldset class="dyno-library-facet">
+            <legend>{{ .Label }}</legend>
+            <div class="dyno-library-facet-values">
               {{ range .Values }}
-              <label class="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-700">
-                <input type="checkbox" name="meta.{{ $facet.Name }}" value="{{ .Value }}" {{ if .Selected }}checked{{ end }}
-                       class="rounded border-gray-300 text-brand-600 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-800">
-                <span class="min-w-0 flex-1 truncate" title="{{ .Value }}">{{ .Value }}</span>
-                <span class="tabular-nums text-gray-400 dark:text-gray-500">{{ .Count }}</span>
+              <label class="dyno-library-facet-option">
+                <input type="checkbox" name="meta.{{ $facet.Name }}" value="{{ .Value }}" {{ if .Selected }}checked{{ end }} class="form-check-input">
+                <span class="dyno-truncate" title="{{ .Value }}">{{ .Value }}</span>
+                <span class="badge bg-secondary-lt">{{ .Count }}</span>
               </label>
               {{ end }}
             </div>
@@ -112,67 +110,55 @@
       </form>
       {{ end }}
 
-      <!-- Book cards grid -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div class="dyno-library-books">
         {{ range .Books }}
-        <a href="{{ .BookPath }}/" class="group block rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-brand-400 dark:hover:border-brand-500 hover:shadow-lg transition-all duration-200 overflow-hidden">
-
-          <div class="h-1.5 w-full" style="background: {{ .AccentColor }};"></div>
-
-          <div class="p-5">
-            <div class="flex items-start gap-3 mb-3">
-              {{ if .Icon }}
-              <span class="text-2xl leading-none mt-0.5 shrink-0">{{ .Icon }}</span>
-              {{ end }}
-              <div class="min-w-0">
-                <h2 class="font-semibold text-gray-900 dark:text-white text-base leading-snug group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">{{ .Title }}</h2>
-                {{ if .Description }}<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-2">{{ .Description }}</p>{{ end }}
+        <a href="{{ .BookPath }}/" class="card dyno-book-card">
+          <div class="dyno-book-accent" style="background: {{ .AccentColor }};"></div>
+          <div class="dyno-book-body">
+            <div class="dyno-book-heading">
+              {{ if .Icon }}<span class="dyno-book-icon">{{ .Icon }}</span>{{ end }}
+              <div class="dyno-book-title-wrap">
+                <h2>{{ .Title }}</h2>
+                {{ if .Description }}<p>{{ .Description }}</p>{{ end }}
               </div>
             </div>
 
-            <div class="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500 mb-4">
-              <span class="flex items-center gap-1">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            <div class="dyno-book-meta">
+              <span>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 {{ .PageCount }} pages
               </span>
-              <span class="flex items-center gap-1">
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10"/></svg>
+              <span>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10"/></svg>
                 {{ .WordCount | fmtNum }} words
               </span>
             </div>
 
             {{ if .TopChapters }}
-            <ul class="space-y-1 text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700 pt-3">
+            <ul class="dyno-book-chapters">
               {{ range .TopChapters }}
-              <li class="flex items-center gap-1.5 truncate">
-                <svg class="w-3 h-3 shrink-0 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                <span class="truncate">{{ .Title }}</span>
+              <li>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                <span class="dyno-truncate">{{ .Title }}</span>
               </li>
               {{ end }}
             </ul>
             {{ end }}
           </div>
-
-          <div class="px-5 pb-4 flex justify-end">
-            <span class="text-xs text-brand-500 dark:text-brand-400 font-medium group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-1">
-              Open
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-            </span>
+          <div class="dyno-book-footer">
+            <span>Open <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></span>
           </div>
-
         </a>
         {{ end }}
       </div>
-
     </div>
   </main>
 
-  <footer class="border-t border-gray-200 dark:border-gray-700">
-    <div class="max-w-5xl mx-auto px-6 py-4 text-center text-xs text-gray-400 dark:text-gray-500">
-      Built with <a href="https://github.com/mares/dyno" class="hover:text-brand-500 transition-colors">dyno</a>
-    </div>
+  <footer class="dyno-standalone-footer">
+    <div>Built with <a href="https://github.com/mares/dyno">dyno</a></div>
   </footer>
 
+  <script src="{{ .TablerJSURL }}"></script>
   <script src="{{ .AppJSURL }}"></script>
 </body>
 </html>

@@ -47,7 +47,6 @@ func (s *Server) gitHistoryHandler(w http.ResponseWriter, r *http.Request) {
 		DarkCSS:       template.CSS(s.renderer.DarkCSS()),
 		Site:          s.siteCfg,
 		BasePath:      s.basePath,
-		TailwindURL:   s.assetURL("tailwind.css"),
 		AppCSSURL:     s.assetURL("app.css"),
 		AppJSURL:      s.assetURL("app.js"),
 		HTMXURL:       s.assetURL("htmx.min.js"),
@@ -75,27 +74,28 @@ func (s *Server) gitHistoryHandler(w http.ResponseWriter, r *http.Request) {
 
 func renderGitHistoryHTML(commits []GitCommit) string {
 	if len(commits) == 0 {
-		return `<h1 class="text-2xl font-bold mb-4">Git history</h1><p class="text-gray-500 dark:text-gray-400">Git history is not available for this page.</p>`
+		return `<div class="dyno-history"><h1>Git history</h1><p class="dyno-history-summary">Git history is not available for this page.</p></div>`
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, `<h1 class="text-2xl font-bold mb-2">Git history</h1>`)
-	fmt.Fprintf(&b, `<p class="text-sm text-gray-500 dark:text-gray-400 mb-6">Latest %d commits</p>`, len(commits))
-	b.WriteString(`<div class="overflow-x-auto not-prose">`)
-	b.WriteString(`<table class="w-full text-sm border-collapse">`)
-	b.WriteString(`<thead><tr class="border-b border-gray-200 dark:border-gray-700">`)
-	b.WriteString(`<th class="text-left py-2 pr-4 font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Date</th>`)
-	b.WriteString(`<th class="text-left py-2 pr-4 font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Commit</th>`)
-	b.WriteString(`<th class="text-left py-2 pr-4 font-semibold text-gray-600 dark:text-gray-400 whitespace-nowrap">Author</th>`)
-	b.WriteString(`<th class="text-left py-2 font-semibold text-gray-600 dark:text-gray-400">Message</th>`)
+	b.WriteString(`<div class="dyno-history">`)
+	fmt.Fprintf(&b, `<h1>Git history</h1>`)
+	fmt.Fprintf(&b, `<p class="dyno-history-summary">Latest %d commits</p>`, len(commits))
+	b.WriteString(`<div class="dyno-history-table-wrap">`)
+	b.WriteString(`<table class="table table-vcenter dyno-history-table">`)
+	b.WriteString(`<thead><tr>`)
+	b.WriteString(`<th>Date</th>`)
+	b.WriteString(`<th>Commit</th>`)
+	b.WriteString(`<th>Author</th>`)
+	b.WriteString(`<th>Message</th>`)
 	b.WriteString(`</tr></thead><tbody>`)
 	for _, c := range commits {
 		fmt.Fprintf(&b,
-			`<tr class="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50">`+
-				`<td class="py-2 pr-4 text-gray-500 dark:text-gray-400 whitespace-nowrap font-mono text-xs">%s</td>`+
-				`<td class="py-2 pr-4 whitespace-nowrap"><code class="text-xs bg-gray-100 dark:bg-gray-800 text-brand-600 dark:text-brand-400 px-1.5 py-0.5 rounded font-mono">%s</code></td>`+
-				`<td class="py-2 pr-4 text-gray-600 dark:text-gray-300 whitespace-nowrap">%s</td>`+
-				`<td class="py-2 text-gray-800 dark:text-gray-200">%s</td>`+
+			`<tr>`+
+				`<td class="dyno-history-date">%s</td>`+
+				`<td><code class="dyno-history-hash">%s</code></td>`+
+				`<td class="dyno-history-author">%s</td>`+
+				`<td>%s</td>`+
 				`</tr>`,
 			template.HTMLEscapeString(c.Date),
 			template.HTMLEscapeString(c.Hash),
@@ -103,7 +103,7 @@ func renderGitHistoryHTML(commits []GitCommit) string {
 			template.HTMLEscapeString(c.Message),
 		)
 	}
-	b.WriteString(`</tbody></table></div>`)
+	b.WriteString(`</tbody></table></div></div>`)
 	return b.String()
 }
 

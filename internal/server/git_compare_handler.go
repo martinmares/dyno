@@ -62,7 +62,8 @@ type gitCompareData struct {
 	Added             int
 	Deleted           int
 	Changed           int
-	TailwindURL       string
+	TablerCSSURL      string
+	TablerJSURL       string
 	AppCSSURL         string
 	FaviconURL        string
 	LightCSS          template.CSS
@@ -153,7 +154,8 @@ func (s *Server) gitCompareHandler(w http.ResponseWriter, r *http.Request) {
 		Right:             right,
 		Mode:              mode,
 		IgnoreFrontmatter: r.URL.Query().Get("ignore_frontmatter") == "1",
-		TailwindURL:       s.assetURL("tailwind.css"),
+		TablerCSSURL:      s.assetURL("tabler.min.css"),
+		TablerJSURL:       s.assetURL("tabler.min.js"),
 		AppCSSURL:         s.assetURL("app.css"),
 		FaviconURL:        s.faviconURL(),
 		LightCSS:          template.CSS(s.renderer.LightCSS()),

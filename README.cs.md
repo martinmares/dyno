@@ -29,7 +29,7 @@ Samostatně hostovaný dokumentační server — něco jako GitBook nebo Notion,
 - **Hot reload** — příznak `--watch` přenačte navigaci a vyhledávací index při změně souborů
 - **Dev režim** — příznak `--dev` načítá šablony z disku bez nutnosti rebuildu
 - **Jediný binární soubor** — vše je embedováno, žádný Node.js, žádný build pipeline
-- **Předkompilované CSS** — Tailwind je zkompilován do lokálních assetů místo načítání z CDN
+- **Vestavěné UI assety** — Tabler CSS a Dyno styly se servírují z lokálních assetů
 - **Volitelný MCP companion** — `dyno-mcp` zpřístupňuje dokumentaci AI agentům přes `stdio` nebo HTTP
 
 ## Struktura projektu
@@ -152,7 +152,7 @@ sites:
     title: Go Cookbook
     slug: go
     icon: 🐹
-    color: "#0ea5e9"
+    color: "#066fd1"
 ```
 
 Každý záznam používá buď `path` (lokální adresář) nebo `url` (git repozitář), nikdy obojí. Pole metadat (`title`, `slug`, `icon`, `color`, …) jsou záložní hodnoty — `dyno.yaml` uvnitř webu vždy vyhraje.

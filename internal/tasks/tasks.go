@@ -286,7 +286,7 @@ func (idx *Index) renderGroups(items []Item, anchorID, query string, summary boo
 	}
 	b.WriteString(`</div>`)
 	b.WriteString(`<label class="tasks-filter-wrap">`)
-	b.WriteString(`<span class="sr-only">Filter tasks</span>`)
+	b.WriteString(`<span class="visually-hidden">Filter tasks</span>`)
 	b.WriteString(`<input type="search" class="tasks-filter" placeholder="Filter tasks..." data-task-filter>`)
 	b.WriteString(`</label>`)
 	b.WriteString(`</div>`)

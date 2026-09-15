@@ -1,6 +1,6 @@
 ---
 title: Welcome to Dyno Docs
-description: Self-hosted documentation server built with Go, HTMX and Tailwind CSS.
+description: Self-hosted documentation server built with Go, HTMX and Tabler CSS.
 weight: 1
 comment_id: dyno-home
 external_refs:
@@ -16,12 +16,12 @@ external_refs:
 
 # Welcome to Dyno Docs
 
-**Dyno** is a modern, self-hosted documentation server built with Go + HTMX + Tailwind CSS.
+**Dyno** is a modern, self-hosted documentation server built with Go + HTMX + Tabler CSS.
 
 ## Features
 
 - **Fast** — single Go binary, zero runtime dependencies
-- **Beautiful** — Tailwind CSS with dark/light mode
+- **Beautiful** — Tabler CSS with dark/light mode
 - **Searchable** — full-text search with highlighted results
 - **Diagrams** — Mermaid.js support out of the box
 - **Dynamic** — HTMX-powered navigation, no full-page reloads

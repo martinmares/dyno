@@ -652,6 +652,15 @@ func TestFooterUsesBuildMetadata(t *testing.T) {
 	if !strings.Contains(body, "/assets/app.css") {
 		t.Fatalf("expected app.css stylesheet link, got: %s", body)
 	}
+	if !strings.Contains(body, "/assets/tabler.min.css") {
+		t.Fatalf("expected Tabler stylesheet link, got: %s", body)
+	}
+	if !strings.Contains(body, "/assets/tabler.min.js") {
+		t.Fatalf("expected Tabler script link, got: %s", body)
+	}
+	if !strings.Contains(body, "setAttribute('data-bs-theme'") {
+		t.Fatalf("expected Tabler theme initialization, got: %s", body)
+	}
 }
 
 func TestSidebarSectionsHaveIndependentToggleAndTitleTooltips(t *testing.T) {
@@ -677,12 +686,15 @@ func TestSidebarSectionsHaveIndependentToggleAndTitleTooltips(t *testing.T) {
 	}
 	body := rec.Body.String()
 	for _, want := range []string{
-		`data-nav-section data-nav-path="/guides/"`,
+		`data-nav-section data-nav-depth="0" data-nav-path="/guides/"`,
 		`data-nav-toggle aria-expanded="true"`,
+		`class="dyno-nav-toggle`,
+		`class="dyno-nav-children"`,
 		`data-nav-expand-all`,
 		`Expand all`,
 		`aria-controls="nav-children-%2Fguides%2F"`,
 		`title="Guides"`,
+		`data-nav-depth="1"`,
 		`title="Api Widget"`,
 	} {
 		if !strings.Contains(body, want) {
@@ -767,6 +779,28 @@ func TestRewriteMDLinksUsesSourceFileAndDirectoryFallback(t *testing.T) {
 	want := `href="/detail-design/platformizace/req0122859-uzivatelske-pozadavky-brd/"`
 	if !strings.Contains(got, want) {
 		t.Fatalf("expected directory landing URL %s, got %s", want, got)
+	}
+}
+
+func TestHiddenMarkdownFileIsRenderedInsteadOfServedAsSource(t *testing.T) {
+	srv := newTestServer(t)
+	writeTestFile(t, filepath.Join(srv.contentDir, "index.md"), "# Home\n")
+	hidden := filepath.Join(srv.contentDir, "_model", "core", "dms", "Komentáře.md")
+	writeTestFile(t, hidden, "# Komentáře\n\nRendered content.\n")
+
+	req := httptest.NewRequest(http.MethodGet, "/_model/core/dms/Koment%C3%A1%C5%99e.md", nil)
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected rendered hidden Markdown page, got status %d and body %q", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Rendered content.") || !strings.Contains(body, "dyno-page-content") {
+		t.Fatalf("expected HTML document response, got: %s", body)
+	}
+	if strings.Contains(body, "# Komentáře") {
+		t.Fatalf("expected Markdown source not to be served, got: %s", body)
 	}
 }
 

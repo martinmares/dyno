@@ -253,7 +253,7 @@ func (ls *LibraryServer) dashboardHandler(w http.ResponseWriter, r *http.Request
 	for _, book := range ls.books {
 		color := book.Cfg.Color
 		if color == "" {
-			color = "#0ea5e9"
+			color = "#066fd1"
 		}
 		bookPath := strings.TrimRight(ls.basePath, "/") + "/" + book.Slug
 		pageCount := book.PageCount
@@ -285,11 +285,13 @@ func (ls *LibraryServer) dashboardHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	// Reuse asset URLs from any book server.
-	appJSURL, appCSSURL, tailwindURL, htmxURL, mermaidURL := "/assets/app.js", "/assets/app.css", "/assets/tailwind.css", "/assets/htmx.min.js", "/assets/mermaid.min.js"
+	appJSURL, appCSSURL := "/assets/app.js", "/assets/app.css"
+	tablerCSSURL, tablerJSURL, htmxURL, mermaidURL := "/assets/tabler.min.css", "/assets/tabler.min.js", "/assets/htmx.min.js", "/assets/mermaid.min.js"
 	for _, srv := range ls.servers {
 		appJSURL = srv.assetURL("app.js")
 		appCSSURL = srv.assetURL("app.css")
-		tailwindURL = srv.assetURL("tailwind.css")
+		tablerCSSURL = srv.assetURL("tabler.min.css")
+		tablerJSURL = srv.assetURL("tabler.min.js")
 		htmxURL = srv.assetURL("htmx.min.js")
 		mermaidURL = srv.assetURL("mermaid.min.js")
 		break
@@ -304,7 +306,8 @@ func (ls *LibraryServer) dashboardHandler(w http.ResponseWriter, r *http.Request
 		SearchURL:      strings.TrimRight(ls.basePath, "/") + "/_search" + filterQuery,
 		AppJSURL:       appJSURL,
 		AppCSSURL:      appCSSURL,
-		TailwindURL:    tailwindURL,
+		TablerCSSURL:   tablerCSSURL,
+		TablerJSURL:    tablerJSURL,
 		HTMXURL:        htmxURL,
 		MermaidURL:     mermaidURL,
 		IsHTMX:         r.Header.Get("HX-Request") == "true",
@@ -343,26 +346,29 @@ func (ls *LibraryServer) searchHandler(w http.ResponseWriter, r *http.Request) {
 	// Build asset URLs
 	appJSURL := "/assets/app.js"
 	appCSSURL := "/assets/app.css"
-	tailwindURL := "/assets/tailwind.css"
+	tablerCSSURL := "/assets/tabler.min.css"
+	tablerJSURL := "/assets/tabler.min.js"
 	for _, srv := range ls.servers {
 		appJSURL = srv.assetURL("app.js")
 		appCSSURL = srv.assetURL("app.css")
-		tailwindURL = srv.assetURL("tailwind.css")
+		tablerCSSURL = srv.assetURL("tabler.min.css")
+		tablerJSURL = srv.assetURL("tabler.min.js")
 		break
 	}
 
 	data := SearchData{
-		Query:       q,
-		Results:     results,
-		IsHTMX:      r.Header.Get("HX-Request") == "true",
-		Title:       "Search",
-		BasePath:    ls.basePath,
-		SearchURL:   strings.TrimRight(ls.basePath, "/") + "/_search" + metadata.Encode(filter),
-		AppJSURL:    appJSURL,
-		AppCSSURL:   appCSSURL,
-		TailwindURL: tailwindURL,
-		FilterQuery: metadata.Encode(filter),
-		ResultQuery: "?" + resultValues.Encode(),
+		Query:        q,
+		Results:      results,
+		IsHTMX:       r.Header.Get("HX-Request") == "true",
+		Title:        "Search",
+		BasePath:     ls.basePath,
+		SearchURL:    strings.TrimRight(ls.basePath, "/") + "/_search" + metadata.Encode(filter),
+		AppJSURL:     appJSURL,
+		AppCSSURL:    appCSSURL,
+		TablerCSSURL: tablerCSSURL,
+		TablerJSURL:  tablerJSURL,
+		FilterQuery:  metadata.Encode(filter),
+		ResultQuery:  "?" + resultValues.Encode(),
 	}
 
 	tmpl, err := ls.getTemplate()

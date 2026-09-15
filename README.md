@@ -29,7 +29,7 @@ A self-hosted documentation server — think GitBook or Notion, but as a single 
 - **Hot reload** — `--watch` flag reloads navigation and search index on file changes
 - **Dev mode** — `--dev` flag reloads templates from disk without rebuilding
 - **Single binary** — everything embedded, no Node.js, no build pipeline
-- **Prebuilt production CSS** — Tailwind is compiled into local assets instead of loaded from a CDN
+- **Bundled UI assets** — Tabler CSS and Dyno styles are served from local assets
 - **Optional MCP companion** — `dyno-mcp` exposes the same docs to AI agents over `stdio` or HTTP
 
 ## Project layout
@@ -155,7 +155,7 @@ sites:
     title: Go Cookbook
     slug: go
     icon: 🐹
-    color: "#0ea5e9"
+    color: "#066fd1"
 ```
 
 Each entry uses either `path` (local directory) or `url` (git repo), never both. Metadata fields (`title`, `slug`, `icon`, `color`, …) are fallbacks — `dyno.yaml` inside the site always wins.
@@ -169,8 +169,6 @@ Requires **Go 1.22+**.
 ### Development
 
 ```bash
-just css          # build production CSS once
-just css-watch    # rebuild CSS while editing templates
 go run . --site ./site --dev --watch
 go run . --site /path/to/wiki --dev --watch
 go run . --version

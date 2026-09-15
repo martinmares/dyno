@@ -1,24 +1,20 @@
 {{ define "page-content" }}
-<article class="w-full">
+<article class="dyno-article">
   {{/* Breadcrumbs */}}
   {{ if gt (len .Breadcrumbs) 1 }}
-  <nav class="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 mb-6" aria-label="Breadcrumb">
+  <nav aria-label="Breadcrumb">
+    <ol class="breadcrumb dyno-breadcrumb">
     {{ range $i, $crumb := .Breadcrumbs }}
-      {{ if gt $i 0 }}
-        <svg class="w-3.5 h-3.5 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-        </svg>
-      {{ end }}
       {{ if eq $i (add (len $.Breadcrumbs) -1) }}
-        <span class="text-gray-900 dark:text-gray-100 font-medium">{{ $crumb.Title }}</span>
+        <li class="breadcrumb-item active" aria-current="page">{{ $crumb.Title }}</li>
       {{ else }}
-        <a href="{{ $crumb.FullPath }}{{ $.FilterQuery }}"
+        <li class="breadcrumb-item"><a href="{{ $crumb.FullPath }}{{ $.FilterQuery }}"
            hx-get="{{ $crumb.FullPath }}{{ $.FilterQuery }}"
            hx-target="#page-content"
-           hx-push-url="true"
-           class="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">{{ $crumb.Title }}</a>
+           hx-push-url="true">{{ $crumb.Title }}</a></li>
       {{ end }}
     {{ end }}
+    </ol>
   </nav>
   {{ end }}
 
@@ -40,70 +36,68 @@
   {{ end }}
 
   {{ if .ExternalRefs }}
-  <section class="not-prose mb-6 rounded-lg border border-gray-200 bg-gray-50/80 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/50" aria-label="External references">
-    <div class="flex flex-wrap items-center gap-2">
-      <span class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Links</span>
-      {{ range .ExternalRefs }}
-        {{ if .URL }}
-        <a href="{{ .URL }}"
-           target="_blank"
-           rel="noopener noreferrer"
-           class="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 shadow-sm transition-colors hover:border-brand-300 hover:text-brand-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:border-brand-600 dark:hover:text-brand-400">
-          {{ if .ID }}<span class="font-mono text-gray-500 dark:text-gray-400">{{ .ID }}</span>{{ end }}
-          {{ if .Label }}<span>{{ .Label }}</span>{{ else if not .ID }}<span>{{ .URL }}</span>{{ end }}
-          <svg class="h-3 w-3 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M9 7h8v8"/>
-          </svg>
-        </a>
+  <section class="card card-sm dyno-external-refs" aria-label="External references">
+    <div class="card-body dyno-external-refs-body">
+      <span class="subheader">Links</span>
+      <div class="dyno-external-ref-list">
+        {{ range .ExternalRefs }}
+          {{ if .URL }}
+          <a href="{{ .URL }}"
+             target="_blank"
+             rel="noopener noreferrer"
+             class="btn btn-sm btn-outline-secondary dyno-external-ref">
+            {{ if .ID }}<span class="font-monospace text-secondary">{{ .ID }}</span>{{ end }}
+            {{ if .Label }}<span>{{ .Label }}</span>{{ else if not .ID }}<span>{{ .URL }}</span>{{ end }}
+            <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M9 7h8v8"/>
+            </svg>
+          </a>
+          {{ end }}
         {{ end }}
-      {{ end }}
+      </div>
     </div>
   </section>
   {{ end }}
 
   {{/* Content */}}
-  <div class="prose prose-gray dark:prose-invert max-w-none
-    prose-headings:scroll-mt-20
-    prose-a:text-brand-600 dark:prose-a:text-brand-400
-    prose-code:before:content-none prose-code:after:content-none
-    prose-blockquote:not-italic">
+  <div class="dyno-prose">
     {{ .ContentHTML }}
   </div>
 
   {{ if .FrontmatterEditURL }}
-  <dialog data-frontmatter-dialog class="m-auto w-full max-w-4xl rounded-xl border border-gray-200 bg-white p-0 shadow-2xl backdrop:bg-gray-950/60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
-    <form method="post" action="{{ .FrontmatterEditURL }}" data-frontmatter-form>
+  <dialog data-frontmatter-dialog class="dyno-dialog dyno-dialog-lg">
+    <form method="post" action="{{ .FrontmatterEditURL }}" data-frontmatter-form class="card">
       <input type="hidden" name="page_path" value="{{ .CurrentPath }}">
       <input type="hidden" name="revision" value="{{ .FrontmatterRevision }}">
       <input type="hidden" name="entries" data-frontmatter-entries>
-      <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-700">
+      <div class="card-header">
         <div>
-          <h3 class="font-semibold">Edit frontmatter</h3>
-          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Quickly edit the page header as key/value rows.</p>
+          <h3 class="card-title">Edit frontmatter</h3>
+          <p class="text-secondary small mb-0 mt-1">Quickly edit the page header as key/value rows.</p>
         </div>
-        <button type="button" data-frontmatter-cancel class="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200" aria-label="Close">×</button>
+        <button type="button" data-frontmatter-cancel class="btn-close ms-auto" aria-label="Close"></button>
       </div>
-      <div class="max-h-[70vh] overflow-y-auto px-5 py-4">
-        <table class="w-full table-fixed border-separate border-spacing-y-2">
+      <div class="card-body dyno-dialog-scroll">
+        <table class="table table-vcenter dyno-frontmatter-table">
           <thead>
-            <tr class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              <th class="w-1/3 px-2 py-1">Key</th>
-              <th class="px-2 py-1">Value</th>
-              <th class="w-20 px-2 py-1"></th>
+            <tr>
+              <th class="dyno-frontmatter-key">Key</th>
+              <th>Value</th>
+              <th class="dyno-frontmatter-action"></th>
             </tr>
           </thead>
           <tbody data-frontmatter-rows>
             {{ if .FrontmatterEntries }}
               {{ range .FrontmatterEntries }}
               <tr data-frontmatter-row>
-                <td class="align-top px-2">
-                  <input type="text" value="{{ .Key }}" class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100" data-frontmatter-key>
+                <td>
+                  <input type="text" value="{{ .Key }}" class="form-control" data-frontmatter-key>
                 </td>
-                <td class="align-top px-2">
-                  <textarea rows="2" class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 font-mono text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100" data-frontmatter-value>{{ .Value }}</textarea>
+                <td>
+                  <textarea rows="2" class="form-control font-monospace" data-frontmatter-value>{{ .Value }}</textarea>
                 </td>
-                <td class="align-top px-2 pt-2 text-right">
-                  <button type="button" data-frontmatter-remove class="rounded-md px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40">Remove</button>
+                <td class="text-end">
+                  <button type="button" data-frontmatter-remove class="btn btn-sm btn-ghost-danger">Remove</button>
                 </td>
               </tr>
               {{ end }}
@@ -112,26 +106,26 @@
         </table>
         <template data-frontmatter-row-template>
           <tr data-frontmatter-row>
-            <td class="align-top px-2">
-              <input type="text" class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100" data-frontmatter-key placeholder="key">
+            <td>
+              <input type="text" class="form-control" data-frontmatter-key placeholder="key">
             </td>
-            <td class="align-top px-2">
-              <textarea rows="2" class="w-full rounded-md border border-gray-300 bg-white px-3 py-2 font-mono text-sm text-gray-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-100" data-frontmatter-value placeholder="value"></textarea>
+            <td>
+              <textarea rows="2" class="form-control font-monospace" data-frontmatter-value placeholder="value"></textarea>
             </td>
-            <td class="align-top px-2 pt-2 text-right">
-              <button type="button" data-frontmatter-remove class="rounded-md px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40">Remove</button>
+            <td class="text-end">
+              <button type="button" data-frontmatter-remove class="btn btn-sm btn-ghost-danger">Remove</button>
             </td>
           </tr>
         </template>
       </div>
-      <div class="flex items-center justify-between gap-2 border-t border-gray-100 bg-gray-50 px-5 py-3 dark:border-gray-800 dark:bg-gray-900/70">
-        <div class="flex flex-col gap-1">
-          <button type="button" data-frontmatter-add class="rounded-md border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">Add field</button>
-          <p data-frontmatter-status class="text-xs text-gray-500 dark:text-gray-400"></p>
+      <div class="card-footer dyno-dialog-footer">
+        <div>
+          <button type="button" data-frontmatter-add class="btn btn-outline-secondary">Add field</button>
+          <p data-frontmatter-status class="small text-secondary mb-0 mt-1"></p>
         </div>
-        <div class="flex items-center gap-2">
-          <button type="button" data-frontmatter-cancel class="rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">Cancel</button>
-          <button type="submit" class="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700">Save</button>
+        <div class="btn-list">
+          <button type="button" data-frontmatter-cancel class="btn btn-ghost-secondary">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save</button>
         </div>
       </div>
     </form>
@@ -140,97 +134,104 @@
 
   {{ if .CommentsURL }}
   <section id="comments"
-           class="not-prose mt-10 border-t border-gray-200 pt-5 dark:border-gray-800"
+           class="dyno-comments"
            data-comments-root
            data-document-id="{{ .CommentDocumentID }}"
            data-comments-url="{{ .CommentsURL }}"
            data-comments-management="{{ if .CommentsManagement }}true{{ else }}false{{ end }}"
            data-page-path="{{ .CurrentPath }}">
-    <div class="mb-4 flex items-center justify-between gap-3">
+    <div class="dyno-section-header">
       <div>
-        <h2 class="text-base font-semibold text-gray-950 dark:text-gray-50">Comments</h2>
-        <p class="mt-0.5 text-sm text-gray-500 dark:text-gray-400">Add a page note or comment on selected text.</p>
+        <h2 class="h3 mb-1">Comments</h2>
+        <p class="text-secondary small mb-0">Add a page note or comment on selected text.</p>
       </div>
-      <span data-comments-count class="inline-flex min-w-7 items-center justify-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">{{ len .Comments }}</span>
-      <button type="button" data-comment-new class="rounded-md border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800">Add comment</button>
+      <span data-comments-count class="badge bg-secondary-lt">{{ len .Comments }}</span>
+      <button type="button" data-comment-new class="btn btn-outline-secondary">Add comment</button>
     </div>
 
-    <div class="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-950" data-comments-list>
+    <div class="card dyno-annotation-list" data-comments-list>
       {{ if .CommentTree }}
         {{ template "comment-tree" dict "Nodes" .CommentTree "CommentsURL" .CommentsURL "CurrentPath" .CurrentPath "Management" .CommentsManagement }}
       {{ else }}
-        <p class="px-4 py-5 text-sm text-gray-500 dark:text-gray-400">No comments yet.</p>
+        <p class="text-secondary small p-3 mb-0">No comments yet.</p>
       {{ end }}
     </div>
 
-    <div class="mt-8" data-highlights-section>
-      <div class="mb-3 flex items-center justify-between"><h2 class="text-base font-semibold text-gray-950 dark:text-gray-50">Highlights</h2><span data-highlights-count class="text-xs font-semibold text-gray-500 dark:text-gray-400">{{ len .Highlights }}</span></div>
-      <div class="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-950" data-highlights-list>
+    <div class="dyno-highlights" data-highlights-section>
+      <div class="dyno-section-header"><h2 class="h3 mb-0">Highlights</h2><span data-highlights-count class="badge bg-secondary-lt">{{ len .Highlights }}</span></div>
+      <div class="card dyno-annotation-list" data-highlights-list>
       {{ if .Highlights }}
         {{ range .Highlights }}
-        <article class="flex items-start justify-between gap-3 px-4 py-3" data-highlight-row="{{ .ID }}">
-          <p class="min-w-0 flex-1 truncate text-sm text-gray-700 dark:text-gray-300" title="{{ .Quote }}">{{ .Quote }}</p>
-          <div class="flex shrink-0 items-center gap-1">
-            <button type="button" data-highlight-go="{{ .ID }}" class="rounded px-2 py-1 text-xs text-brand-600 hover:bg-gray-100 dark:text-brand-400 dark:hover:bg-gray-800">Go to</button>
-            {{ if $.CommentsManagement }}<button type="button" data-annotation-delete="{{ .ID }}" class="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40">Delete</button>{{ end }}
+        <article class="dyno-highlight-row" data-highlight-row="{{ .ID }}">
+          <p class="dyno-highlight-quote" title="{{ .Quote }}">{{ .Quote }}</p>
+          <div class="btn-list flex-nowrap">
+            <button type="button" data-highlight-go="{{ .ID }}" class="btn btn-sm btn-ghost-primary">Go to</button>
+            {{ if $.CommentsManagement }}<button type="button" data-annotation-delete="{{ .ID }}" class="btn btn-sm btn-ghost-danger">Delete</button>{{ end }}
           </div>
         </article>
         <span hidden data-comment-highlight data-highlight-id="{{ .ID }}" data-quote="{{ .Quote }}" data-anchor="{{ .Anchor }}"></span>
         {{ end }}
-      {{ else }}<p class="px-4 py-5 text-sm text-gray-500 dark:text-gray-400">No highlights yet.</p>{{ end }}
+      {{ else }}<p class="text-secondary small p-3 mb-0">No highlights yet.</p>{{ end }}
       </div>
     </div>
 
-    <dialog data-selection-actions-dialog class="m-auto w-full max-w-md rounded-xl border border-gray-200 bg-white p-0 shadow-2xl backdrop:bg-gray-950/60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
-      <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
-        <h3 class="font-semibold">Selected text</h3>
-        <p class="mt-1 line-clamp-3 text-sm text-gray-500 dark:text-gray-400" data-selection-preview></p>
+    <dialog data-selection-actions-dialog class="dyno-dialog dyno-dialog-sm">
+      <div class="card">
+      <div class="card-header d-block">
+        <h3 class="card-title">Selected text</h3>
+        <p class="text-secondary small mb-0 mt-1 dyno-line-clamp" data-selection-preview></p>
       </div>
-      <div class="flex justify-end gap-2 px-5 py-4">
-        <button type="button" data-selection-cancel class="rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">Cancel</button>
-        <button type="button" data-selection-highlight class="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200">Highlight</button>
-        <button type="button" data-selection-comment class="rounded-md bg-brand-600 px-3 py-2 text-sm font-semibold text-white hover:bg-brand-700">Add comment</button>
+      <div class="card-footer justify-content-end btn-list">
+        <button type="button" data-selection-cancel class="btn btn-ghost-secondary">Cancel</button>
+        <button type="button" data-selection-highlight class="btn btn-warning">Highlight</button>
+        <button type="button" data-selection-comment class="btn btn-primary">Add comment</button>
+        <button type="button" data-selection-copy class="btn btn-outline-primary">Copy to clipboard</button>
       </div>
-    </dialog>
-
-    <dialog data-delete-dialog class="m-auto w-full max-w-md rounded-xl border border-gray-200 bg-white p-0 shadow-2xl backdrop:bg-gray-950/60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
-      <div class="border-b border-gray-200 px-5 py-4 dark:border-gray-700">
-        <h3 class="font-semibold">Delete annotation?</h3>
-        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">This removes the annotation from the page. Its audit event remains in JSONL.</p>
-      </div>
-      <div class="flex justify-end gap-2 px-5 py-4">
-        <button type="button" data-delete-cancel class="rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">Cancel</button>
-        <button type="button" data-delete-confirm class="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700">Delete</button>
       </div>
     </dialog>
 
-    <dialog data-comment-editor-dialog class="m-auto w-full max-w-2xl rounded-xl border border-gray-200 bg-white p-0 shadow-2xl backdrop:bg-gray-950/60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100">
-    <form method="post" action="{{ .CommentsURL }}" data-comments-form>
+    <dialog data-delete-dialog class="dyno-dialog dyno-dialog-sm">
+      <div class="card">
+      <div class="card-header d-block">
+        <h3 class="card-title">Delete annotation?</h3>
+        <p class="text-secondary small mb-0 mt-1">This removes the annotation from the page. Its audit event remains in JSONL.</p>
+      </div>
+      <div class="card-footer justify-content-end btn-list">
+        <button type="button" data-delete-cancel class="btn btn-ghost-secondary">Cancel</button>
+        <button type="button" data-delete-confirm class="btn btn-danger">Delete</button>
+      </div>
+      </div>
+    </dialog>
+
+    <dialog data-comment-editor-dialog class="dyno-dialog dyno-dialog-md">
+    <form method="post" action="{{ .CommentsURL }}" data-comments-form class="card">
       <input type="hidden" name="page_path" value="{{ .CurrentPath }}">
       <input type="hidden" name="kind" value="comment">
       <input type="hidden" name="parent_id" data-comment-parent-id>
       <input type="hidden" name="anchor" data-comment-anchor>
       <input type="hidden" name="quote" data-comment-quote>
-      <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4 dark:border-gray-700"><h3 class="font-semibold">Add comment</h3><button type="button" data-comment-editor-cancel class="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200" aria-label="Close">×</button></div>
-      <div class="mx-5 mt-4 flex items-center justify-between gap-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800 dark:border-sky-900/70 dark:bg-sky-950/40 dark:text-sky-200" data-comment-reply hidden>
+      <div class="card-header"><h3 class="card-title">Add comment</h3><button type="button" data-comment-editor-cancel class="btn-close ms-auto" aria-label="Close"></button></div>
+      <div class="alert alert-info mx-3 mt-3 mb-0 dyno-inline-notice" data-comment-reply hidden>
         <span data-comment-reply-text></span>
-        <button type="button" class="text-sky-700 hover:text-sky-950 dark:text-sky-300 dark:hover:text-sky-100" data-comment-clear-reply aria-label="Clear reply">×</button>
+        <button type="button" class="btn-close" data-comment-clear-reply aria-label="Clear reply"></button>
       </div>
-      <div class="mx-5 mt-4 flex items-center justify-between gap-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200" data-comment-selection hidden>
+      <div class="alert alert-secondary mx-3 mt-3 mb-0 dyno-inline-notice" data-comment-selection hidden>
         <span data-comment-selection-text></span>
-        <button type="button" class="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100" data-comment-clear-selection aria-label="Clear selection">×</button>
+        <button type="button" class="btn-close" data-comment-clear-selection aria-label="Clear selection"></button>
       </div>
-      <label class="block px-5 pt-4">
-        <span class="sr-only">Comment</span>
-        <textarea class="block min-h-24 w-full resize-y border-0 bg-transparent p-0 text-sm leading-6 text-gray-950 outline-none placeholder:text-gray-400 dark:text-gray-50 dark:placeholder:text-gray-600" name="body" rows="3" required data-comment-editor placeholder="Add a note here... Markdown is supported."></textarea>
+      <div class="card-body">
+      <label class="form-label">
+        <span class="visually-hidden">Comment</span>
+        <textarea class="form-control dyno-comment-editor" name="body" rows="3" required data-comment-editor placeholder="Add a note here... Markdown is supported."></textarea>
       </label>
-      <label class="block border-t border-gray-100 px-5 py-3 dark:border-gray-800">
-        <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Author</span>
-        <input class="block w-full border-0 bg-transparent p-0 text-sm text-gray-950 outline-none placeholder:text-gray-400 dark:text-gray-50 dark:placeholder:text-gray-600" type="text" name="author" autocomplete="name" placeholder="Anonymous">
+      <label class="form-label mt-3">
+        <span class="form-label">Author</span>
+        <input class="form-control" type="text" name="author" autocomplete="name" placeholder="Anonymous">
       </label>
-      <div class="flex items-center justify-end gap-2 border-t border-gray-100 bg-gray-50 px-5 py-3 dark:border-gray-800 dark:bg-gray-900/70">
-        <button type="button" data-comment-editor-cancel class="rounded-md px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800">Cancel</button>
-        <button type="submit" class="inline-flex items-center gap-1.5 rounded-md bg-brand-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-700 disabled:cursor-wait disabled:opacity-60" aria-label="Add comment">
+      </div>
+      <div class="card-footer justify-content-end btn-list">
+        <button type="button" data-comment-editor-cancel class="btn btn-ghost-secondary">Cancel</button>
+        <button type="submit" class="btn btn-primary" aria-label="Add comment">
           <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M22 2L11 13"/>
             <path stroke-linecap="round" stroke-linejoin="round" d="M22 2l-7 20-4-9-9-4 20-7z"/>
@@ -245,10 +246,10 @@
 
   {{/* Edit on GitHub + last updated */}}
   {{ if .EditURL }}
-  <div class="mt-8 pt-4 border-t border-gray-100 dark:border-gray-800 flex justify-end">
+  <div class="dyno-edit-link-wrap">
     <a href="{{ .EditURL }}" target="_blank" rel="noopener"
-       class="inline-flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+       class="btn btn-sm btn-ghost-secondary">
+      <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
       </svg>
       Edit this page on GitHub
@@ -280,18 +281,18 @@
 
   {{/* Prev / Next navigation */}}
   {{ if or .Prev .Next }}
-  <nav class="mt-8 grid grid-cols-2 gap-4" aria-label="Page navigation">
+  <nav class="dyno-page-navigation" aria-label="Page navigation">
     {{ if .Prev }}
     <a href="{{ .Prev.FullPath }}{{ .FilterQuery }}"
        hx-get="{{ .Prev.FullPath }}{{ .FilterQuery }}"
        hx-target="#page-content"
        hx-push-url="true"
-       class="group flex flex-col gap-1 p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-brand-300 dark:hover:border-brand-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-      <span class="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+       class="card card-link dyno-page-navigation-card">
+      <span class="dyno-page-navigation-direction">
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         Previous
       </span>
-      <span class="text-sm font-medium text-gray-900 dark:text-gray-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">{{ .Prev.Title }}</span>
+      <span class="dyno-page-navigation-title">{{ .Prev.Title }}</span>
     </a>
     {{ else }}<div></div>{{ end }}
 
@@ -300,12 +301,12 @@
        hx-get="{{ .Next.FullPath }}{{ .FilterQuery }}"
        hx-target="#page-content"
        hx-push-url="true"
-       class="group flex flex-col gap-1 p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-brand-300 dark:hover:border-brand-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-right">
-      <span class="text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1 justify-end">
+       class="card card-link dyno-page-navigation-card dyno-page-navigation-next">
+      <span class="dyno-page-navigation-direction">
         Next
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
       </span>
-      <span class="text-sm font-medium text-gray-900 dark:text-gray-100 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">{{ .Next.Title }}</span>
+      <span class="dyno-page-navigation-title">{{ .Next.Title }}</span>
     </a>
     {{ end }}
   </nav>
@@ -315,24 +316,25 @@
 
 {{ define "comment-tree" }}
   {{ range .Nodes }}
-  <article id="comment-{{ .Comment.ID }}" class="px-4 py-3">
-    <div class="flex items-start justify-between gap-3">
-      <div class="min-w-0">
-        <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-          <strong class="text-sm font-semibold text-gray-950 dark:text-gray-50">{{ .Comment.Author }}</strong>
+  <article id="comment-{{ .Comment.ID }}" class="dyno-comment-item">
+    <div class="dyno-comment-layout">
+      <div class="dyno-comment-content">
+        <div class="dyno-comment-meta">
+          <strong>{{ .Comment.Author }}</strong>
           <time datetime="{{ .Comment.CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}">{{ .Comment.CreatedAt.Format "2006-01-02 15:04" }}</time>
-          {{ if .Comment.Anchor }}<a class="font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300" href="#{{ .Comment.Anchor }}">#{{ .Comment.Anchor }}</a>{{ end }}
-          {{ if .Comment.ParentID }}<span class="rounded bg-gray-100 px-1.5 py-0.5 font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">RE</span>{{ end }}
+          {{ if .Comment.Anchor }}<a href="#{{ .Comment.Anchor }}">#{{ .Comment.Anchor }}</a>{{ end }}
+          {{ if .Comment.ParentID }}<span class="badge bg-secondary-lt">RE</span>{{ end }}
         </div>
         {{ if .Comment.Quote }}
-        <blockquote class="mt-2 inline-block rounded bg-gray-100 px-2 py-1 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">{{ .Comment.Quote }}</blockquote>
+        <blockquote class="dyno-comment-quote">{{ .Comment.Quote }}</blockquote>
         {{ end }}
-        <div class="prose prose-sm prose-gray mt-2 max-w-none dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-pre:my-2">
+        <div class="dyno-prose dyno-prose-sm dyno-comment-body">
           {{ .BodyHTML }}
         </div>
       </div>
+      <div class="btn-list flex-nowrap dyno-comment-actions">
       <button type="button"
-              class="inline-flex shrink-0 items-center gap-1 rounded-md border border-transparent px-2 py-1 text-xs font-medium text-gray-500 hover:border-gray-200 hover:bg-gray-50 hover:text-brand-600 dark:text-gray-400 dark:hover:border-gray-800 dark:hover:bg-gray-900 dark:hover:text-brand-400"
+              class="btn btn-sm btn-ghost-primary"
               data-comment-reply-to="{{ .Comment.ID }}"
               data-comment-reply-author="{{ .Comment.Author }}"
               aria-label="Reply">
@@ -343,12 +345,13 @@
         Reply
       </button>
       {{ if $.Management }}
-      <button type="button" data-annotation-edit="{{ .Comment.ID }}" data-annotation-kind="comment" data-annotation-body="{{ .Comment.Body }}" data-annotation-author="{{ .Comment.Author }}" class="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800">Edit</button>
-      <button type="button" data-annotation-delete="{{ .Comment.ID }}" class="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40">Delete</button>
+      <button type="button" data-annotation-edit="{{ .Comment.ID }}" data-annotation-kind="comment" data-annotation-body="{{ .Comment.Body }}" data-annotation-author="{{ .Comment.Author }}" class="btn btn-sm btn-ghost-secondary">Edit</button>
+      <button type="button" data-annotation-delete="{{ .Comment.ID }}" class="btn btn-sm btn-ghost-danger">Delete</button>
       {{ end }}
+      </div>
     </div>
     {{ if .Children }}
-    <div class="mt-3 border-l-2 border-teal-200 pl-4 dark:border-teal-800" data-comment-children>
+    <div class="dyno-comment-children" data-comment-children>
       {{ template "comment-tree" dict "Nodes" .Children "CommentsURL" $.CommentsURL "CurrentPath" $.CurrentPath "Management" $.Management }}
     </div>
     {{ end }}
@@ -358,12 +361,12 @@
 
 {{ define "toc-sidebar-inner" }}
   {{ if .TOC }}
-  <div class="sticky top-20 toc-scroll">
-    <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3">On this page</p>
-    <ul class="space-y-2 text-sm">
+  <div class="toc-scroll">
+    <p class="subheader dyno-toc-heading">On this page</p>
+    <ul class="nav nav-pills dyno-toc-list">
       {{ range .TOC }}
-      <li class="{{ if eq .Level 3 }}pl-3{{ end }}">
-        <a href="#{{ .ID }}" class="toc-link block text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors line-clamp-2 py-0.5">{{ .Text }}</a>
+      <li class="nav-item {{ if eq .Level 3 }}dyno-toc-level-3{{ end }}">
+        <a href="#{{ .ID }}" class="nav-link toc-link">{{ .Text }}</a>
       </li>
       {{ end }}
     </ul>
@@ -372,22 +375,22 @@
 {{ end }}
 
 {{ define "toc-sidebar" }}
-<aside id="toc-sidebar" class="{{ if .TOC }}hidden xl:block{{ else }}hidden{{ end }} w-48 shrink-0">
+<aside id="toc-sidebar" class="dyno-toc-sidebar{{ if .TOC }} has-toc{{ end }}">
   {{ template "toc-sidebar-inner" . }}
 </aside>
 {{ end }}
 
 {{ define "page-fragment" }}
 {{ template "page-content" . }}
-<span id="ego-graph-btn" hx-swap-oob="outerHTML" class="contents">
+<span id="ego-graph-btn" hx-swap-oob="outerHTML" class="dyno-contents">
   {{ if .EgoGraphURL }}
   <a href="{{ .EgoGraphURL }}"
      hx-get="{{ .EgoGraphURL }}"
      hx-target="#page-content"
      hx-push-url="true"
-     class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400"
+     class="btn btn-icon btn-ghost-secondary"
      aria-label="Page dependency graph">
-    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+    <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
       <circle cx="5" cy="12" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="19" cy="19" r="2"/>
       <line x1="7" y1="11" x2="17" y2="6"/><line x1="7" y1="13" x2="17" y2="18"/>
     </svg>
@@ -399,39 +402,39 @@
   {{ template "sidebar-inner" . }}
 </aside>
 {{ end }}
-<aside id="toc-sidebar" hx-swap-oob="outerHTML" class="{{ if .TOC }}hidden xl:block{{ else }}hidden{{ end }} w-48 shrink-0">
+<aside id="toc-sidebar" hx-swap-oob="outerHTML" class="dyno-toc-sidebar{{ if .TOC }} has-toc{{ end }}">
   {{ template "toc-sidebar-inner" . }}
 </aside>
-<span id="git-compare-btn" hx-swap-oob="outerHTML" class="contents">
+<span id="git-compare-btn" hx-swap-oob="outerHTML" class="dyno-contents">
   {{ if .GitCompareURL }}
   <a href="{{ .GitCompareURL }}"
-     class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 flex items-center"
+     class="btn btn-icon btn-ghost-secondary"
      aria-label="Compare versions" title="Compare versions">
-    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
+    <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h11l-3-3m3 3l-3 3M16 17H5l3 3m-3-3l3-3"/>
     </svg>
   </a>
   {{ end }}
 </span>
 {{ if .EditMode }}
-<span id="edit-page-btn" hx-swap-oob="outerHTML" class="contents">
+<span id="edit-page-btn" hx-swap-oob="outerHTML" class="dyno-contents">
   {{ if .EditPageURL }}
   <a href="{{ .EditPageURL }}"
-     class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 flex items-center"
+     class="btn btn-icon btn-ghost-secondary"
      aria-label="Edit page" title="Edit page">
-    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+    <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/>
     </svg>
   </a>
   {{ end }}
 </span>
-<span id="frontmatter-edit-btn" hx-swap-oob="outerHTML" class="contents">
+<span id="frontmatter-edit-btn" hx-swap-oob="outerHTML" class="dyno-contents">
   {{ if .FrontmatterEditURL }}
   <button type="button"
      data-frontmatter-open
-     class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 flex items-center"
+     class="btn btn-icon btn-ghost-secondary"
      aria-label="Edit frontmatter" title="Edit frontmatter">
-    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
+    <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h10"/>
       <path stroke-linecap="round" stroke-linejoin="round" d="M18 15l2 2 4-4"/>
       <circle cx="18" cy="18" r="2"/>

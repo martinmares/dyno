@@ -1,7 +1,7 @@
-{{/* Search full-page: extends base layout with search results as content */}}
+{{/* Search full-page: uses the same Tabler shell as the document view. */}}
 {{ define "search-page.html" }}
 <!DOCTYPE html>
-<html lang="en" class="">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -11,58 +11,69 @@
       try {
         var stored = localStorage.getItem('dyno-theme');
         var dark = stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches);
-        if (dark) document.documentElement.classList.add('dark');
+        document.documentElement.classList.toggle('dark', dark);
+        document.documentElement.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
       } catch (_) {}
     })();
   </script>
-  {{ if .FaviconURL }}<link rel="icon" href="{{ .FaviconURL }}">{{ else if and .Site .Site.LogoURL }}<link rel="icon" href="{{ .Site.LogoURL }}">{{ else }}<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230284c7'%3E%3Cpath d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/%3E%3C/svg%3E">{{ end }}
+  {{ if .FaviconURL }}<link rel="icon" href="{{ .FaviconURL }}">{{ end }}
   <script src="{{ .HTMXURL }}" defer></script>
   <style id="chroma-light">{{ .LightCSS }}</style>
   <style id="chroma-dark">{{ .DarkCSS }}</style>
-  <link rel="stylesheet" href="{{ .TailwindURL }}" />
+  <link rel="stylesheet" href="{{ .TablerCSSURL }}" />
   <link rel="stylesheet" href="{{ .AppCSSURL }}" />
 </head>
-<body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 antialiased">
-  <header class="fixed top-0 left-0 right-0 z-50 h-14 border-b border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-gray-900/90 backdrop-blur flex items-center px-4 gap-4">
-    <button id="sidebar-toggle" class="lg:hidden p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg></button>
-    <a href="{{ .BasePath }}/" class="flex items-center gap-2 font-bold text-lg text-brand-600 shrink-0">
-      <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-      <span>dyno</span>
-    </a>
-    <div class="flex-1 max-w-xl relative">
-      <div class="relative">
-        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-        <input id="search-input" type="search" placeholder="Search docs… (Ctrl+K)" value="{{ .Query }}"
-          class="w-full pl-9 pr-4 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-brand-500"
-          hx-get="{{ .SearchURL }}" hx-trigger="input changed delay:300ms, search" hx-target="#search-results-container" name="q" autocomplete="off" />
-      </div>
-      <div id="search-results-container" class="absolute top-full left-0 right-0 mt-1 z-50 hidden"></div>
-    </div>
-    <div class="ml-auto flex items-center gap-2">
-      <button id="theme-toggle" class="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800">
-        <svg id="icon-sun" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
-        <svg id="icon-moon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+<body class="dyno-standalone-body">
+  <header class="navbar navbar-expand-md dyno-navbar">
+    <div class="dyno-navbar-inner">
+      <button id="sidebar-toggle" class="btn btn-icon btn-ghost-secondary" aria-label="Toggle sidebar">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
+      <a href="{{ .BasePath }}/" class="dyno-brand">
+        <svg fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        <span>{{ if .Site }}{{ .Site.LogoText }}{{ else }}dyno{{ end }}</span>
+      </a>
+      <div class="dyno-search">
+        <div class="dyno-search-control">
+          <svg class="dyno-search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          <input id="search-input" type="search" placeholder="Search docs… (Ctrl+K)" value="{{ .Query }}"
+            class="form-control form-control-sm"
+            hx-get="{{ .SearchURL }}" hx-trigger="input changed delay:300ms, search" hx-target="#search-results-container" name="q" autocomplete="off" />
+        </div>
+        <div id="search-results-container" class="dyno-standalone-search-results hidden"></div>
+      </div>
+      <div class="dyno-navbar-actions">
+        <button id="theme-toggle" class="btn btn-icon btn-ghost-secondary" aria-label="Toggle theme">
+          <svg id="icon-sun" class="dyno-theme-icon hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
+          <svg id="icon-moon" class="dyno-theme-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+        </button>
+      </div>
     </div>
   </header>
 
-  <div class="flex pt-14 min-h-screen">
-    <aside id="sidebar" data-nav-storage-key="{{ .BasePath }}" class="fixed lg:sticky top-14 left-0 h-[calc(100vh-3.5rem)] w-64 shrink-0 overflow-y-auto border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 z-40 -translate-x-full lg:translate-x-0 transition-transform duration-200">
-      <nav class="p-4 space-y-1">
-        {{ template "nav-tree" (dict "node" .Nav "current" "" "depth" 0 "filterQuery" .FilterQuery) }}
+  <div class="dyno-shell">
+    {{ if .Nav }}
+    <aside id="sidebar" data-nav-storage-key="{{ .BasePath }}" class="dyno-sidebar">
+      <nav class="dyno-sidebar-nav">
+        <div class="dyno-sidebar-heading">
+          <p class="subheader m-0">Contents</p>
+          <button type="button" data-nav-expand-all class="btn btn-sm btn-ghost-secondary">Expand all</button>
+        </div>
+        <div class="dyno-nav-tree">
+          {{ template "nav-tree" (dict "node" .Nav "current" "" "depth" 0 "filterQuery" .FilterQuery) }}
+        </div>
       </nav>
     </aside>
-    <div id="sidebar-overlay" class="fixed inset-0 bg-black/40 z-30 hidden lg:hidden"></div>
-
-    <main id="main-content" class="flex-1 min-w-0">
-      <div id="page-content" class="max-w-3xl mx-auto px-6 py-8">
-        <h1 class="text-2xl font-bold mb-6">
-          {{ if .Query }}Search results for "<span class="text-brand-600">{{ .Query }}</span>"{{ else }}Search{{ end }}
-        </h1>
+    <div id="sidebar-overlay" class="dyno-sidebar-overlay"></div>
+    {{ end }}
+    <main id="main-content" class="dyno-main">
+      <div id="page-content" class="dyno-search-page-content">
+        <h1>{{ if .Query }}Search results for "<span>{{ .Query }}</span>"{{ else }}Search{{ end }}</h1>
         {{ template "search-results" . }}
       </div>
     </main>
   </div>
+  <script src="{{ .TablerJSURL }}"></script>
   <script src="{{ .AppJSURL }}"></script>
 </body>
 </html>

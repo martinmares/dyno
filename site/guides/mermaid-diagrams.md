@@ -60,6 +60,6 @@ erDiagram
 pie title Technology Stack
     "Go (server)" : 60
     "HTMX" : 15
-    "Tailwind CSS" : 15
+    "Tabler CSS" : 15
     "Mermaid.js" : 10
 ```
