@@ -318,7 +318,7 @@ Dyno renderuje MkDocs admonitions a collapsible details včetně vnořených blo
     !!! info "Bude součástí produktu :star:"
 ````
 
-Podporované typy jsou `note`, `info`, `tip`, `success`, `warning`, `todo`, `danger`, `failure`, `cite` a `tldr`. Podporován je také PyMdown superscript jako `^4.1.8^` a emoji shortcodes používané importovanými MkDocs repozitáři. Fenced a inline code zůstává beze změny.
+Podporované MkDocs typy jsou `note`, `info`, `tip`, `success`, `warning`, `todo`, `danger`, `failure`, `cite` a `tldr`. GitHub-style alerty podporují `NOTE`, `INFO`, `TIP`, `IMPORTANT`, `WARNING`, `WARN`, `CAUTION` a `DANGER`. Podporován je také PyMdown superscript jako `^4.1.8^` a emoji shortcodes používané importovanými MkDocs repozitáři. Fenced a inline code zůstává beze změny.
 
 **Mermaid diagramy:**
 

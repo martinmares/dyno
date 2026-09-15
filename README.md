@@ -319,7 +319,7 @@ Dyno renders MkDocs admonitions and collapsible details, including nested blocks
     !!! info "Included in the product :star:"
 ````
 
-Supported types are `note`, `info`, `tip`, `success`, `warning`, `todo`, `danger`, `failure`, `cite`, and `tldr`. PyMdown superscript such as `^4.1.8^` and the emoji shortcodes used by the imported MkDocs repositories are also supported. Fenced and inline code are left unchanged.
+Supported MkDocs types are `note`, `info`, `tip`, `success`, `warning`, `todo`, `danger`, `failure`, `cite`, and `tldr`. GitHub-style alerts support `NOTE`, `INFO`, `TIP`, `IMPORTANT`, `WARNING`, `WARN`, `CAUTION`, and `DANGER`. PyMdown superscript such as `^4.1.8^` and the emoji shortcodes used by the imported MkDocs repositories are also supported. Fenced and inline code are left unchanged.
 
 **Mermaid diagrams:**
 

@@ -139,9 +139,9 @@ func lineEnding(line string) string {
 	return ""
 }
 
-func (r *Renderer) restoreMkDocsBlocks(htmlStr string, blocks map[string]mkDocsBlock, opts RenderOptions) (string, error) {
+func (r *Renderer) restoreMkDocsBlocks(htmlStr string, blocks map[string]mkDocsBlock, opts RenderOptions, tableOptions TableOptions) (string, error) {
 	for key, block := range blocks {
-		bodyHTML, err := r.renderMarkdownBody([]byte(block.Content), opts)
+		bodyHTML, err := r.renderMarkdownBody([]byte(block.Content), opts, tableOptions)
 		if err != nil {
 			return "", fmt.Errorf("render MkDocs %s block: %w", block.Type, err)
 		}

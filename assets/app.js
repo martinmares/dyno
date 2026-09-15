@@ -42,6 +42,78 @@
   });
 })();
 
+// ─── Page text size ──────────────────────────────────────────────────────────
+
+(function () {
+  const storageKey = 'dyno-font-scale';
+  const minScale = 0.8;
+  const maxScale = 1.5;
+  const step = 0.1;
+  const defaultScale = 1;
+  let scale = defaultScale;
+
+  function clampScale(value) {
+    return Math.round(Math.max(minScale, Math.min(maxScale, value)) * 10) / 10;
+  }
+
+  function readStoredScale() {
+    try {
+      const value = Number(sessionStorage.getItem(storageKey));
+      return Number.isFinite(value) ? clampScale(value) : defaultScale;
+    } catch (_) {
+      return defaultScale;
+    }
+  }
+
+  function setRootFontSize(value) {
+    document.documentElement.style.fontSize = Math.round(value * 100) + '%';
+  }
+
+  scale = readStoredScale();
+  setRootFontSize(scale);
+
+  function applyFontScale(value) {
+    scale = clampScale(value);
+
+    const percent = Math.round(scale * 100) + '%';
+    document.documentElement.style.fontSize = percent;
+    try {
+      sessionStorage.setItem(storageKey, String(scale));
+    } catch (_) {}
+    const decrease = document.getElementById('font-size-decrease');
+    const reset = document.getElementById('font-size-reset');
+    const increase = document.getElementById('font-size-increase');
+    if (decrease) {
+      decrease.disabled = scale <= minScale;
+      decrease.title = 'Decrease text size (currently ' + percent + ')';
+    }
+    if (reset) {
+      reset.disabled = scale === defaultScale;
+      reset.title = 'Reset text size (currently ' + percent + ')';
+      reset.setAttribute('aria-label', 'Reset text size (currently ' + percent + ')');
+    }
+    if (increase) {
+      increase.disabled = scale >= maxScale;
+      increase.title = 'Increase text size (currently ' + percent + ')';
+    }
+  }
+
+  function initFontSizeControls() {
+    const decrease = document.getElementById('font-size-decrease');
+    const reset = document.getElementById('font-size-reset');
+    const increase = document.getElementById('font-size-increase');
+    if (!decrease || !reset || !increase || decrease.dataset.fontSizeInit) return;
+
+    decrease.dataset.fontSizeInit = '1';
+    decrease.addEventListener('click', function () { applyFontScale(scale - step); });
+    reset.addEventListener('click', function () { applyFontScale(defaultScale); });
+    increase.addEventListener('click', function () { applyFontScale(scale + step); });
+    applyFontScale(scale);
+  }
+
+  document.addEventListener('DOMContentLoaded', initFontSizeControls);
+})();
+
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -329,6 +401,172 @@ function initTaskFilters() {
     }
 
     input.addEventListener('input', applyFilter);
+    applyFilter();
+  });
+}
+
+// ─── Interactive Markdown tables ─────────────────────────────────────────────
+
+function initTableWidgets() {
+  document.querySelectorAll('.dyno-table-widget:not([data-table-init])').forEach(function (widget) {
+    widget.setAttribute('data-table-init', '1');
+
+    const table = widget.querySelector('table');
+    const body = table && table.tBodies[0];
+    const headerRow = table && table.tHead && table.tHead.rows[0];
+    if (!table || !body || !headerRow) return;
+
+    const rows = Array.from(body.rows);
+    const headerCells = Array.from(headerRow.cells);
+    const sortable = widget.dataset.tableSortable === 'true';
+    const filterable = widget.dataset.tableFilter === 'true';
+    const input = widget.querySelector('.dyno-table-filter');
+    const status = widget.querySelector('.dyno-table-status');
+    const empty = widget.querySelector('.dyno-table-empty');
+    const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+    let sortColumn = -1;
+    let sortDirection = 1;
+
+    function normalizeFilterText(value) {
+      return String(value || '')
+        .toLocaleLowerCase('cs-CZ')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function clearTableHighlights() {
+      table.querySelectorAll('mark.dyno-table-match').forEach(function (mark) {
+        mark.replaceWith(document.createTextNode(mark.textContent));
+      });
+      table.normalize();
+    }
+
+    function normalizedTextWithMap(value) {
+      let normalized = '';
+      const map = [];
+      for (let index = 0; index < value.length;) {
+        const codePoint = value.codePointAt(index);
+        const character = String.fromCodePoint(codePoint);
+        const normalizedCharacter = normalizeFilterText(character);
+        for (let offset = 0; offset < normalizedCharacter.length; offset += 1) {
+          map.push({ start: index, end: index + character.length });
+        }
+        normalized += normalizedCharacter;
+        index += character.length;
+      }
+      return { value: normalized, map: map };
+    }
+
+    function highlightRow(row, query) {
+      const walker = document.createTreeWalker(row, NodeFilter.SHOW_TEXT);
+      const textNodes = [];
+      let node = walker.nextNode();
+      while (node) {
+        textNodes.push(node);
+        node = walker.nextNode();
+      }
+
+      textNodes.forEach(function (textNode) {
+        const text = textNode.nodeValue || '';
+        const normalized = normalizedTextWithMap(text);
+        if (!normalized.value || !normalized.map.length) return;
+
+        let searchFrom = 0;
+        let matchStart = normalized.value.indexOf(query, searchFrom);
+        if (matchStart === -1) return;
+
+        const fragment = document.createDocumentFragment();
+        let originalFrom = 0;
+        while (matchStart !== -1) {
+          const first = normalized.map[matchStart];
+          const last = normalized.map[matchStart + query.length - 1];
+          if (!first || !last) break;
+          const originalTo = last.end;
+          fragment.appendChild(document.createTextNode(text.slice(originalFrom, first.start)));
+          const mark = document.createElement('mark');
+          mark.className = 'dyno-table-match';
+          mark.textContent = text.slice(first.start, originalTo);
+          fragment.appendChild(mark);
+          originalFrom = originalTo;
+          searchFrom = matchStart + query.length;
+          matchStart = normalized.value.indexOf(query, searchFrom);
+        }
+        fragment.appendChild(document.createTextNode(text.slice(originalFrom)));
+        textNode.replaceWith(fragment);
+      });
+    }
+
+    function updateSortIndicators() {
+      if (!sortable) return;
+      headerCells.forEach(function (cell, index) {
+        cell.setAttribute('aria-sort', index === sortColumn
+          ? (sortDirection === 1 ? 'ascending' : 'descending')
+          : 'none');
+      });
+    }
+
+    function applyFilter() {
+      const query = filterable && input ? normalizeFilterText(input.value.trim()) : '';
+      let visibleRows = 0;
+
+      clearTableHighlights();
+      rows.forEach(function (row) {
+        const show = !query || normalizeFilterText(row.textContent).indexOf(query) !== -1;
+        row.hidden = !show;
+        if (show) {
+          visibleRows += 1;
+          if (query) highlightRow(row, query);
+        }
+      });
+
+      if (empty) empty.hidden = visibleRows !== 0;
+      if (status) {
+        status.textContent = query
+          ? visibleRows + ' of ' + rows.length + ' rows'
+          : rows.length + (rows.length === 1 ? ' row' : ' rows');
+      }
+    }
+
+    function sortByColumn(index) {
+      if (sortColumn === index) {
+        sortDirection *= -1;
+      } else {
+        sortColumn = index;
+        sortDirection = 1;
+      }
+
+      const currentOrder = new Map(rows.map(function (row, position) {
+        return [row, position];
+      }));
+      rows.sort(function (left, right) {
+        const comparison = collator.compare(
+          (left.cells[index] && left.cells[index].textContent.trim()) || '',
+          (right.cells[index] && right.cells[index].textContent.trim()) || ''
+        );
+        return comparison * sortDirection || currentOrder.get(left) - currentOrder.get(right);
+      });
+      rows.forEach(function (row) { body.appendChild(row); });
+      updateSortIndicators();
+      applyFilter();
+    }
+
+    if (sortable) {
+      headerCells.forEach(function (cell, index) {
+        cell.setAttribute('scope', 'col');
+        cell.setAttribute('aria-sort', 'none');
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'dyno-table-sort';
+        button.setAttribute('aria-label', 'Sort by ' + cell.textContent.trim());
+        while (cell.firstChild) button.appendChild(cell.firstChild);
+        cell.appendChild(button);
+        button.addEventListener('click', function () { sortByColumn(index); });
+      });
+    }
+
+    if (filterable && input) input.addEventListener('input', applyFilter);
+    updateSortIndicators();
     applyFilter();
   });
 }
@@ -1190,6 +1428,7 @@ document.addEventListener('DOMContentLoaded', function () {
   updateActiveNavLink(window.location.pathname);
   initTOCScrollSpy();
   initTaskFilters();
+  initTableWidgets();
   initComments();
   initBulkFrontmatterEditor();
   initFrontmatterEditor();
@@ -1212,6 +1451,7 @@ document.addEventListener('htmx:afterSwap', function (e) {
     initMermaid();
     initTOCScrollSpy();
     initTaskFilters();
+    initTableWidgets();
     initComments();
     initBulkFrontmatterEditor();
     initFrontmatterEditor();

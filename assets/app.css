@@ -1,6 +1,7 @@
 /* ── Base ──────────────────────────────────────────────────────────────── */
 html {
   scroll-behavior: smooth;
+  font-size: 100%;
 }
 
 /* Keep component styles on Tabler's theme-aware semantic palette. */
@@ -308,25 +309,30 @@ pre.mermaid::after,
   margin-bottom: 0.25rem;
 }
 
-/* ── Fenced code blocks — macOS terminal style ──────────────────────────── */
+/* ── Fenced code blocks ─────────────────────────────────────────────────── */
 .dyno-prose pre:not(.mermaid),
 pre.chroma {
   position: relative;
   background-color: var(--dyno-code-bg) !important;
   color: var(--dyno-code-text) !important;
-  /* Extra top padding to make room for the title bar */
-  padding: 2.5rem 1.25rem 1rem 1.25rem !important;
+  padding: 1rem 1.25rem !important;
   border-radius: 0.625rem !important;
   border: 1px solid var(--dyno-code-border) !important;
   overflow-x: auto !important;
   font-size: 0.875rem !important;
-  line-height: 1.7 !important;
+  line-height: 1.45 !important;
+  box-shadow: none !important;
+}
+
+/* Terminal chrome is opt-in via ```console or ```terminal. */
+.dyno-prose .dyno-terminal-code pre.chroma,
+.dyno-prose pre.dyno-terminal-code {
+  padding-top: 2.5rem !important;
   box-shadow: 0 4px 16px rgba(0,0,0,0.25) !important;
 }
 
-/* Title bar */
-.dyno-prose pre:not(.mermaid):not(.d2-diagram)::before,
-pre.chroma::before {
+.dyno-prose .dyno-terminal-code pre.chroma::before,
+.dyno-prose pre.dyno-terminal-code::before {
   content: '';
   position: absolute;
   top: 0;
@@ -339,9 +345,8 @@ pre.chroma::before {
   pointer-events: none;
 }
 
-/* Traffic light dots via box-shadow trick */
-.dyno-prose pre:not(.mermaid):not(.d2-diagram)::after,
-pre.chroma::after {
+.dyno-prose .dyno-terminal-code pre.chroma::after,
+.dyno-prose pre.dyno-terminal-code::after {
   content: '';
   position: absolute;
   top: 0.65rem;
@@ -970,10 +975,11 @@ pre.chroma:hover .copy-btn {
   border-collapse: separate;
   border-spacing: 0;
   font-size: 0.875rem;
+  line-height: 1.4;
 }
 
 .dyno-prose table > :not(caption) > * > * {
-  padding: 0.625rem 0.75rem;
+  padding: 0.4rem 0.75rem;
   color: var(--tblr-body-color);
   background: var(--tblr-table-bg);
   border: 0;
@@ -998,16 +1004,128 @@ pre.chroma:hover .copy-btn {
   background: rgba(var(--tblr-primary-rgb), 0.055);
 }
 
+/* ── Interactive Markdown tables ─────────────────────────────────────────── */
+.dyno-table-widget {
+  width: fit-content;
+  max-width: 100%;
+  margin: 1.5rem 0;
+}
+
+.dyno-table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.625rem;
+}
+
+.dyno-table-filter-control {
+  position: relative;
+  display: block;
+  width: min(100%, 18rem);
+  margin: 0;
+}
+
+.dyno-table-filter {
+  padding-left: 2rem;
+}
+
+.dyno-table-filter-icon {
+  position: absolute;
+  top: 50%;
+  left: 0.625rem;
+  width: 1rem;
+  height: 1rem;
+  color: var(--tblr-secondary-color);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.dyno-table-status {
+  flex: none;
+  color: var(--tblr-secondary-color);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.dyno-table-responsive {
+  max-width: 100%;
+  overflow-x: auto;
+  border: var(--tblr-border-width) solid var(--tblr-border-color);
+  border-radius: var(--tblr-border-radius-lg);
+  background: var(--tblr-bg-surface);
+}
+
+.dyno-prose .dyno-table-widget table {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.dyno-prose .dyno-table-widget thead th {
+  white-space: nowrap;
+}
+
+.dyno-table-sort {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 0.5rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.dyno-table-sort::after {
+  margin-left: auto;
+  color: var(--tblr-secondary-color);
+  content: "\2195";
+  font-size: 0.8em;
+  opacity: 0.7;
+}
+
+.dyno-prose .dyno-table-widget th[aria-sort="ascending"] .dyno-table-sort::after {
+  color: var(--tblr-primary);
+  content: "\2191";
+  opacity: 1;
+}
+
+.dyno-prose .dyno-table-widget th[aria-sort="descending"] .dyno-table-sort::after {
+  color: var(--tblr-primary);
+  content: "\2193";
+  opacity: 1;
+}
+
+.dyno-table-sort:focus-visible {
+  outline: 2px solid var(--tblr-primary);
+  outline-offset: 2px;
+  border-radius: var(--tblr-border-radius-sm);
+}
+
+.dyno-table-empty {
+  padding: 0.75rem 1rem;
+  border-top: var(--tblr-border-width) solid var(--tblr-border-color-translucent);
+  color: var(--tblr-secondary-color);
+  font-size: 0.875rem;
+}
+
 /* ── Prose blockquote ────────────────────────────────────────────────────── */
 .dyno-prose blockquote {
-  border-left-color: var(--dyno-info);
-  background-color: var(--dyno-info-bg);
+  border-left: 2px solid var(--tblr-border-color);
+  background-color: transparent;
+  color: var(--tblr-secondary-color);
   padding: 0.75rem 1rem;
-  border-radius: 0 0.375rem 0.375rem 0;
+  border-radius: 0;
 }
 .dyno-prose blockquote p {
   margin: 0 !important;
-  color: var(--dyno-info-text);
+  color: inherit;
 }
 
 /* ── Lightbox ────────────────────────────────────────────────────────────────── */
@@ -1846,6 +1964,31 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   margin-left: auto !important;
 }
 
+.dyno-font-size-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.0625rem;
+  padding: 0.125rem;
+  border: var(--tblr-border-width) solid var(--tblr-border-color-translucent);
+  border-radius: var(--tblr-border-radius);
+}
+
+.dyno-font-size-button {
+  width: auto !important;
+  min-width: 1.75rem !important;
+  height: 1.75rem !important;
+  padding: 0.25rem 0.375rem !important;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.dyno-font-size-button:disabled {
+  color: var(--tblr-secondary-color);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
 .dyno-navbar #sidebar-toggle {
   display: none;
 }
@@ -1898,7 +2041,7 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   }
 
   .dyno-section-tasks,
-  .dyno-navbar-actions > :not(#theme-toggle) {
+  .dyno-navbar-actions > :not(#theme-toggle):not(.dyno-font-size-controls) {
     display: none !important;
   }
 

@@ -135,3 +135,33 @@ func TestRendererLeavesMkDocsInlineSyntaxInsideCode(t *testing.T) {
 		t.Fatalf("expected fenced code to remain unchanged, got: %s", res.HTML)
 	}
 }
+
+func TestRendererSupportsGitHubAlertTypesAndWarnAlias(t *testing.T) {
+	r, err := markdown.NewRenderer()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := r.RenderString(`> [!IMPORTANT]
+> This is important.
+
+> [!CAUTION]
+> Proceed carefully.
+
+> [!WARN]
+> This is a warning.
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{
+		`class="callout callout-info"`,
+		`<div class="callout-title">ℹ️ Important</div>`,
+		`<div class="callout-title">⚠️ Caution</div>`,
+		`<div class="callout-title">⚠️ Warning</div>`,
+	} {
+		if !strings.Contains(res.HTML, expected) {
+			t.Fatalf("expected %q in GitHub alert output, got: %s", expected, res.HTML)
+		}
+	}
+}

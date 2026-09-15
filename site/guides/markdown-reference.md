@@ -29,6 +29,27 @@ Complete overview of all formatting options supported by dyno.
 | `` `inline code` `` | `inline code` |
 | `**_bold italic_**` | **_bold italic_** |
 
+### Interactive tables
+
+Regular Markdown tables remain static. Add the optional Dyno front matter to enable client-side sorting and/or filtering for all tables on the page:
+
+````markdown
+---
+dyno:
+  tables:
+    sortable: true
+    filter: true
+---
+
+| Property | Value |
+| --- | --- |
+| Database | tsmp |
+| User | tsm |
+| Database size | **1.2 TiB** |
+````
+
+`sortable` sorts by a clicked column, while `filter` adds a case-insensitive substring filter for table rows. Other Markdown renderers ignore the `dyno` section and still render a normal table.
+
 ---
 
 ## Lists
@@ -102,8 +123,17 @@ Dyno shows the filename, MIME type, and size. Downloads are isolated per site in
 > [!TIP]
 > Use `[!TIP]` for best practices or shortcuts the reader might find useful.
 
+> [!IMPORTANT]
+> Use `[!IMPORTANT]` for information the reader should not overlook.
+
 > [!WARNING]
 > Use `[!WARNING]` when something could cause unexpected behavior.
+
+> [!WARN]
+> `[!WARN]` is accepted as an alias for `[!WARNING]`.
+
+> [!CAUTION]
+> Use `[!CAUTION]` for a potentially dangerous action or consequence.
 
 > [!DANGER]
 > Use `[!DANGER]` when something could cause data loss or irreversible damage.
@@ -127,7 +157,7 @@ Existing MkDocs/PyMdown documentation can use static `!!!` admonitions and colla
     !!! info "Included in the product :star:"
 ````
 
-Supported types: `note`, `info`, `tip`, `success`, `warning`, `todo`, `danger`, `failure`, `cite`, and `tldr`. Superscript syntax such as `^4.1.8^` and common MkDocs emoji shortcodes are supported outside code.
+Supported MkDocs types are `note`, `info`, `tip`, `success`, `warning`, `todo`, `danger`, `failure`, `cite`, and `tldr`. GitHub-style alerts support `NOTE`, `INFO`, `TIP`, `IMPORTANT`, `WARNING`, `WARN`, `CAUTION`, and `DANGER`. Superscript syntax such as `^4.1.8^` and common MkDocs emoji shortcodes are supported outside code.
 
 ---
 
@@ -162,6 +192,14 @@ const greet = (user: User): string =>
 go build -o dyno .
 ./dyno --dev --watch --port 3000
 ```
+
+Use `console` or `terminal` only when the macOS-style terminal chrome is desired:
+
+```console
+$ dyno --site .
+```
+
+Other fenced code blocks remain plain code blocks without the terminal header.
 
 ```yaml
 title: My Docs

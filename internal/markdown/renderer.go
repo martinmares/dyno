@@ -14,9 +14,12 @@ import (
 	"github.com/alecthomas/chroma/v2/styles"
 	"github.com/yuin/goldmark"
 	highlighting "github.com/yuin/goldmark-highlighting/v2"
+	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer/html"
+	"github.com/yuin/goldmark/text"
+	"github.com/yuin/goldmark/util"
 	"gopkg.in/yaml.v3"
 	"oss.terrastruct.com/d2/d2graph"
 	"oss.terrastruct.com/d2/d2layouts/d2dagrelayout"
@@ -36,11 +39,24 @@ type TOCEntry struct {
 
 // Frontmatter holds optional YAML metadata from the top of a Markdown file.
 type Frontmatter struct {
-	Title        string        `yaml:"title"`
-	Description  string        `yaml:"description"`
-	Draft        bool          `yaml:"draft"`
-	Weight       int           `yaml:"weight"` // for future custom ordering
-	ExternalRefs []ExternalRef `yaml:"external_refs"`
+	Title        string          `yaml:"title"`
+	Description  string          `yaml:"description"`
+	Draft        bool            `yaml:"draft"`
+	Weight       int             `yaml:"weight"` // for future custom ordering
+	ExternalRefs []ExternalRef   `yaml:"external_refs"`
+	Dyno         DynoFrontmatter `yaml:"dyno"`
+}
+
+// DynoFrontmatter contains optional Dyno-specific rendering settings. Unknown
+// front matter is ignored by other Markdown renderers such as MkDocs.
+type DynoFrontmatter struct {
+	Tables TableOptions `yaml:"tables"`
+}
+
+// TableOptions controls interactive rendering of Markdown tables on a page.
+type TableOptions struct {
+	Sortable bool `yaml:"sortable"`
+	Filter   bool `yaml:"filter"`
 }
 
 // ExternalRef describes a business/system link attached to a page.
@@ -65,6 +81,78 @@ type TaskRenderer func(query, anchorID string) (string, error)
 // RenderOptions control optional render-time integrations.
 type RenderOptions struct {
 	TaskRenderer TaskRenderer
+}
+
+const terminalCodeAttribute = "dyno-terminal"
+
+// terminalCodeBlockTransformer keeps the explicit presentation choice made in
+// the fence info string available to the highlighting wrapper. Chroma may
+// replace an unknown language such as "console" with a guessed lexer, so the
+// original language cannot be recovered during rendering alone.
+type terminalCodeBlockTransformer struct{}
+
+func (terminalCodeBlockTransformer) Transform(node *ast.Document, reader text.Reader, _ parser.Context) {
+	source := reader.Source()
+	_ = ast.Walk(node, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		block, ok := node.(*ast.FencedCodeBlock)
+		if !ok || !isTerminalCodeLanguage(block.Language(source)) {
+			return ast.WalkContinue, nil
+		}
+		block.SetAttributeString(terminalCodeAttribute, true)
+		return ast.WalkContinue, nil
+	})
+}
+
+func isTerminalCodeLanguage(language []byte) bool {
+	switch strings.ToLower(strings.TrimSpace(string(language))) {
+	case "console", "terminal":
+		return true
+	default:
+		return false
+	}
+}
+
+func isTerminalCodeBlock(context highlighting.CodeBlockContext) bool {
+	if attrs := context.Attributes(); attrs != nil {
+		value, ok := attrs.GetString(terminalCodeAttribute)
+		return ok && value == true
+	}
+	return false
+}
+
+// renderCodeBlockWrapper adds a stable class for explicitly terminal-styled
+// blocks while leaving highlighted regular blocks in Chroma's native markup.
+func renderCodeBlockWrapper(w util.BufWriter, context highlighting.CodeBlockContext, entering bool) {
+	terminal := isTerminalCodeBlock(context)
+	if context.Highlighted() {
+		if terminal {
+			if entering {
+				_, _ = w.WriteString(`<div class="dyno-terminal-code">`)
+			} else {
+				_, _ = w.WriteString(`</div>`)
+			}
+		}
+		return
+	}
+
+	if entering {
+		if terminal {
+			_, _ = w.WriteString(`<pre class="dyno-terminal-code"><code`)
+		} else {
+			_, _ = w.WriteString(`<pre><code`)
+		}
+		if language, ok := context.Language(); ok {
+			_, _ = w.WriteString(` class="language-`)
+			_, _ = w.WriteString(htmpl.HTMLEscapeString(string(language)))
+			_, _ = w.WriteString(`"`)
+		}
+		_, _ = w.WriteString(`>`)
+		return
+	}
+	_, _ = w.WriteString(`</code></pre>`)
 }
 
 // Renderer wraps goldmark with our configuration.
@@ -110,6 +198,7 @@ func NewRendererWithEnv(templateEnv map[string]string) (*Renderer, error) {
 			highlighting.NewHighlighting(
 				highlighting.WithStyle("github-dark"),
 				highlighting.WithGuessLanguage(true),
+				highlighting.WithWrapperRenderer(renderCodeBlockWrapper),
 				highlighting.WithFormatOptions(
 					chromahtml.WithClasses(true),
 				),
@@ -118,6 +207,9 @@ func NewRendererWithEnv(templateEnv map[string]string) (*Renderer, error) {
 		goldmark.WithParserOptions(
 			parser.WithAutoHeadingID(),
 			parser.WithAttribute(),
+			parser.WithASTTransformers(
+				util.Prioritized(terminalCodeBlockTransformer{}, 0),
+			),
 		),
 		goldmark.WithRendererOptions(
 			html.WithHardWraps(),
@@ -149,7 +241,7 @@ func (r *Renderer) Render(src []byte) (*Result, error) {
 func (r *Renderer) RenderWithOptions(src []byte, opts RenderOptions) (*Result, error) {
 	fm, body := parseFrontmatter(src)
 	body = r.applyTemplateEnv(body)
-	htmlStr, err := r.renderMarkdownBody(body, opts)
+	htmlStr, err := r.renderMarkdownBody(body, opts, fm.Dyno.Tables)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +259,7 @@ func (r *Renderer) RenderWithOptions(src []byte, opts RenderOptions) (*Result, e
 	}, nil
 }
 
-func (r *Renderer) renderMarkdownBody(body []byte, opts RenderOptions) (string, error) {
+func (r *Renderer) renderMarkdownBody(body []byte, opts RenderOptions, tableOptions TableOptions) (string, error) {
 	// MkDocs admonitions/details are extracted first so their indented Markdown
 	// can be rendered recursively, including nested admonitions and code blocks.
 	mkDocsBlocks := map[string]mkDocsBlock{}
@@ -202,13 +294,17 @@ func (r *Renderer) renderMarkdownBody(body []byte, opts RenderOptions) (string, 
 		return "", err
 	}
 
+	// Transform only Markdown tables. Custom widgets are still placeholders at
+	// this point, so their internal tables are not wrapped accidentally.
+	htmlStr := wrapMarkdownTables(buf.String(), tableOptions)
+
 	// Restore placeholders: D2 SVGs, then API widgets.
-	htmlStr := restoreD2Placeholders(buf.String(), d2SVGs)
+	htmlStr = restoreD2Placeholders(htmlStr, d2SVGs)
 	htmlStr = restorePlaceholders(htmlStr, apiBlocks)
 	htmlStr = restoreTasksPlaceholders(htmlStr, taskBlocks, opts.TaskRenderer)
 	htmlStr = restoreFileDownloadPlaceholders(htmlStr, fileDownloads)
 	var err error
-	htmlStr, err = r.restoreMkDocsBlocks(htmlStr, mkDocsBlocks, opts)
+	htmlStr, err = r.restoreMkDocsBlocks(htmlStr, mkDocsBlocks, opts, tableOptions)
 	if err != nil {
 		return "", err
 	}
@@ -508,14 +604,16 @@ func stripTags(s string) string {
 
 // calloutRe matches a blockquote whose first paragraph starts with [!TYPE]
 // Goldmark renders it as: <blockquote>\n<p>[!NOTE]\nrest</p>...
-var calloutRe = regexp.MustCompile(`(?s)<blockquote>\s*<p>\[!(NOTE|TIP|WARNING|DANGER|INFO)\]\n?(.*?)</p>(.*?)</blockquote>`)
+var calloutRe = regexp.MustCompile(`(?s)<blockquote>\s*<p>\[!(NOTE|TIP|IMPORTANT|WARNING|WARN|CAUTION|DANGER|INFO)\]\n?(.*?)</p>(.*?)</blockquote>`)
 
 var calloutMeta = map[string][2]string{
-	"NOTE":    {"💡", "callout-note"},
-	"INFO":    {"ℹ️", "callout-info"},
-	"TIP":     {"✅", "callout-tip"},
-	"WARNING": {"⚠️", "callout-warning"},
-	"DANGER":  {"🚨", "callout-danger"},
+	"NOTE":      {"💡", "callout-note"},
+	"INFO":      {"ℹ️", "callout-info"},
+	"TIP":       {"✅", "callout-tip"},
+	"IMPORTANT": {"ℹ️", "callout-info"},
+	"WARNING":   {"⚠️", "callout-warning"},
+	"CAUTION":   {"⚠️", "callout-warning"},
+	"DANGER":    {"🚨", "callout-danger"},
 }
 
 // transformCallouts converts GitHub-style blockquote callouts into styled divs.
@@ -530,6 +628,9 @@ func transformCallouts(htmlStr string) string {
 			return match
 		}
 		kind := subs[1]
+		if kind == "WARN" {
+			kind = "WARNING"
+		}
 		firstPara := strings.TrimSpace(subs[2])
 		rest := strings.TrimSpace(subs[3])
 
