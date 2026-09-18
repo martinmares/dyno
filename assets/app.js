@@ -58,7 +58,9 @@
 
   function readStoredScale() {
     try {
-      const value = Number(sessionStorage.getItem(storageKey));
+      const stored = sessionStorage.getItem(storageKey);
+      if (stored === null || stored.trim() === '') return defaultScale;
+      const value = Number(stored);
       return Number.isFinite(value) ? clampScale(value) : defaultScale;
     } catch (_) {
       return defaultScale;
