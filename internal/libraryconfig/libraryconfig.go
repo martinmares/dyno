@@ -41,6 +41,7 @@ type SiteEntry struct {
 	Slug           string                   `yaml:"slug"`
 	Icon           string                   `yaml:"icon"`
 	Color          string                   `yaml:"color"`
+	Card           config.LibraryCardConfig `yaml:"card"`
 	GitHubURL      string                   `yaml:"github_url"`
 	BasePath       string                   `yaml:"base_path"`
 	ContentInclude []string                 `yaml:"content_include"`

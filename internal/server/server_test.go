@@ -815,7 +815,7 @@ func TestLibrarySearchUsesBasePath(t *testing.T) {
 	writeTestFile(t, filepath.Join(contentB, "index.md"), "# Beta\n\nOther docs.\n")
 	writeTestFile(t, filepath.Join(contentB, "guides", "second.md"), "---\nowner: bob\n---\n# Second\n\nAnother alpha match.\n")
 
-	cfgA := "title: Alpha Docs\nslug: alpha\nbase_path: /docs\nfrontmatter:\n  fields:\n    owner:\n      filterable: true\n"
+	cfgA := "title: Alpha Docs\nslug: alpha\nbase_path: /docs\ncard:\n  label: Tools\n  links:\n    - title: First tool\n      path: alpha/guides/first\nfrontmatter:\n  fields:\n    owner:\n      filterable: true\n"
 	cfgB := "title: Beta Docs\nslug: beta\nfrontmatter:\n  fields:\n    owner:\n      filterable: true\n"
 	writeTestFile(t, filepath.Join(contentA, "dyno.yaml"), cfgA)
 	writeTestFile(t, filepath.Join(contentB, "dyno.yaml"), cfgB)
@@ -860,6 +860,12 @@ func TestLibrarySearchUsesBasePath(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), `hx-get="/docs/_search"`) {
 		t.Fatalf("expected dashboard search to use base path, got: %s", rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), `id="metadata-filters"`) {
+		t.Fatalf("library dashboard must not render global metadata filters, got: %s", rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `href="/docs/alpha/guides/first"`) || !strings.Contains(rec.Body.String(), "First tool") {
+		t.Fatalf("library dashboard must render configured direct card links, got: %s", rec.Body.String())
 	}
 
 	rec = httptest.NewRecorder()

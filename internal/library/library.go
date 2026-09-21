@@ -42,6 +42,33 @@ func (b *Book) TopLevel(maxItems int) []*navigation.NavNode {
 	return out
 }
 
+// PreviewPages returns up to maxItems real pages in navigation order. Unlike
+// TopLevel it descends through grouping directories, so dashboard cards never
+// present a directory name as if it were an expandable control.
+func (b *Book) PreviewPages(maxItems int) []*navigation.NavNode {
+	if b.Nav == nil || maxItems <= 0 {
+		return nil
+	}
+	out := make([]*navigation.NavNode, 0, maxItems)
+	var walk func(*navigation.NavNode)
+	walk = func(node *navigation.NavNode) {
+		if len(out) >= maxItems {
+			return
+		}
+		if node != b.Nav && node.FSPath != "" {
+			out = append(out, node)
+		}
+		for _, child := range node.Children {
+			walk(child)
+			if len(out) >= maxItems {
+				return
+			}
+		}
+	}
+	walk(b.Nav)
+	return out
+}
+
 // Load reads config, navigation and search index for a single site directory.
 // basePath is the global base_path (e.g. "/docs"); each book gets basePath+"/"+slug.
 // override, if non-nil, supplies fallback values for fields missing in dyno.yaml.

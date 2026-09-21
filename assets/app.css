@@ -2004,6 +2004,7 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 }
 
 .dyno-body > .footer {
+  margin-left: 16rem;
   border-top: var(--tblr-border-width) solid var(--tblr-border-color);
 }
 
@@ -2521,6 +2522,10 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 }
 
 @media (max-width: 1023px) {
+  .dyno-body > .footer {
+    margin-left: 0;
+  }
+
   .dyno-sidebar {
     position: fixed;
     top: 3.5rem;
@@ -3473,6 +3478,15 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   line-height: 1.35;
 }
 
+.dyno-book-title-wrap h2 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.dyno-book-title-wrap h2 a:hover {
+  color: var(--tblr-primary);
+}
+
 .dyno-book-title-wrap p {
   display: -webkit-box;
   margin: 0.25rem 0 0;
@@ -3512,12 +3526,21 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
-  margin: auto 0 0;
-  padding: 0.75rem 0 0;
-  border-top: var(--tblr-border-width) solid var(--tblr-border-color-translucent);
+	margin: 0;
+	padding: 0.5rem 0 0;
+	border-top: 0;
   color: var(--tblr-secondary-color);
   font-size: 0.75rem;
   list-style: none;
+}
+
+.dyno-book-list-label {
+	margin-top: 0;
+  padding-top: 0.75rem;
+  border-top: var(--tblr-border-width) solid var(--tblr-border-color-translucent);
+  color: var(--tblr-body-color);
+  font-size: 0.75rem;
+  font-weight: 600;
 }
 
 .dyno-book-chapters li {
@@ -3527,8 +3550,23 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   gap: 0.375rem;
 }
 
+.dyno-book-chapters a {
+  color: var(--tblr-secondary-color);
+  text-decoration: none;
+}
+
+.dyno-book-chapters a:hover {
+  color: var(--tblr-primary);
+  text-decoration: underline;
+}
+
+.dyno-book-list-bullet {
+  color: var(--tblr-primary);
+}
+
 .dyno-book-footer {
-  display: flex;
+	display: flex;
+	margin-top: auto;
   justify-content: flex-end;
   padding: 1rem 1.25rem;
   color: var(--tblr-primary);
@@ -3536,11 +3574,19 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   font-weight: 500;
 }
 
+.dyno-book-footer a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--tblr-primary);
+  text-decoration: none;
+}
+
 .dyno-book-footer span {
   transition: transform 150ms ease;
 }
 
-.dyno-book-card:hover .dyno-book-footer span {
+.dyno-book-card:hover .dyno-book-footer a {
   transform: translateX(0.125rem);
 }
 

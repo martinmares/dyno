@@ -28,6 +28,7 @@ type SiteConfig struct {
 	Slug                         string            `yaml:"slug"`  // URL segment for this book, e.g. "monitoring"
 	Icon                         string            `yaml:"icon"`  // emoji or short text shown on library card
 	Color                        string            `yaml:"color"` // accent hex color for library card, e.g. "#066fd1"
+	Card                         LibraryCardConfig `yaml:"card"`
 	APIProxyAllowedHosts         []string          `yaml:"api_proxy_allowed_hosts"`
 	APIProxyAllowPrivateNetworks *bool             `yaml:"api_proxy_allow_private_networks"`
 	ContentInclude               []string          `yaml:"content_include"`
@@ -37,6 +38,18 @@ type SiteConfig struct {
 	// Git auto-pull (used when site is cloned from a remote repo)
 	GitPullInterval string `yaml:"git_pull_interval"` // e.g. "5m", "false" to disable
 	GitBranch       string `yaml:"git_branch"`        // overrides CLI --git-branch
+}
+
+// LibraryCardConfig controls the useful, directly clickable content shown on
+// a book card in library mode. Paths are relative to the library root.
+type LibraryCardConfig struct {
+	Label string            `yaml:"label"`
+	Links []LibraryCardLink `yaml:"links"`
+}
+
+type LibraryCardLink struct {
+	Title string `yaml:"title"`
+	Path  string `yaml:"path"`
 }
 
 type CommentsConfig struct {
@@ -240,6 +253,9 @@ func (c *SiteConfig) MergeDefaults(ext SiteConfig) {
 	}
 	if c.Color == "" && ext.Color != "" {
 		c.Color = ext.Color
+	}
+	if c.Card.Label == "" && len(c.Card.Links) == 0 {
+		c.Card = ext.Card
 	}
 	if c.GitHubURL == "" && ext.GitHubURL != "" {
 		c.GitHubURL = ext.GitHubURL

@@ -120,13 +120,13 @@
 
       <div class="dyno-library-books">
         {{ range .Books }}
-        <a href="{{ .BookPath }}/" class="card dyno-book-card">
+        <article class="card dyno-book-card">
           <div class="dyno-book-accent" style="background: {{ .AccentColor }};"></div>
           <div class="dyno-book-body">
             <div class="dyno-book-heading">
               {{ if .Icon }}<span class="dyno-book-icon">{{ .Icon }}</span>{{ end }}
               <div class="dyno-book-title-wrap">
-                <h2>{{ .Title }}</h2>
+                <h2><a href="{{ .BookPath }}/">{{ .Title }}</a></h2>
                 {{ if .Description }}<p>{{ .Description }}</p>{{ end }}
               </div>
             </div>
@@ -142,21 +142,22 @@
               </span>
             </div>
 
-            {{ if .TopChapters }}
+            {{ if .CardLinks }}
+            <div class="dyno-book-list-label">{{ .CardLabel }}</div>
             <ul class="dyno-book-chapters">
-              {{ range .TopChapters }}
+              {{ range .CardLinks }}
               <li>
-                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                <span class="dyno-truncate">{{ .Title }}</span>
+                <span aria-hidden="true" class="dyno-book-list-bullet">•</span>
+                <a href="{{ .Href }}" class="dyno-truncate" title="{{ .Title }}">{{ .Title }}</a>
               </li>
               {{ end }}
             </ul>
             {{ end }}
           </div>
           <div class="dyno-book-footer">
-            <span>Open <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></span>
+            <a href="{{ .BookPath }}/">Open book <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></a>
           </div>
-        </a>
+        </article>
         {{ end }}
       </div>
     </div>

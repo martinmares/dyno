@@ -517,6 +517,7 @@ func siteEntryToSiteConfig(e libraryconfig.SiteEntry) *config.SiteConfig {
 		Slug:            e.Slug,
 		Icon:            e.Icon,
 		Color:           e.Color,
+		Card:            e.Card,
 		GitHubURL:       e.GitHubURL,
 		GitHubBranch:    e.Branch,
 		GitPullInterval: e.PullInterval,

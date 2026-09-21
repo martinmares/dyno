@@ -232,11 +232,20 @@ type bookCardData struct {
 	BookPath    string
 	PageCount   int
 	WordCount   int
-	TopChapters []chapterEntry
+	CardLabel   string
+	CardLinks   []cardLinkEntry
 }
 
-type chapterEntry struct {
+type cardLinkEntry struct {
 	Title string
+	Href  string
+}
+
+func libraryCardHref(basePath, configuredPath string) string {
+	if strings.HasPrefix(configuredPath, "http://") || strings.HasPrefix(configuredPath, "https://") {
+		return configuredPath
+	}
+	return strings.TrimRight(basePath, "/") + "/" + strings.TrimLeft(configuredPath, "/")
 }
 
 func (ls *LibraryServer) dashboardHandler(w http.ResponseWriter, r *http.Request) {
@@ -268,9 +277,22 @@ func (ls *LibraryServer) dashboardHandler(w http.ResponseWriter, r *http.Request
 				continue
 			}
 		}
-		var chapters []chapterEntry
-		for _, ch := range book.TopLevel(5) {
-			chapters = append(chapters, chapterEntry{Title: ch.Title})
+		label := book.Cfg.Card.Label
+		if label == "" {
+			label = "Pages"
+		}
+		var cardLinks []cardLinkEntry
+		if len(book.Cfg.Card.Links) > 0 {
+			for _, link := range book.Cfg.Card.Links {
+				if strings.TrimSpace(link.Title) == "" || strings.TrimSpace(link.Path) == "" {
+					continue
+				}
+				cardLinks = append(cardLinks, cardLinkEntry{Title: link.Title, Href: libraryCardHref(ls.basePath, link.Path)})
+			}
+		} else {
+			for _, page := range book.PreviewPages(8) {
+				cardLinks = append(cardLinks, cardLinkEntry{Title: page.Title, Href: page.FullPath})
+			}
 		}
 		cards = append(cards, bookCardData{
 			Title:       book.Cfg.Title,
@@ -280,7 +302,8 @@ func (ls *LibraryServer) dashboardHandler(w http.ResponseWriter, r *http.Request
 			BookPath:    bookPath + filterQuery,
 			PageCount:   pageCount,
 			WordCount:   book.WordCount,
-			TopChapters: chapters,
+			CardLabel:   label,
+			CardLinks:   cardLinks,
 		})
 	}
 
@@ -298,20 +321,22 @@ func (ls *LibraryServer) dashboardHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	data := LibraryData{
-		Title:          ls.title,
-		LogoText:       ls.logoText,
-		Subtitle:       ls.subtitle,
-		Books:          cards,
-		BasePath:       ls.basePath,
-		SearchURL:      strings.TrimRight(ls.basePath, "/") + "/_search" + filterQuery,
-		AppJSURL:       appJSURL,
-		AppCSSURL:      appCSSURL,
-		TablerCSSURL:   tablerCSSURL,
-		TablerJSURL:    tablerJSURL,
-		HTMXURL:        htmxURL,
-		MermaidURL:     mermaidURL,
-		IsHTMX:         r.Header.Get("HX-Request") == "true",
-		MetadataFacets: ls.metadata.Facets(filter),
+		Title:        ls.title,
+		LogoText:     ls.logoText,
+		Subtitle:     ls.subtitle,
+		Books:        cards,
+		BasePath:     ls.basePath,
+		SearchURL:    strings.TrimRight(ls.basePath, "/") + "/_search" + filterQuery,
+		AppJSURL:     appJSURL,
+		AppCSSURL:    appCSSURL,
+		TablerCSSURL: tablerCSSURL,
+		TablerJSURL:  tablerJSURL,
+		HTMXURL:      htmxURL,
+		MermaidURL:   mermaidURL,
+		IsHTMX:       r.Header.Get("HX-Request") == "true",
+		// The library dashboard is an orientation page, not a faceted search
+		// form. Book-level catalogues can opt into focused metadata filters.
+		MetadataFacets: nil,
 		FilterQuery:    filterQuery,
 		FiltersActive:  len(filter) > 0,
 	}
