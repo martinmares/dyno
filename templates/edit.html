@@ -20,6 +20,7 @@
   <style>{{ .DarkCSS }}</style>
   <link rel="stylesheet" href="{{ .TablerCSSURL }}" />
   <link rel="stylesheet" href="{{ .AppCSSURL }}" />
+  <link rel="stylesheet" href="{{ .VisualCSSURL }}" />
 
   <!-- CodeMirror (local assets) -->
   <link rel="stylesheet" href="/assets/codemirror.min.css">
@@ -34,6 +35,7 @@
   <script src="/assets/codemirror-overlay.min.js"></script>
   <script src="/assets/codemirror-markdown.min.js"></script>
   <script src="/assets/codemirror-continuelist.min.js"></script>
+  <script src="{{ .VisualJSURL }}"></script>
 
   <style>
     html, body { height: 100%; overflow: hidden; }
@@ -157,11 +159,27 @@
     </div>
   </div>
 
-  <!-- Editor + Preview panes -->
-  <div id="editor-panes" class="dyno-edit-panes">
+  <div class="dyno-edit-mobile-tabs" role="group" aria-label="Editor panels">
+    <button type="button" class="btn btn-sm btn-ghost-secondary" data-mobile-pane="outline">Contents</button>
+    <button type="button" class="btn btn-sm btn-ghost-secondary is-active" data-mobile-pane="editor">Edit</button>
+    <button type="button" class="btn btn-sm btn-ghost-secondary" data-mobile-pane="preview">Preview</button>
+  </div>
+
+  <!-- Outline + Editor + Preview panes -->
+  <div id="editor-panes" class="dyno-edit-panes" data-mobile-active="editor">
+    <aside id="outline-pane" class="dyno-edit-outline" aria-label="Document outline">
+      <div class="dyno-edit-outline-heading">Contents</div>
+      <nav id="editor-outline" aria-label="Document headings"></nav>
+    </aside>
     <!-- Editor pane -->
     <div id="editor-pane">
-      <textarea id="cm-source">{{ .Source }}</textarea>
+      <div class="dyno-edit-modebar" role="group" aria-label="Editing mode">
+        <button id="visual-mode-btn" type="button" class="btn btn-sm btn-ghost-secondary" aria-pressed="false">Visual</button>
+        <button id="source-mode-btn" type="button" class="btn btn-sm btn-ghost-secondary is-active" aria-pressed="true">Source</button>
+        <span id="visual-mode-status" role="status"></span>
+      </div>
+      <div id="source-editor" class="dyno-edit-source-editor"><textarea id="cm-source">{{ .Source }}</textarea></div>
+      <div id="visual-editor" class="dyno-visual-editor" hidden></div>
     </div>
 
     {{ if or .MetadataFields .MetadataError }}
@@ -218,12 +236,35 @@
 
     <!-- Preview pane -->
     <div id="preview-pane" class="dyno-edit-preview-pane">
+      <div class="dyno-edit-modebar dyno-edit-previewbar">Live preview</div>
       <div id="preview-content" class="dyno-prose dyno-edit-preview-content">
         {{ .PreviewHTML }}
       </div>
     </div>
   </div>
 </div>
+
+<dialog id="visual-block-dialog" class="dyno-visual-block-dialog" aria-labelledby="visual-block-title">
+  <form id="visual-block-form" method="dialog">
+    <div class="dyno-visual-block-header">
+      <h2 id="visual-block-title">Edit block</h2>
+      <button type="button" id="visual-block-close" class="btn btn-icon btn-ghost-secondary" aria-label="Close">&times;</button>
+    </div>
+    <label id="visual-block-type-row" class="form-label" hidden>Callout type
+      <select id="visual-block-type" class="form-select">
+        <option>NOTE</option><option>TIP</option><option>IMPORTANT</option><option>WARNING</option>
+        <option>WARN</option><option>CAUTION</option><option>DANGER</option><option>INFO</option>
+      </select>
+    </label>
+    <label for="visual-block-content" class="form-label" id="visual-block-content-label">Content</label>
+    <textarea id="visual-block-content" class="form-control dyno-visual-block-content" spellcheck="false" aria-label="Block content"></textarea>
+    <p id="visual-block-error" class="text-danger" role="alert" hidden></p>
+    <div class="dyno-visual-block-actions">
+      <button type="button" id="visual-block-cancel" class="btn btn-ghost-secondary">Cancel</button>
+      <button type="submit" class="btn btn-primary">Apply</button>
+    </div>
+  </form>
+</dialog>
 
 <script src="{{ .AppJSURL }}"></script>
 <script>
@@ -252,6 +293,34 @@
   });
   CodeMirror.defineMIME('text/x-d2', 'dyno-diagram');
   CodeMirror.defineMIME('text/x-mermaid', 'dyno-diagram');
+
+  CodeMirror.defineMode('dyno-sql', function() {
+    const keywords = /^(?:ALL|ALTER|AND|AS|BEGIN|BY|CASCADE|CASE|CHECK|COMMIT|CONNECT|CREATE|DATABASE|DEFAULT|DELETE|DISTINCT|DROP|ELSE|END|EXECUTE|EXISTS|FALSE|FROM|FUNCTION|GRANT|GROUP|HAVING|IN|INDEX|INSERT|INTO|IS|JOIN|KEY|LEFT|LIMIT|NOT|NULL|ON|OR|ORDER|PRIMARY|PROCEDURE|REFERENCES|RETURNING|REVOKE|RIGHT|ROLLBACK|SCHEMA|SELECT|SEQUENCE|SET|TABLE|THEN|TO|TRUE|UNION|UPDATE|USAGE|USER|VALUES|VIEW|WHEN|WHERE|WITH)\b/i;
+    return {
+      startState: function() { return { comment: false }; },
+      token: function(stream, state) {
+        if (state.comment) {
+          while (!stream.eol()) {
+            if (stream.match('*/')) { state.comment = false; break; }
+            stream.next();
+          }
+          return 'comment';
+        }
+        if (stream.eatSpace()) return null;
+        if (stream.match('--')) { stream.skipToEnd(); return 'comment'; }
+        if (stream.match('/*')) { state.comment = true; return 'comment'; }
+        if (stream.match(/^'(?:''|[^'])*'?/)) return 'string';
+        if (stream.match(/^"(?:""|[^"])*"?/)) return 'string-2';
+        if (stream.match(/^<[^>]+>/)) return 'variable-2';
+        if (stream.match(/^\d+(?:\.\d+)?\b/)) return 'number';
+        if (stream.match(keywords)) return 'keyword';
+        if (stream.match(/^[A-Za-z_][\w$]*/)) return 'variable';
+        stream.next();
+        return null;
+      }
+    };
+  });
+  CodeMirror.defineMIME('text/x-sql', 'dyno-sql');
 
   const _langMimeMap = {
     'bash': 'text/x-sh', 'sh': 'text/x-sh', 'shell': 'text/x-sh', 'zsh': 'text/x-sh',
@@ -291,13 +360,392 @@
   // Make editor fill the pane height
   cm.setSize('100%', '100%');
 
+  const panes = document.getElementById('editor-panes');
+  const outline = document.getElementById('editor-outline');
+  const sourceRoot = document.getElementById('source-editor');
+  const visualRoot = document.getElementById('visual-editor');
+  const previewPane = document.getElementById('preview-pane');
+  const previewBar = previewPane.querySelector('.dyno-edit-previewbar');
+  const visualButton = document.getElementById('visual-mode-btn');
+  const sourceButton = document.getElementById('source-mode-btn');
+  const visualStatus = document.getElementById('visual-mode-status');
+  const blockDialog = document.getElementById('visual-block-dialog');
+  const blockForm = document.getElementById('visual-block-form');
+  const blockTypeRow = document.getElementById('visual-block-type-row');
+  const blockType = document.getElementById('visual-block-type');
+  const blockContent = document.getElementById('visual-block-content');
+  const blockContentLabel = document.getElementById('visual-block-content-label');
+  const blockError = document.getElementById('visual-block-error');
+  let editingBlock = null;
+  let blockCodeMirror = null;
+  let visualEditor = null;
+  let editMode = 'source';
+  let lastSafeSource = cm.getValue();
+  let headings = [];
+  let outlineKey = '';
+  let activeHeadingLine = -1;
+  let syncingScroll = false;
+
+  function currentSource() {
+    return editMode === 'visual' && visualEditor ? visualEditor.getSource() : cm.getValue();
+  }
+
+  function editorHeadings(source) {
+    const lines = source.split(/\r?\n/);
+    const result = [];
+    let frontmatter = lines[0] === '---';
+    let fence = null;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (frontmatter) {
+        if (i > 0 && /^(?:---|\.\.\.)\s*$/.test(line)) frontmatter = false;
+        continue;
+      }
+      const delimiter = line.match(/^ {0,3}(`{3,}|~{3,})/);
+      if (delimiter) {
+        if (!fence) fence = { marker: delimiter[1][0], length: delimiter[1].length };
+        else if (delimiter[1][0] === fence.marker && delimiter[1].length >= fence.length) fence = null;
+        continue;
+      }
+      if (fence) continue;
+      const atx = line.match(/^ {0,3}(#{1,6})(?:[ \t]+(.+?)\s*#*\s*|\s*)$/);
+      if (atx) {
+        result.push({ line: i, level: atx[1].length, text: (atx[2] || '').trim() || 'Untitled heading' });
+      } else if (line.trim() && i + 1 < lines.length && /^ {0,3}(=+|-+)\s*$/.test(lines[i + 1])) {
+        result.push({ line: i, level: lines[i + 1].trim()[0] === '=' ? 1 : 2, text: line.trim() });
+        i++;
+      }
+    }
+    return result;
+  }
+
+  function setActiveHeading(line) {
+    if (activeHeadingLine === line) return;
+    activeHeadingLine = line;
+    outline.querySelectorAll('[data-heading-line]').forEach(function(link) {
+      const active = Number(link.dataset.headingLine) === line;
+      link.classList.toggle('is-active', active);
+      if (active) {
+        link.setAttribute('aria-current', 'location');
+        link.scrollIntoView({ block: 'nearest' });
+      } else link.removeAttribute('aria-current');
+    });
+  }
+
+  function headingAtLine(line) {
+    let current = -1;
+    for (const heading of headings) {
+      if (heading.line > line) break;
+      current = heading.line;
+    }
+    return current;
+  }
+
+  function renderOutline() {
+    let source;
+    try { source = currentSource(); }
+    catch (error) {
+      visualStatus.textContent = error.message;
+      return;
+    }
+    headings = editorHeadings(source);
+    const key = JSON.stringify(headings);
+    if (key === outlineKey) return;
+    outlineKey = key;
+    const fragment = document.createDocumentFragment();
+    if (!headings.length) {
+      const empty = document.createElement('p');
+      empty.className = 'dyno-edit-outline-empty';
+      empty.textContent = 'No headings yet';
+      fragment.appendChild(empty);
+    }
+    headings.forEach(function(heading, index) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'dyno-edit-outline-link';
+      button.dataset.headingLine = String(heading.line);
+      button.style.paddingLeft = (0.75 + Math.min(heading.level - 1, 4) * 0.625) + 'rem';
+      button.textContent = heading.text;
+      button.title = heading.text;
+      button.addEventListener('click', function() {
+        if (window.innerWidth < 768) selectMobilePane('editor');
+        if (editMode === 'visual' && visualEditor) visualEditor.focusHeading(index);
+        else {
+          cm.setCursor(heading.line, 0);
+          cm.scrollIntoView({ line: heading.line, ch: 0 }, 80);
+          cm.focus();
+        }
+        setActiveHeading(heading.line);
+        const previewHeading = previewHeadingEls()[index];
+        if (previewHeading) previewPane.scrollTop = previewHeading.offsetTop - previewBar.offsetHeight - 24;
+      });
+      fragment.appendChild(button);
+    });
+    outline.replaceChildren(fragment);
+    activeHeadingLine = -1;
+    setActiveHeading(headingAtLine(cm.getCursor().line));
+  }
+
+  function updateVisualActiveHeading() {
+    const active = document.getSelection()?.anchorNode;
+    const element = active && (active.nodeType === Node.ELEMENT_NODE ? active : active.parentElement);
+    const editor = visualRoot.querySelector('.ProseMirror');
+    if (!element || !editor || !editor.contains(element)) return;
+    const visualHeadings = Array.from(editor.querySelectorAll('h1,h2,h3,h4,h5,h6'));
+    let index = -1;
+    visualHeadings.forEach(function(heading, candidate) {
+      if (heading === element || heading.contains(element) || heading.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING) index = candidate;
+    });
+    setActiveHeading(index >= 0 && headings[index] ? headings[index].line : -1);
+  }
+
+  function mappedScrollTop(fromPane, toPane, fromHeadings, toHeadings) {
+    const fromMax = Math.max(0, fromPane.scrollHeight - fromPane.clientHeight);
+    const toMax = Math.max(0, toPane.scrollHeight - toPane.clientHeight);
+    if (!fromMax || !fromHeadings.length || fromHeadings.length !== toHeadings.length) {
+      return fromMax ? fromPane.scrollTop / fromMax * toMax : 0;
+    }
+    function anchors(pane, elements, max) {
+      const paneTop = pane.getBoundingClientRect().top + (pane === previewPane ? previewBar.offsetHeight : 0);
+      return [0, ...elements.map(function(element) {
+        const top = element.getBoundingClientRect().top - paneTop + pane.scrollTop - 24;
+        return Math.max(0, Math.min(max, top));
+      }), max];
+    }
+    const from = anchors(fromPane, fromHeadings, fromMax);
+    const to = anchors(toPane, toHeadings, toMax);
+    const position = Math.max(0, Math.min(fromMax, fromPane.scrollTop));
+    let segment = 0;
+    while (segment < from.length - 2 && position > from[segment + 1]) segment++;
+    const length = from[segment + 1] - from[segment];
+    const ratio = length > 0 ? (position - from[segment]) / length : 0;
+    return to[segment] + ratio * (to[segment + 1] - to[segment]);
+  }
+
+  function visualHeadingEls() {
+    return Array.from(visualRoot.querySelectorAll('.ProseMirror h1,.ProseMirror h2,.ProseMirror h3,.ProseMirror h4,.ProseMirror h5,.ProseMirror h6'));
+  }
+
+  function selectMobilePane(name) {
+    panes.dataset.mobileActive = name;
+    document.querySelectorAll('[data-mobile-pane]').forEach(function(button) {
+      button.classList.toggle('is-active', button.dataset.mobilePane === name);
+    });
+    if (name === 'editor' && editMode === 'source') requestAnimationFrame(function() { cm.refresh(); });
+  }
+
+  document.querySelectorAll('[data-mobile-pane]').forEach(function(button) {
+    button.addEventListener('click', function() { selectMobilePane(button.dataset.mobilePane); });
+  });
+
+  async function switchToVisual() {
+    if (editMode === 'visual' || !window.DynoVisualEditor) return;
+    visualButton.disabled = true;
+    visualStatus.textContent = 'Loading visual editor…';
+    try {
+      lastSafeSource = cm.getValue();
+      visualEditor = await window.DynoVisualEditor.create(visualRoot, lastSafeSource, function() {
+        if (editMode !== 'visual') return;
+        try {
+          lastSafeSource = visualEditor.getSource();
+          visualStatus.textContent = '';
+          renderOutline();
+          schedulePreview();
+        } catch (error) { visualStatus.textContent = error.message; }
+      });
+      editMode = 'visual';
+      sourceRoot.hidden = true;
+      visualRoot.hidden = false;
+      visualButton.classList.add('is-active');
+      visualButton.setAttribute('aria-pressed', 'true');
+      sourceButton.classList.remove('is-active');
+      sourceButton.setAttribute('aria-pressed', 'false');
+      visualStatus.textContent = '';
+      renderOutline();
+      setActiveHeading(headings.length ? headings[0].line : -1);
+    } catch (error) {
+      visualStatus.textContent = error.message || 'Visual editor could not open this document.';
+      console.error(error);
+    } finally { visualButton.disabled = false; }
+  }
+
+  async function switchToSource() {
+    if (editMode === 'source') return;
+    if (blockDialog.open) blockDialog.close();
+    let source = lastSafeSource;
+    try { source = visualEditor.getSource(); }
+    catch (error) { visualStatus.textContent = error.message + ' Last valid content restored.'; }
+    editMode = 'source';
+    cm.setValue(source);
+    await visualEditor.destroy();
+    visualEditor = null;
+    visualRoot.replaceChildren();
+    sourceRoot.hidden = false;
+    visualRoot.hidden = true;
+    sourceButton.classList.add('is-active');
+    sourceButton.setAttribute('aria-pressed', 'true');
+    visualButton.classList.remove('is-active');
+    visualButton.setAttribute('aria-pressed', 'false');
+    cm.refresh();
+    renderOutline();
+  }
+
+  visualButton.addEventListener('click', switchToVisual);
+  sourceButton.addEventListener('click', switchToSource);
+  document.getElementById('visual-block-close').addEventListener('click', function() { blockDialog.close(); });
+  document.getElementById('visual-block-cancel').addEventListener('click', function() { blockDialog.close(); });
+  blockDialog.addEventListener('close', function() {
+    const position = editingBlock;
+    if (blockCodeMirror) {
+      blockCodeMirror.toTextArea();
+      blockCodeMirror = null;
+    }
+    editingBlock = null;
+    if (!position || editMode !== 'visual') return;
+    requestAnimationFrame(function() {
+      const link = visualRoot.querySelector('a[href="#' + position.token + '"]');
+      if (link) link.focus({ preventScroll: true });
+      visualRoot.scrollTop = position.visualScrollTop;
+      if (link) link.scrollTop = position.blockScrollTop;
+      requestAnimationFrame(function() {
+        visualRoot.scrollTop = position.visualScrollTop;
+        if (link) link.scrollTop = position.blockScrollTop;
+      });
+    });
+  });
+
+  function openBlockEditor(token, block, link) {
+    const source = block.source.replace(/\r\n/g, '\n');
+    const trailingNewline = source.endsWith('\n');
+    let opening;
+    let closing;
+    let content;
+    let marker;
+    if (block.kind === 'fence') {
+      const lines = source.replace(/\n$/, '').split('\n');
+      opening = lines.shift();
+      closing = lines.pop();
+      marker = opening.match(/^ {0,3}(`{3,}|~{3,})/);
+      if (!marker || !closing || !new RegExp('^\\s*' + marker[1][0] + '{' + marker[1].length + ',}\\s*$').test(closing)) return false;
+      content = lines.join('\n');
+      blockTypeRow.hidden = true;
+      blockContentLabel.textContent = 'Code';
+      document.getElementById('visual-block-title').textContent = 'Edit ' + (opening.slice(marker[0].length).trim() || 'code') + ' block';
+    } else {
+      const lines = source.replace(/\n$/, '').split('\n');
+      const header = lines.shift().match(/^ {0,3}>\s*\[!([A-Z]+)\]/i);
+      if (!header) return false;
+      blockType.value = header[1].toUpperCase();
+      content = lines.map(line => line.replace(/^ {0,3}> ?/, '')).join('\n');
+      blockTypeRow.hidden = false;
+      blockContentLabel.textContent = 'Message (Markdown supported)';
+      document.getElementById('visual-block-title').textContent = 'Edit callout';
+    }
+    editingBlock = {
+      token, kind: block.kind, opening, closing, marker, trailingNewline,
+      newline: block.source.includes('\r\n') ? '\r\n' : '\n',
+      visualScrollTop: visualRoot.scrollTop, blockScrollTop: link.scrollTop,
+    };
+    blockContent.value = content;
+    blockError.hidden = true;
+    blockDialog.showModal();
+    const language = block.kind === 'fence' ? opening.slice(marker[0].length).trim().split(/\s+/)[0].toLowerCase() : 'markdown';
+    const mode = language === 'markdown' ? 'markdown' : (CodeMirror.findModeByName(language)?.mime || 'text/plain');
+    blockCodeMirror = CodeMirror.fromTextArea(blockContent, {
+      mode: mode,
+      theme: document.documentElement.classList.contains('dark') ? 'dracula' : 'default',
+      lineNumbers: true,
+      lineWrapping: block.kind === 'callout',
+      indentUnit: 2,
+      viewportMargin: 20,
+      extraKeys: { 'Ctrl-S': function() { blockForm.requestSubmit(); }, 'Cmd-S': function() { blockForm.requestSubmit(); } }
+    });
+    blockCodeMirror.refresh();
+    blockCodeMirror.focus();
+    return true;
+  }
+
+  blockForm.addEventListener('submit', function(event) {
+    event.preventDefault();
+    if (!editingBlock || !visualEditor) return;
+    const block = editingBlock;
+    const content = blockCodeMirror.getValue().replace(/\r\n/g, '\n');
+    let source;
+    if (block.kind === 'fence') {
+      const close = new RegExp('^ {0,3}' + block.marker[1][0] + '{' + block.marker[1].length + ',}\\s*$');
+      if (content.split('\n').some(line => close.test(line))) {
+        blockError.textContent = 'Code contains a line that closes the Markdown fence.';
+        blockError.hidden = false;
+        return;
+      }
+      source = block.opening + '\n' + (content ? content + '\n' : '') + block.closing;
+    } else {
+      source = '> [!' + blockType.value + ']\n' + content.split('\n').map(line => line ? '> ' + line : '>').join('\n');
+    }
+    if (block.trailingNewline) source += '\n';
+    try {
+      visualEditor.updateBlock(block.token, source.replace(/\n/g, block.newline));
+      blockDialog.close();
+    } catch (error) {
+      blockError.textContent = error.message;
+      blockError.hidden = false;
+    }
+  });
+  visualRoot.addEventListener('keyup', updateVisualActiveHeading);
+  visualRoot.addEventListener('mouseup', updateVisualActiveHeading);
+  visualRoot.addEventListener('mousemove', function(event) {
+    if (event.target.closest('a[href^="#DYNOOPAQUEBLOCK"]')) event.stopPropagation();
+  }, true);
+  visualRoot.addEventListener('click', function(event) {
+    const link = event.target.closest('a[href^="#DYNOOPAQUEBLOCK"]');
+    if (!link || !visualEditor) return;
+    event.preventDefault();
+    const token = link.getAttribute('href').slice(1);
+    const block = visualEditor.block(token);
+    if (block && (block.kind === 'fence' || block.kind === 'callout') && openBlockEditor(token, block, link)) return;
+    const line = visualEditor.blockLine(token);
+    switchToSource().then(function() {
+      if (line < 0) return;
+      cm.setCursor(line, 0);
+      cm.scrollIntoView({ line: line, ch: 0 }, 80);
+      cm.focus();
+    });
+  });
+  visualRoot.addEventListener('scroll', function() {
+    if (editMode !== 'visual') return;
+    const visualHeadings = visualHeadingEls();
+    let index = -1;
+    const top = visualRoot.getBoundingClientRect().top + 72;
+    visualHeadings.forEach(function(heading, candidate) {
+      if (heading.getBoundingClientRect().top <= top) index = candidate;
+    });
+    setActiveHeading(index >= 0 && headings[index] ? headings[index].line : -1);
+    if (syncingScroll || blockDialog.open) return;
+    syncingScroll = true;
+    previewPane.scrollTop = mappedScrollTop(visualRoot, previewPane, visualHeadings, previewHeadingEls());
+    requestAnimationFrame(function() { syncingScroll = false; });
+  });
+  visualRoot.addEventListener('keydown', function(event) {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+      event.preventDefault();
+      save();
+    }
+  });
+  renderOutline();
+  cm.on('change', renderOutline);
+  cm.on('cursorActivity', function() {
+    if (editMode === 'source') setActiveHeading(headingAtLine(cm.getCursor().line));
+  });
+  switchToVisual();
+
   // Config-driven metadata panel. Only fields changed in the form are patched
   // into the source, so raw frontmatter edits and unknown fields remain intact.
   const metadataToggle = document.getElementById('metadata-toggle');
   const metadataPane = document.getElementById('metadata-pane');
   const metadataForm = document.getElementById('metadata-form');
   if (metadataToggle && metadataPane) {
-    metadataToggle.addEventListener('click', function() {
+    metadataToggle.addEventListener('click', async function() {
+      if (editMode === 'visual') await switchToSource();
       const opening = metadataPane.classList.contains('hidden');
       metadataPane.classList.toggle('hidden', !opening);
       metadataToggle.setAttribute('aria-expanded', opening ? 'true' : 'false');
@@ -387,32 +835,26 @@
   cm.on('change', function() { updateCodeBlockLines(); });
 
   // Scroll sync: editor → preview via heading anchors
-  const previewPane = document.getElementById('preview-pane');
-
-  // Extract headings from editor source: [{line, text}, ...]
-  function editorHeadings() {
-    const out = [];
-    const count = cm.lineCount();
-    for (let i = 0; i < count; i++) {
-      const txt = cm.getLine(i);
-      const m = txt.match(/^#{1,6}\s+(.+)/);
-      if (m) out.push({ line: i, text: m[1].trim() });
-    }
-    return out;
-  }
-
   // Find preview <h1-h6> elements matching heading text
   function previewHeadingEls() {
     return Array.from(document.getElementById('preview-content').querySelectorAll('h1,h2,h3,h4,h5,h6'));
   }
 
-  let syncingScroll = false;
+  previewPane.addEventListener('scroll', function() {
+    if (syncingScroll || editMode !== 'visual' || blockDialog.open) return;
+    syncingScroll = true;
+    visualRoot.scrollTop = mappedScrollTop(previewPane, visualRoot, previewHeadingEls(), visualHeadingEls());
+    requestAnimationFrame(function() { syncingScroll = false; });
+  });
   cm.on('scroll', function() {
     if (syncingScroll) return;
     const info = cm.getScrollInfo();
     const topLine = cm.lineAtHeight(info.top, 'local');
+    const cursorLine = cm.getCursor().line;
+    const bottomLine = cm.lineAtHeight(info.top + info.clientHeight, 'local');
+    setActiveHeading(headingAtLine(cursorLine >= topLine && cursorLine <= bottomLine ? cursorLine : topLine));
 
-    const eHeadings = editorHeadings();
+    const eHeadings = headings;
     if (eHeadings.length === 0) {
       // Fallback: percentage sync when no headings
       const ratio = info.top / Math.max(1, info.height - info.clientHeight);
@@ -440,7 +882,7 @@
 
     // Find matching element in preview
     const pEls = previewHeadingEls();
-    const pEl = pEls.find(el => el.textContent.trim() === anchor.text);
+    const pEl = pEls[anchorIdx];
     if (!pEl) return;
 
     const nextPEl = pEls[pEls.indexOf(pEl) + 1];
@@ -449,19 +891,22 @@
     const targetScroll = pElTop + ratio * (pElBottom - pElTop);
 
     syncingScroll = true;
-    previewPane.scrollTop = targetScroll - 24; // 24px top margin
+    previewPane.scrollTop = targetScroll - previewBar.offsetHeight - 24;
     requestAnimationFrame(() => { syncingScroll = false; });
   });
 
   // Live preview with debounce
   let previewTimer = null;
-  cm.on('change', function() {
+  function schedulePreview() {
     clearTimeout(previewTimer);
     previewTimer = setTimeout(updatePreview, 500);
-  });
+  }
+  cm.on('change', schedulePreview);
 
   function updatePreview() {
-    const src = cm.getValue();
+    let src;
+    try { src = currentSource(); }
+    catch (error) { visualStatus.textContent = error.message; return; }
     const fd = new FormData();
     fd.append('source', src);
     fetch('{{ .PreviewURL }}', { method: 'POST', body: fd })
@@ -481,7 +926,14 @@
 
   function save() {
     if (saveButton.disabled) return;
-    const src = cm.getValue();
+    let src;
+    try { src = currentSource(); }
+    catch (error) {
+      saveStatus.textContent = error.message;
+      saveStatus.classList.add('is-error');
+      saveStatus.style.opacity = '1';
+      return;
+    }
     const fd = new FormData();
     fd.append('source', src);
     fd.append('page_path', '{{ .PagePath }}');

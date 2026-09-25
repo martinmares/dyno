@@ -8,6 +8,10 @@ dyno_version            := `tr -d '\n' < VERSION`
 default:
     @just --list
 
+editor-assets:
+    npm ci
+    npm run build:editor
+
 assets-refresh:
     curl -sL "{{ htmx_url }}" -o assets/htmx.min.js
     curl -sL "{{ mermaid_url }}" -o assets/mermaid.min.js

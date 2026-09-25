@@ -28,7 +28,7 @@ A self-hosted documentation server — think GitBook or Notion, but as a single 
 - **Comments and highlights** — optional local JSONL-backed comments, threaded replies, and selected-text highlights
 - **Hot reload** — `--watch` flag reloads navigation and search index on file changes
 - **Dev mode** — `--dev` flag reloads templates from disk without rebuilding
-- **Single binary** — everything embedded, no Node.js, no build pipeline
+- **Single binary** — UI assets are embedded; no Node.js is needed at runtime
 - **Bundled UI assets** — Tabler CSS and Dyno styles are served from local assets
 - **Optional MCP companion** — `dyno-mcp` exposes the same docs to AI agents over `stdio` or HTTP
 
@@ -170,10 +170,13 @@ Requires **Go 1.22+**.
 
 ```bash
 go run . --site ./site --dev --watch
+go run . --site ./site --dev --edit
 go run . --site /path/to/wiki --dev --watch
 go run . --version
 go run ./cmd/dyno-mcp serve --transport stdio --site ./site
 ```
+
+The editor opens with **Contents | Visual editor | Live Preview**. Switch to **Source** for front matter and custom blocks; the visual editor preserves these blocks when editing surrounding text. The visual editor assets are committed and embedded in the Go binary. When changing their source files, rebuild them with `just editor-assets` (requires Node.js and npm).
 
 ### macOS
 

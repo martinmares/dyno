@@ -34,6 +34,8 @@ type EditPageData struct {
 	MetadataFields []MetadataFieldData
 	MetadataError  string
 	GitStatus      string
+	VisualJSURL    string
+	VisualCSSURL   string
 }
 
 // editPath returns the /_edit base path for this server.
@@ -50,7 +52,7 @@ func (s *Server) editPageURLFor(pageFullPath string) string {
 	return s.editBasePath() + suffix
 }
 
-// editPageHandler serves the split-screen editor for a page.
+// editPageHandler serves the outline, visual/source editor, and preview for a page.
 // Route: GET /_edit/{pagepath...}
 func (s *Server) editPageHandler(w http.ResponseWriter, r *http.Request) {
 	suffix := strings.TrimPrefix(r.URL.Path, s.editBasePath())
@@ -129,6 +131,8 @@ func (s *Server) editPageHandler(w http.ResponseWriter, r *http.Request) {
 		MetadataFields: metadataFields,
 		MetadataError:  metadataError,
 		GitStatus:      gitFileStatus(node.FSPath),
+		VisualJSURL:    s.assetURL("editor-visual.min.js"),
+		VisualCSSURL:   s.assetURL("editor-visual.min.css"),
 	}
 
 	if err := s.render(w, "edit.html", data); err != nil {
