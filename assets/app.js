@@ -2239,3 +2239,32 @@ function rerenderSiteGraphs() {
 
 document.addEventListener('DOMContentLoaded', initGraphPages);
 document.addEventListener('htmx:afterSwap', initGraphPages);
+
+document.addEventListener('DOMContentLoaded', function () {
+  var statusURL = document.body.dataset.browseStatus;
+  if (!statusURL) return;
+  var revision = Number(document.body.dataset.browseRevision);
+  var scrollKey = 'dyno-browse-scroll:' + window.location.pathname;
+  try {
+    var previousScroll = sessionStorage.getItem(scrollKey);
+    if (previousScroll !== null) {
+      sessionStorage.removeItem(scrollKey);
+      requestAnimationFrame(function () { window.scrollTo(0, Number(previousScroll)); });
+    }
+  } catch (_) {}
+  function poll() {
+    if (document.hidden) { setTimeout(poll, 1500); return; }
+    fetch(statusURL, { cache: 'no-store' }).then(function (response) {
+      if (!response.ok) throw new Error('Browse status unavailable');
+      return response.json();
+    }).then(function (status) {
+      if (status.revision !== revision) {
+        try { sessionStorage.setItem('dyno-browse-scroll:' + window.location.pathname, String(window.scrollY)); } catch (_) {}
+        window.location.reload();
+        return;
+      }
+      setTimeout(poll, 1500);
+    }).catch(function () { setTimeout(poll, 1500); });
+  }
+  setTimeout(poll, 1500);
+});

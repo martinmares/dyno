@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"sort"
 	"strings"
 
@@ -140,7 +139,7 @@ func (s *Server) bulkFrontmatterSaveHandler(w http.ResponseWriter, r *http.Reque
 		}
 
 		s.mu.Lock()
-		current, err := os.ReadFile(fsPath)
+		current, err := s.readDocument(fsPath)
 		if err != nil {
 			s.mu.Unlock()
 			result.Error = "failed to read document"
@@ -174,7 +173,7 @@ func (s *Server) bulkFrontmatterSaveHandler(w http.ResponseWriter, r *http.Reque
 			rows = append(rows, result)
 			continue
 		}
-		info, err := os.Stat(fsPath)
+		info, err := s.documentStat(fsPath)
 		if err != nil {
 			s.mu.Unlock()
 			result.Error = "failed to inspect document"
@@ -182,7 +181,7 @@ func (s *Server) bulkFrontmatterSaveHandler(w http.ResponseWriter, r *http.Reque
 			rows = append(rows, result)
 			continue
 		}
-		if err := writeFileAtomic(fsPath, updated, info.Mode().Perm()); err != nil {
+		if err := s.writeDocument(fsPath, updated, info.Mode().Perm()); err != nil {
 			s.mu.Unlock()
 			result.Error = "failed to write document"
 			result.Code = "write_failed"
@@ -252,7 +251,7 @@ func (s *Server) bulkFrontmatterRows(allowed map[string]bool, columns []bulkFron
 			return
 		}
 		if node.FSPath != "" && (allowed == nil || allowed[node.FullPath]) {
-			source, err := os.ReadFile(node.FSPath)
+			source, err := s.readDocument(node.FSPath)
 			if err != nil {
 				return
 			}

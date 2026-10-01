@@ -23,7 +23,7 @@
   <link rel="stylesheet" href="{{ .TablerCSSURL }}" />
   <link rel="stylesheet" href="{{ .AppCSSURL }}" />
 </head>
-<body class="dyno-standalone-body">
+<body class="dyno-standalone-body{{ if .BrowseMode }} dyno-browse{{ end }}"{{ if .BrowseStatusURL }} data-browse-status="{{ .BrowseStatusURL }}" data-browse-revision="{{ .BrowseRevision }}"{{ end }}>
   <header class="navbar navbar-expand-md dyno-navbar">
     <div class="dyno-navbar-inner">
       <button id="sidebar-toggle" class="btn btn-icon btn-ghost-secondary" aria-label="Toggle sidebar">

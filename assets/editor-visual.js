@@ -1,4 +1,5 @@
 import { Crepe } from '@milkdown/crepe';
+import { imageSchema } from '@milkdown/kit/preset/commonmark';
 
 const opaqueTokenPrefix = 'DYNOOPAQUEBLOCK';
 
@@ -126,7 +127,7 @@ function patchSource(previous, next, source) {
   throw new Error('This edit cannot be mapped safely to the Markdown source. Switch to Source mode.');
 }
 
-async function create(root, source, onChange) {
+async function create(root, source, onChange, resolveImage = src => src) {
   const [frontmatter, body] = splitFrontmatter(source);
   const { markdown, blocks } = protectBlocks(body);
   const editor = new Crepe({
@@ -138,6 +139,23 @@ async function create(root, source, onChange) {
       [Crepe.Feature.ImageBlock]: false,
     },
   });
+  // Remark emits null for omitted image titles; the schema requires strings.
+  editor.editor.config(ctx => ctx.update(imageSchema.key, previous => context => {
+    const schema = previous(context);
+    return {
+      ...schema,
+      toDOM(node) {
+        const dom = schema.toDOM(node);
+        return [dom[0], { ...dom[1], src: resolveImage(node.attrs.src) }, ...dom.slice(2)];
+      },
+      parseMarkdown: {
+        ...schema.parseMarkdown,
+        runner(state, node, type) {
+          schema.parseMarkdown.runner(state, { ...node, alt: node.alt ?? '', title: node.title ?? '' }, type);
+        },
+      },
+    };
+  }));
   let normalized = '';
   let patched = markdown;
   let patchError = null;

@@ -31,7 +31,7 @@
   {{ if .FontAwesomeURL }}<link rel="stylesheet" href="{{ .FontAwesomeURL }}" />{{ end }}
   <link rel="stylesheet" href="{{ .AppCSSURL }}" />
 </head>
-<body class="layout-fluid dyno-body">
+<body class="layout-fluid dyno-body{{ if .BrowseMode }} dyno-browse{{ end }}"{{ if .BrowseStatusURL }} data-browse-status="{{ .BrowseStatusURL }}" data-browse-revision="{{ .BrowseRevision }}"{{ end }}>
 
   <!-- Top navbar -->
   <header class="navbar navbar-expand-md dyno-navbar">
@@ -265,7 +265,7 @@
     <div class="nav-section" data-nav-section data-nav-depth="{{ $depth }}" data-nav-path="{{ .FullPath }}" data-nav-title="{{ .Title }}">
       <div class="dyno-nav-section-row">
       {{/* A landing-page title navigates; its separate chevron toggles children. */}}
-      {{ if .FSPath }}
+      {{ if or .FSPath .Navigable }}
         <a href="{{ .FullPath }}{{ $filterQuery }}"
            hx-get="{{ .FullPath }}{{ $filterQuery }}"
            hx-target="#page-content"
@@ -369,7 +369,7 @@
   {{ template "metadata-filters" . }}
   <nav class="dyno-sidebar-nav">
     <div class="dyno-sidebar-heading">
-      <p class="subheader m-0">Contents</p>
+      <p class="subheader m-0">{{ if .BrowseMode }}Files{{ else }}Contents{{ end }}</p>
       <button type="button" data-nav-expand-all
         class="btn btn-sm btn-ghost-secondary">
         Expand all

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"slices"
 	"strconv"
 	"strings"
@@ -216,7 +215,7 @@ func (s *Server) editFrontmatterHandler(w http.ResponseWriter, r *http.Request) 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	current, err := os.ReadFile(fsPath)
+	current, err := s.readDocument(fsPath)
 	if err != nil {
 		writeMetadataResponse(w, http.StatusInternalServerError, metadataApplyResponse{Error: "failed to read document", Code: "read_failed"})
 		return
@@ -245,12 +244,12 @@ func (s *Server) editFrontmatterHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	info, err := os.Stat(fsPath)
+	info, err := s.documentStat(fsPath)
 	if err != nil {
 		writeMetadataResponse(w, http.StatusInternalServerError, metadataApplyResponse{Error: "failed to inspect document", Code: "stat_failed"})
 		return
 	}
-	if err := writeFileAtomic(fsPath, updated, info.Mode().Perm()); err != nil {
+	if err := s.writeDocument(fsPath, updated, info.Mode().Perm()); err != nil {
 		writeMetadataResponse(w, http.StatusInternalServerError, metadataApplyResponse{Error: "failed to write document", Code: "write_failed"})
 		return
 	}

@@ -56,6 +56,9 @@ func (s *Server) editPageURLFor(pageFullPath string) string {
 // Route: GET /_edit/{pagepath...}
 func (s *Server) editPageHandler(w http.ResponseWriter, r *http.Request) {
 	suffix := strings.TrimPrefix(r.URL.Path, s.editBasePath())
+	if s.browse != nil {
+		suffix = strings.TrimPrefix(escapePathSegments(r.URL.Path), s.editBasePath())
+	}
 	pageURL := s.basePath + suffix
 	pageURL = strings.TrimRight(pageURL, "/")
 	if pageURL == s.basePath {
@@ -71,7 +74,7 @@ func (s *Server) editPageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	src, err := os.ReadFile(node.FSPath)
+	src, err := s.readDocument(node.FSPath)
 	if err != nil {
 		s.internalError(w, r, fmt.Errorf("read file: %w", err))
 		return
@@ -83,7 +86,11 @@ func (s *Server) editPageHandler(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, fmt.Errorf("render: %w", err))
 		return
 	}
-	res.HTML = s.renderFileDownloads(res.HTML)
+	if s.browse != nil {
+		res.HTML = s.rewriteBrowseLinks(res.HTML, node.FSPath)
+	} else {
+		res.HTML = s.renderFileDownloads(res.HTML)
+	}
 
 	previewURL := s.editBasePath() + "/preview"
 	saveURL := s.editBasePath() + "/save"
@@ -149,7 +156,16 @@ func (s *Server) editPreviewHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "render error: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	res.HTML = s.renderFileDownloads(res.HTML)
+	if s.browse != nil {
+		fsPath, err := s.editableFilePath(r.FormValue("page_path"))
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		res.HTML = s.rewriteBrowseLinks(res.HTML, fsPath)
+	} else {
+		res.HTML = s.renderFileDownloads(res.HTML)
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	fmt.Fprint(w, res.HTML)
 }
@@ -181,7 +197,7 @@ func (s *Server) editSaveHandler(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	current, err := os.ReadFile(fsPath)
+	current, err := s.readDocument(fsPath)
 	if err != nil {
 		writeEditSaveResponse(w, http.StatusInternalServerError, editSaveResponse{
 			Error: "failed to read document",
@@ -217,7 +233,7 @@ func (s *Server) editSaveHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	newRevision = contentRevision(newContent)
 
-	info, err := os.Stat(fsPath)
+	info, err := s.documentStat(fsPath)
 	if err != nil {
 		writeEditSaveResponse(w, http.StatusInternalServerError, editSaveResponse{
 			Error: "failed to inspect document",
@@ -225,7 +241,7 @@ func (s *Server) editSaveHandler(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	if err := writeFileAtomic(fsPath, newContent, info.Mode().Perm()); err != nil {
+	if err := s.writeDocument(fsPath, newContent, info.Mode().Perm()); err != nil {
 		writeEditSaveResponse(w, http.StatusInternalServerError, editSaveResponse{
 			Error: "failed to write document",
 			Code:  "write_failed",
@@ -296,6 +312,12 @@ func (s *Server) editableFilePath(pagePath string) (string, error) {
 	}
 	if node == nil || node.FSPath == "" {
 		return "", os.ErrNotExist
+	}
+	if s.browse != nil {
+		if _, err := s.documentStat(node.FSPath); err != nil {
+			return "", err
+		}
+		return node.FSPath, nil
 	}
 
 	contentDir, err := filepath.Abs(s.contentDir)

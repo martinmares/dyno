@@ -19,6 +19,7 @@ A self-hosted documentation server — think GitBook or Notion, but as a single 
 - **File downloads** — render safe per-site downloads with filename, MIME type, and size from `_downloads/`
 - **Configurable base path** — run under any URL prefix (e.g. `/docs`, `/myapp/docs`, or `/`)
 - **Library mode** — serve multiple documentation sites under one dyno instance with repeated `--site`
+- **Local Markdown browser** — `dyno browse` opens selected files and recursive directories with a filesystem sidebar and search
 - **Git-backed sites** — `--git-repo-site <url>` clones a repo and serves it; auto-pulls on a configurable interval
 - **Document version compare** — compare any two Git revisions, the staged file, or the working tree in source and rendered views
 - **Library config file** — `--library dyno-library.yaml` describes multiple sites (local or git) with metadata overrides
@@ -177,6 +178,25 @@ go run ./cmd/dyno-mcp serve --transport stdio --site ./site
 ```
 
 The editor opens with **Contents | Visual editor | Live Preview**. Switch to **Source** for front matter and custom blocks; the visual editor preserves these blocks when editing surrounding text. The visual editor assets are committed and embedded in the Go binary. When changing their source files, rebuild them with `just editor-assets` (requires Node.js and npm).
+
+### Local Markdown browser
+
+Use `browse` without configuring a documentation site:
+
+```bash
+dyno browse README.md
+dyno browse ./docs ./notes ./TODO.md
+dyno browse . --exclude '**/archive/**'
+dyno browse ./docs --edit --port 3001 --no-open
+```
+
+Paths may be Markdown files (`.md` or `.markdown`, case-insensitive) or directories. With no paths, the current directory is used. Directories are scanned recursively and displayed with their original names; duplicate and overlapping selections are merged. Draft documents are included, and `dyno.yaml` and `.pages` publication rules are not loaded. `README.md`, `index.md`, and `_group.md` remain ordinary documents. A single file opens directly; directory selections open a generated overview.
+
+The server listens only on `127.0.0.1`, chooses a free port, opens the web browser, and watches for changes by default. Use `--port` for a fixed port, `--no-open` to print the URL without launching a browser, `--no-watch` to disable automatic refresh, and `--edit` to enable the Markdown editor. Watch updates rebuild navigation and search and refresh the reader; the editor is not automatically reloaded, and its revision checks protect against overwriting external edits.
+
+Local links only resolve to documents in the explicit selection, including links between selected roots. A standalone file does not grant access to sibling Markdown documents or arbitrary attachments: only referenced images under its parent directory are served. Directory selections allow referenced attachments within those roots. Missing, excluded, or out-of-selection links show an explanation instead of adding sources automatically. Symlinks passed explicitly are resolved once; symlinks inside selected directories are skipped and cannot escape the selection when a file is read or edited.
+
+Recursive scans skip hidden entries and `node_modules`, `vendor`, `target`, `dist`, `build`, `venv`, and `__pycache__`. Other underscore-prefixed directories are included. Repeat `--exclude` to add slash-separated globs relative to each selected directory; `**` matches nested directories. Explicitly selected files are included even when their names would otherwise be skipped by a recursive scan.
 
 ### macOS
 

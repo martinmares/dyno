@@ -2247,6 +2247,13 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   text-decoration: none;
 }
 
+.dyno-browse .nav-section-title,
+.dyno-browse .dyno-nav-toggle-label {
+  font-size: 0.75rem;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
 .nav-section-title:hover,
 .dyno-nav-toggle:hover {
   color: var(--tblr-primary);

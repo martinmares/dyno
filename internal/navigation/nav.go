@@ -22,6 +22,7 @@ type NavNode struct {
 	FullPath   string // URL path: "/docs/guide/getting-started"
 	FSPath     string // Absolute filesystem path to .md file (empty for dirs)
 	IsDir      bool
+	Navigable  bool // directories with an explicit generated overview
 	Children   []*NavNode
 	Depth      int
 }

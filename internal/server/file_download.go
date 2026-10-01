@@ -44,6 +44,10 @@ func (s *Server) renderFileDownloads(htmlStr string) string {
 }
 
 func (s *Server) fileDownloadHandler(w http.ResponseWriter, r *http.Request) {
+	if s.browse != nil {
+		http.NotFound(w, r)
+		return
+	}
 	rel, err := cleanDownloadPath(r.PathValue("filepath"))
 	if err != nil {
 		http.NotFound(w, r)

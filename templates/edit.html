@@ -552,6 +552,10 @@
           renderOutline();
           schedulePreview();
         } catch (error) { visualStatus.textContent = error.message; }
+      }, function(src) {
+        const images = document.querySelectorAll('#preview-content img[data-source-src]');
+        const image = Array.from(images).find(item => item.dataset.sourceSrc === src);
+        return image ? image.getAttribute('src') : src;
       });
       editMode = 'visual';
       sourceRoot.hidden = true;
@@ -909,6 +913,7 @@
     catch (error) { visualStatus.textContent = error.message; return; }
     const fd = new FormData();
     fd.append('source', src);
+    fd.append('page_path', '{{ .PagePath }}');
     fetch('{{ .PreviewURL }}', { method: 'POST', body: fd })
       .then(r => r.text())
       .then(html => {

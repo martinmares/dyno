@@ -84,6 +84,9 @@ type PageData struct {
 	FrontmatterEditURL  string
 	FrontmatterRevision string
 	BulkFrontmatterURL  string
+	BrowseMode          bool
+	BrowseStatusURL     string
+	BrowseRevision      uint64
 }
 
 type CommentNode struct {
@@ -117,31 +120,34 @@ type LibraryData struct {
 
 // SearchData is passed to search templates.
 type SearchData struct {
-	Query          string
-	Results        []search.SearchResult
-	Nav            *navigation.NavNode
-	IsHTMX         bool
-	LightCSS       template.CSS
-	DarkCSS        template.CSS
-	Title          string
-	TOC            []markdown.TOCEntry
-	Site           *config.SiteConfig
-	BasePath       string
-	TablerCSSURL   string
-	TablerJSURL    string
-	AppCSSURL      string
-	AppJSURL       string
-	HTMXURL        string
-	FaviconURL     string
-	SearchURL      string
-	TasksURL       string
-	GraphURL       string
-	BuildVersion   string
-	BuildCommit    string
-	MetadataFacets []metadata.Facet
-	FilterQuery    string
-	FiltersActive  bool
-	ResultQuery    string
+	Query           string
+	Results         []search.SearchResult
+	Nav             *navigation.NavNode
+	IsHTMX          bool
+	LightCSS        template.CSS
+	DarkCSS         template.CSS
+	Title           string
+	TOC             []markdown.TOCEntry
+	Site            *config.SiteConfig
+	BasePath        string
+	TablerCSSURL    string
+	TablerJSURL     string
+	AppCSSURL       string
+	AppJSURL        string
+	HTMXURL         string
+	FaviconURL      string
+	SearchURL       string
+	TasksURL        string
+	GraphURL        string
+	BuildVersion    string
+	BuildCommit     string
+	MetadataFacets  []metadata.Facet
+	FilterQuery     string
+	FiltersActive   bool
+	ResultQuery     string
+	BrowseStatusURL string
+	BrowseRevision  uint64
+	BrowseMode      bool
 }
 
 type metadataView struct {
@@ -171,7 +177,29 @@ func isHTMX(r *http.Request) bool {
 
 // render executes a named template, re-parsing from disk in dev mode.
 func (s *Server) render(w http.ResponseWriter, name string, data any) error {
+	if page, ok := data.(SearchData); ok && s.browse != nil {
+		page.BrowseMode = true
+		page.TasksURL, page.GraphURL = "", ""
+		if s.browseWatch {
+			page.BrowseStatusURL = s.basePath + "/_status"
+		}
+		s.mu.RLock()
+		page.BrowseRevision = s.browseRevision
+		s.mu.RUnlock()
+		data = page
+	}
 	if page, ok := data.(PageData); ok {
+		page.EditMode = s.editMode
+		if s.browse != nil {
+			page.BrowseMode = true
+			s.mu.RLock()
+			page.BrowseRevision = s.browseRevision
+			s.mu.RUnlock()
+			if s.browseWatch {
+				page.BrowseStatusURL = s.basePath + "/_status"
+			}
+			page.TasksURL, page.SectionTasksURL, page.GraphURL, page.EgoGraphURL = "", "", "", ""
+		}
 		page.TablerCSSURL = s.assetURL("tabler.min.css")
 		page.TablerJSURL = s.assetURL("tabler.min.js")
 		if s.comments != nil {
@@ -191,12 +219,15 @@ func (s *Server) render(w http.ResponseWriter, name string, data any) error {
 func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 	rawPath := r.PathValue("path")
 	urlPath := s.basePath + "/" + rawPath
+	if s.browse != nil {
+		urlPath = escapePathSegments(r.URL.Path)
+	}
 
 	// Serve static files (images, PDFs, etc.) from the site directory if the
 	// path doesn't end with "/" and the file exists on disk.
 	// Also tries prefixing the first path segment with "_" to support asset
 	// directories like "_images/" referenced as "images/" in Markdown.
-	if rawPath != "" && !strings.HasSuffix(rawPath, "/") && !isDownloadAssetPath(rawPath) && !isMarkdownPath(rawPath) {
+	if s.browse == nil && rawPath != "" && !strings.HasSuffix(rawPath, "/") && !isDownloadAssetPath(rawPath) && !isMarkdownPath(rawPath) {
 		staticPath := filepath.Join(s.contentDir, filepath.FromSlash(rawPath))
 		if info, err := os.Stat(staticPath); err == nil && !info.IsDir() {
 			http.ServeFile(w, r, staticPath)
@@ -232,7 +263,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// Markdown files in underscore-prefixed directories are intentionally hidden
 	// from navigation, but links to them must still open as rendered documents.
-	if node == nil {
+	if node == nil && s.browse == nil {
 		if fsPath, ok := s.markdownPathFromURL(rawPath); ok {
 			node = &navigation.NavNode{
 				Title:    strings.TrimSuffix(filepath.Base(fsPath), filepath.Ext(fsPath)),
@@ -258,7 +289,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	info, err := os.Stat(fsPath)
+	info, err := s.documentStat(fsPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			s.notFound(w, r)
@@ -267,7 +298,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
-	if !isHTMX(r) && s.comments == nil && !view.Active {
+	if !isHTMX(r) && s.comments == nil && !view.Active && s.browse == nil {
 		pageETag := fmt.Sprintf(`W/"%x-%x"`, info.ModTime().UnixNano(), info.Size())
 		w.Header().Set("ETag", pageETag)
 		w.Header().Set("Last-Modified", info.ModTime().UTC().Format(http.TimeFormat))
@@ -290,7 +321,9 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res.HTML = s.rewriteMDLinks(res.HTML, node.FSPath)
-	res.HTML = s.renderFileDownloads(res.HTML)
+	if s.browse == nil {
+		res.HTML = s.renderFileDownloads(res.HTML)
+	}
 	res.HTML = rewriteAbsoluteLinks(res.HTML, s.basePath)
 
 	title := res.Title
@@ -304,7 +337,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Warn("failed to load comments", "path", node.FullPath, "err", err)
 	}
-	src, err := os.ReadFile(fsPath)
+	src, err := s.readDocument(fsPath)
 	if err != nil {
 		s.internalError(w, r, err)
 		return
@@ -476,6 +509,9 @@ func (s *Server) renderSyntheticIndex(w http.ResponseWriter, r *http.Request, no
 	body := `<p class="synthetic-index-note">` +
 		`This section has no <code>index.md</code>, <code>README.md</code>, or <code>_group.md</code>, so this overview was generated automatically.` +
 		`</p>`
+	if s.browse != nil {
+		body = `<p class="synthetic-index-note">Markdown files in the selected local sources.</p>`
+	}
 	if len(node.Children) > 0 {
 		body += `<h2>Pages in this section</h2>` + list.String()
 	} else {
@@ -1252,6 +1288,9 @@ var mdLinkRe = regexp.MustCompile(`href="([^"?#]*\.md)([?#][^"]*)?"`)
 
 // rewriteMDLinks converts filesystem-relative Markdown links to navigation URLs.
 func (s *Server) rewriteMDLinks(htmlStr, sourceFSPath string) string {
+	if s.browse != nil {
+		return s.rewriteBrowseLinks(htmlStr, sourceFSPath)
+	}
 	return mdLinkRe.ReplaceAllStringFunc(htmlStr, func(match string) string {
 		subs := mdLinkRe.FindStringSubmatch(match)
 		href, suffix := subs[1], subs[2]

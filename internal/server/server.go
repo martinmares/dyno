@@ -5,12 +5,12 @@ import (
 	"html/template"
 	"io/fs"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/mares/dyno/internal/browse"
 	"github.com/mares/dyno/internal/comments"
 	"github.com/mares/dyno/internal/config"
 	"github.com/mares/dyno/internal/markdown"
@@ -57,6 +57,10 @@ type Server struct {
 	pageCache          map[string]pageCacheEntry
 	assetMeta          map[string]assetMetadata
 	metrics            *metrics
+	browse             *browse.Catalog
+	browseWatch        bool
+	browseRevision     uint64
+	browseAssets       map[string]browseAsset
 }
 
 type pageCacheEntry struct {
@@ -75,14 +79,18 @@ func (s *Server) Reload(nav *navigation.NavNode, idx *search.Index) {
 	s.nav = nav
 	s.idx = idx
 	s.metadata = metadataIndex
-	if taskIndex, err := tasks.BuildIndex("", s.siteCfg.Title, s.contentDir, nav); err == nil {
-		s.taskIndex = taskIndex
-		s.taskHTML = taskIndex.RenderSummary("tasks-summary")
-	} else {
-		s.taskIndex = &tasks.Index{}
-		s.taskHTML = `<div class="tasks-empty">No tasks were found in this site.</div>`
+	if s.browse == nil {
+		if taskIndex, err := tasks.BuildIndex("", s.siteCfg.Title, s.contentDir, nav); err == nil {
+			s.taskIndex = taskIndex
+			s.taskHTML = taskIndex.RenderSummary("tasks-summary")
+		} else {
+			s.taskIndex = &tasks.Index{}
+			s.taskHTML = `<div class="tasks-empty">No tasks were found in this site.</div>`
+		}
+		s.backlinks = navigation.BuildBacklinks(nav, s.basePath)
 	}
-	s.backlinks = navigation.BuildBacklinks(nav, s.basePath)
+	s.browseRevision++
+	s.browseAssets = make(map[string]browseAsset)
 	s.pageCache = make(map[string]pageCacheEntry)
 	s.metrics.watchReloads.Inc()
 }
@@ -129,6 +137,8 @@ type Config struct {
 	LibraryURL         string // set by LibraryServer: URL back to the dashboard
 	Comments           comments.Store
 	CommentsManagement string
+	Browse             *browse.Catalog
+	BrowseWatch        bool
 }
 
 func newFuncMap() template.FuncMap {
@@ -207,13 +217,18 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 		devMode:            cfg.DevMode,
 		mux:                http.NewServeMux(),
 		pageCache:          make(map[string]pageCacheEntry),
+		browse:             cfg.Browse,
+		browseWatch:        cfg.BrowseWatch,
+		browseAssets:       make(map[string]browseAsset),
 	}
-	if taskIndex, err := tasks.BuildIndex("", cfg.SiteCfg.Title, cfg.ContentDir, nav); err == nil {
-		s.taskIndex = taskIndex
-		s.taskHTML = taskIndex.RenderSummary("tasks-summary")
-	} else {
-		s.taskIndex = &tasks.Index{}
-		s.taskHTML = `<div class="tasks-empty">No tasks were found in this site.</div>`
+	if cfg.Browse == nil {
+		if taskIndex, err := tasks.BuildIndex("", cfg.SiteCfg.Title, cfg.ContentDir, nav); err == nil {
+			s.taskIndex = taskIndex
+			s.taskHTML = taskIndex.RenderSummary("tasks-summary")
+		} else {
+			s.taskIndex = &tasks.Index{}
+			s.taskHTML = `<div class="tasks-empty">No tasks were found in this site.</div>`
+		}
 	}
 	s.metrics = newMetrics()
 
@@ -273,7 +288,7 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 	}
 
 	// Only expose git history route when content lives inside a git repository.
-	if findGitRoot(cfg.ContentDir) != "" {
+	if cfg.Browse == nil && findGitRoot(cfg.ContentDir) != "" {
 		gitHistoryPath := "/_git/history"
 		if basePath != "" {
 			gitHistoryPath = basePath + "/_git/history"
@@ -295,11 +310,13 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 		s.mux.HandleFunc("GET "+basePath+"/{path...}", s.pageHandler)
 	}
 	s.mux.HandleFunc("GET "+searchPath, s.searchHandler)
-	s.mux.HandleFunc("GET "+tasksPath, s.tasksHandler)
-	s.mux.HandleFunc("GET "+sectionTaskPath, s.sectionTasksHandler)
-	s.mux.HandleFunc("GET "+graphPath, s.graphHandler)
-	s.mux.HandleFunc("GET "+graphPath+"/_neighbours", s.graphNeighboursHandler)
-	s.mux.HandleFunc("GET "+graphPath+"/{pagepath...}", s.egoGraphHandler)
+	if cfg.Browse == nil {
+		s.mux.HandleFunc("GET "+tasksPath, s.tasksHandler)
+		s.mux.HandleFunc("GET "+sectionTaskPath, s.sectionTasksHandler)
+		s.mux.HandleFunc("GET "+graphPath, s.graphHandler)
+		s.mux.HandleFunc("GET "+graphPath+"/_neighbours", s.graphNeighboursHandler)
+		s.mux.HandleFunc("GET "+graphPath+"/{pagepath...}", s.egoGraphHandler)
+	}
 	s.mux.HandleFunc("POST /api-proxy", s.apiProxyHandler)
 	s.mux.HandleFunc("GET /health", s.healthHandler)
 	s.mux.HandleFunc("GET /healthz", s.healthHandler)
@@ -321,13 +338,19 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 		s.mux.HandleFunc("POST "+editPath+"/save", s.editSaveHandler)
 	}
 
-	s.backlinks = navigation.BuildBacklinks(s.nav, s.basePath)
+	if cfg.Browse == nil {
+		s.backlinks = navigation.BuildBacklinks(s.nav, s.basePath)
+	} else {
+		s.mux.HandleFunc("GET "+basePath+"/_asset/{id}", s.browseAssetHandler)
+		s.mux.HandleFunc("GET "+basePath+"/_status", s.browseStatusHandler)
+		s.mux.HandleFunc("GET "+basePath+"/_blocked", s.browseBlockedHandler)
+	}
 
 	return s, nil
 }
 
 func (s *Server) getRenderedPage(fsPath string) (*markdown.Result, error) {
-	info, err := os.Stat(fsPath)
+	info, err := s.documentStat(fsPath)
 	if err != nil {
 		return nil, err
 	}
@@ -344,7 +367,7 @@ func (s *Server) getRenderedPage(fsPath string) (*markdown.Result, error) {
 	}
 	s.metrics.pageRenderCache.WithLabelValues("miss").Inc()
 
-	src, err := os.ReadFile(fsPath)
+	src, err := s.readDocument(fsPath)
 	if err != nil {
 		return nil, err
 	}

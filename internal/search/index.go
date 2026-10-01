@@ -110,12 +110,17 @@ func extractHeadings(src string) []string {
 // BuildIndex walks all .md files in the nav tree, renders them to plain text,
 // and adds them to a new Index.
 func BuildIndex(tree *navigation.NavNode, plainText func(path string) (string, error)) (*Index, error) {
+	return BuildIndexWithReader(tree, plainText, os.ReadFile)
+}
+
+// BuildIndexWithReader lets a local browser confine indexing to selected roots.
+func BuildIndexWithReader(tree *navigation.NavNode, plainText func(string) (string, error), readFile func(string) ([]byte, error)) (*Index, error) {
 	idx := New()
 	walkNodes(tree, func(node *navigation.NavNode) {
 		if node.FSPath == "" || node.IsDir {
 			return
 		}
-		src, err := os.ReadFile(node.FSPath)
+		src, err := readFile(node.FSPath)
 		if err != nil {
 			return
 		}
@@ -135,7 +140,7 @@ func BuildIndex(tree *navigation.NavNode, plainText func(path string) (string, e
 		if node.FSPath == "" || !node.IsDir {
 			return
 		}
-		src, err := os.ReadFile(node.FSPath)
+		src, err := readFile(node.FSPath)
 		if err != nil {
 			return
 		}

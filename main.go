@@ -88,6 +88,7 @@ func main() {
 	root.Flags().StringVar(&commentsFile, "comments-file", "", "JSONL file for comments (default: <site-root>/.dyno-comments.jsonl)")
 	root.Flags().StringVar(&commentsManagement, "comments-management", "disabled", "Comment management: disabled, author, or all")
 	root.Flags().StringVar(&logFormat, "log-format", "text", "Log format: text or json")
+	root.AddCommand(newBrowseCommand())
 
 	if err := root.Execute(); err != nil {
 		os.Exit(1)
