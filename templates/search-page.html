@@ -55,7 +55,6 @@
   <div class="dyno-shell">
     {{ if .Nav }}
     <aside id="sidebar" data-nav-storage-key="{{ .BasePath }}" class="dyno-sidebar">
-      {{ template "sidebar-collapse-button" . }}
       <div id="sidebar-content" class="dyno-sidebar-content">
       <nav class="dyno-sidebar-nav">
         <div class="dyno-sidebar-heading">
@@ -67,6 +66,7 @@
         </div>
       </nav>
       </div>
+      {{ template "sidebar-collapse-button" . }}
     </aside>
     <div id="sidebar-overlay" class="dyno-sidebar-overlay"></div>
     {{ end }}

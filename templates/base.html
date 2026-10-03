@@ -367,7 +367,6 @@
 {{ end }}
 
 {{ define "sidebar-inner" }}
-  {{ template "sidebar-collapse-button" . }}
   <div id="sidebar-content" class="dyno-sidebar-content">
   {{ template "metadata-filters" . }}
   <nav class="dyno-sidebar-nav">
@@ -383,6 +382,7 @@
     </div>
   </nav>
   </div>
+  {{ template "sidebar-collapse-button" . }}
 {{ end }}
 
 {{ define "sidebar-state" }}
@@ -397,12 +397,14 @@
 {{ end }}
 
 {{ define "sidebar-collapse-button" }}
+<div class="dyno-sidebar-footer">
 <button type="button" data-sidebar-collapse class="btn btn-icon btn-ghost-secondary dyno-sidebar-collapse"
   aria-label="Collapse navigation" title="Collapse navigation" aria-expanded="true" aria-controls="sidebar-content">
   <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
     <path stroke-linecap="round" stroke-linejoin="round" d="M5 4v16M16 7l-5 5 5 5"/>
   </svg>
 </button>
+</div>
 {{ end }}
 
 {{/* dict helper used in nav-tree */}}

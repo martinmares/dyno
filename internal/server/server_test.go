@@ -672,13 +672,16 @@ func TestSidebarCollapseControlsOnDocumentsAndSearch(t *testing.T) {
 			t.Fatalf("%s: got %d", target, rec.Code)
 		}
 		body := rec.Body.String()
-		for _, want := range []string{`data-sidebar-collapse`, `aria-controls="sidebar-content"`, `id="sidebar-content"`, `dyno-sidebar-collapsed:`} {
+		for _, want := range []string{`data-sidebar-collapse`, `aria-controls="sidebar-content"`, `id="sidebar-content"`, `dyno-sidebar-collapsed:`, `class="dyno-sidebar-footer"`} {
 			if !strings.Contains(body, want) {
 				t.Fatalf("%s: missing %s", target, want)
 			}
 		}
 		if strings.Count(body, `data-sidebar-collapse`) != 1 {
 			t.Fatalf("%s: duplicate collapse controls", target)
+		}
+		if strings.Index(body, `class="dyno-sidebar-footer"`) < strings.Index(body, `id="sidebar-content"`) {
+			t.Fatalf("%s: collapse footer precedes navigation content", target)
 		}
 	}
 }
