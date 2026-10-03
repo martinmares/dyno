@@ -71,6 +71,7 @@ site-image image site_root:
     CONTEXT=$(mktemp -d "${TMPDIR:-/tmp}/dyno-site-image.XXXXXX")
     trap 'rm -rf "$CONTEXT"' EXIT INT TERM
     mkdir -p "$CONTEXT/site" "$CONTEXT/root"
+    cp LICENSE "$CONTEXT/LICENSE"
 
     # Include dotfiles, _downloads, and every other file supplied by the site.
     cp -a "$SITE/." "$CONTEXT/site/"

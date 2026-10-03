@@ -6,6 +6,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{{ if .Query }}Search: {{ .Query }}{{ else }}Search{{ end }} — Dyno Docs</title>
+  {{ template "sidebar-state" . }}
   <script>
     (function () {
       try {
@@ -54,6 +55,8 @@
   <div class="dyno-shell">
     {{ if .Nav }}
     <aside id="sidebar" data-nav-storage-key="{{ .BasePath }}" class="dyno-sidebar">
+      {{ template "sidebar-collapse-button" . }}
+      <div id="sidebar-content" class="dyno-sidebar-content">
       <nav class="dyno-sidebar-nav">
         <div class="dyno-sidebar-heading">
           <p class="subheader m-0">Contents</p>
@@ -63,6 +66,7 @@
           {{ template "nav-tree" (dict "node" .Nav "current" "" "depth" 0 "filterQuery" .FilterQuery) }}
         </div>
       </nav>
+      </div>
     </aside>
     <div id="sidebar-overlay" class="dyno-sidebar-overlay"></div>
     {{ end }}

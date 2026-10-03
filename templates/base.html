@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{{ .Title }}{{ if .Site }} — {{ .Site.Title }}{{ end }}</title>
+  {{ template "sidebar-state" . }}
   <script>
     (function () {
       try {
@@ -366,6 +367,8 @@
 {{ end }}
 
 {{ define "sidebar-inner" }}
+  {{ template "sidebar-collapse-button" . }}
+  <div id="sidebar-content" class="dyno-sidebar-content">
   {{ template "metadata-filters" . }}
   <nav class="dyno-sidebar-nav">
     <div class="dyno-sidebar-heading">
@@ -379,6 +382,27 @@
     {{ template "nav-tree" (dict "node" .Nav "current" .CurrentPath "depth" 0 "filterQuery" .FilterQuery) }}
     </div>
   </nav>
+  </div>
+{{ end }}
+
+{{ define "sidebar-state" }}
+<script>
+  (function () {
+    try {
+      var key = 'dyno-sidebar-collapsed:' + ({{ .BasePath }} || '/');
+      document.documentElement.classList.toggle('dyno-sidebar-collapsed', localStorage.getItem(key) === 'true');
+    } catch (_) {}
+  })();
+</script>
+{{ end }}
+
+{{ define "sidebar-collapse-button" }}
+<button type="button" data-sidebar-collapse class="btn btn-icon btn-ghost-secondary dyno-sidebar-collapse"
+  aria-label="Collapse navigation" title="Collapse navigation" aria-expanded="true" aria-controls="sidebar-content">
+  <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M5 4v16M16 7l-5 5 5 5"/>
+  </svg>
+</button>
 {{ end }}
 
 {{/* dict helper used in nav-tree */}}

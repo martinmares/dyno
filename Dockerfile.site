@@ -5,11 +5,13 @@ FROM scratch
 ARG DYNO_VERSION=dev
 ARG DYNO_COMMIT=unknown
 LABEL org.opencontainers.image.title="dyno site" \
+      org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.version="${DYNO_VERSION}" \
       org.opencontainers.image.revision="${DYNO_COMMIT}"
 
 COPY --from=certificates /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY dyno /dyno
+COPY LICENSE /usr/share/licenses/dyno/LICENSE
 COPY site/ /site/
 COPY root/ /
 

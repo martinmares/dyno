@@ -477,4 +477,18 @@ HTTP compatibility notes:
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Dyno is fully open source under the [MIT License](LICENSE). You may use, copy,
+modify, distribute, and fork it, including for commercial purposes, subject to
+the license terms. Third-party dependencies retain their own licenses.
+
+## Support and Maintenance
+
+The software is provided "AS IS", without warranty. Publication of this
+repository does not establish a free community support service or an entitlement
+to technical assistance, maintenance, bug fixes, new features, updates, response
+times, or an SLA.
+
+The upstream `main` branch is maintained by the project owner and explicitly
+authorized maintainers. External pull requests may be submitted, but review,
+responses, acceptance, and a release schedule are not guaranteed. These
+maintenance policies do not restrict any rights granted by the MIT License.

@@ -118,6 +118,29 @@
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
+function initSidebarCollapse() {
+  const collapsed = document.documentElement.classList.contains('dyno-sidebar-collapsed');
+  document.querySelectorAll('[data-sidebar-collapse]').forEach(function (button) {
+    button.setAttribute('aria-expanded', String(!collapsed));
+    button.setAttribute('aria-label', collapsed ? 'Expand navigation' : 'Collapse navigation');
+    button.title = collapsed ? 'Expand navigation' : 'Collapse navigation';
+  });
+}
+
+document.addEventListener('DOMContentLoaded', initSidebarCollapse);
+document.addEventListener('htmx:afterSwap', initSidebarCollapse);
+document.addEventListener('click', function (event) {
+  const button = event.target.closest('[data-sidebar-collapse]');
+  if (!button || window.innerWidth < 1024) return;
+  const sidebar = button.closest('#sidebar');
+  if (!sidebar) return;
+  const collapsed = document.documentElement.classList.toggle('dyno-sidebar-collapsed');
+  try {
+    localStorage.setItem('dyno-sidebar-collapsed:' + (sidebar.dataset.navStorageKey || '/'), String(collapsed));
+  } catch (_) {}
+  initSidebarCollapse();
+});
+
 document.addEventListener('DOMContentLoaded', function () {
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('sidebar-overlay');

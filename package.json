@@ -1,5 +1,6 @@
 {
   "private": true,
+  "license": "MIT",
   "scripts": {
     "build:editor": "node scripts/build-editor.mjs"
   },

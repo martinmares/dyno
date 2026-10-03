@@ -663,6 +663,26 @@ func TestFooterUsesBuildMetadata(t *testing.T) {
 	}
 }
 
+func TestSidebarCollapseControlsOnDocumentsAndSearch(t *testing.T) {
+	srv := newTestServer(t)
+	for _, target := range []string{"/", "/_search?q=dyno"} {
+		rec := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, target, nil))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: got %d", target, rec.Code)
+		}
+		body := rec.Body.String()
+		for _, want := range []string{`data-sidebar-collapse`, `aria-controls="sidebar-content"`, `id="sidebar-content"`, `dyno-sidebar-collapsed:`} {
+			if !strings.Contains(body, want) {
+				t.Fatalf("%s: missing %s", target, want)
+			}
+		}
+		if strings.Count(body, `data-sidebar-collapse`) != 1 {
+			t.Fatalf("%s: duplicate collapse controls", target)
+		}
+	}
+}
+
 func TestSidebarSectionsHaveIndependentToggleAndTitleTooltips(t *testing.T) {
 	srv := newTestServer(t)
 	writeTestFile(t, filepath.Join(srv.contentDir, "guides", "index.md"), "# Guides\n")
@@ -691,6 +711,10 @@ func TestSidebarSectionsHaveIndependentToggleAndTitleTooltips(t *testing.T) {
 		`class="dyno-nav-toggle`,
 		`class="dyno-nav-children"`,
 		`data-nav-expand-all`,
+		`data-sidebar-collapse`,
+		`aria-controls="sidebar-content"`,
+		`id="sidebar-content"`,
+		`dyno-sidebar-collapsed:`,
 		`Expand all`,
 		`aria-controls="nav-children-%2Fguides%2F"`,
 		`title="Guides"`,

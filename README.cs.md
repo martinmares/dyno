@@ -400,4 +400,18 @@ go run ./cmd/dyno-mcp serve \
 
 ## Licence
 
-MIT — viz [LICENSE](LICENSE).
+Dyno je plně open source pod [MIT licencí](LICENSE). Software lze používat,
+kopírovat, upravovat, distribuovat a vytvářet vlastní forky, včetně komerčního
+použití, za podmínek této licence. Závislosti třetích stran si zachovávají vlastní
+licence.
+
+## Podpora a údržba
+
+Software je poskytován „AS IS“, bez záruky. Zveřejnění repozitáře nezakládá
+bezplatnou komunitní podporu ani nárok na technickou pomoc, údržbu, opravy chyb,
+nové funkce, aktualizace, reakční dobu nebo SLA.
+
+Upstream větev `main` spravuje vlastník projektu a výslovně pověření maintainers.
+Externí pull requesty lze zasílat, ale jejich review, odpověď, přijetí ani
+pravidelný harmonogram vydávání verzí nejsou zaručeny. Tato pravidla údržby
+neomezují žádná práva udělená MIT licencí.
