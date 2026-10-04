@@ -215,8 +215,11 @@ GitHub uses its built-in `GITHUB_TOKEN` with `contents: write`. GitLab uses
 `CI_JOB_TOKEN`, stores downloads in the Generic Package Registry, and links them
 from the release; enable Packages and Releases and allow the pipeline user to
 create the `v*` tags if they are protected. No personal token or changelog push
-is required. GitLab job artifacts expire after 30 days; published packages are
-independent of that expiry. Package cleanup policies must retain release files.
+is required. GitLab builds and publishes archives in the same job, uploading
+each archive directly to the registry rather than bundling them as a large CI
+artifact. Only release notes and checksums are retained as CI artifacts for
+30 days; published packages are independent of that expiry. Package cleanup
+policies must retain release files.
 
 For a retry, run the GitHub workflow manually or use GitLab **Run pipeline** on
 the default branch. Existing releases are updated only when their tag points to

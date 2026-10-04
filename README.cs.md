@@ -191,8 +191,11 @@ GitHub používá vestavěný `GITHUB_TOKEN` s oprávněním `contents: write`. 
 používá `CI_JOB_TOKEN` a ukládá archivy do Generic Package Registry, odkud na ně
 release odkazuje. Musí být povolené Packages a Releases; pokud jsou tagy `v*`
 chráněné, musí mít uživatel pipeline právo je vytvářet. Osobní token ani push
-changelogu nejsou potřeba. CI artefakty expirují po 30 dnech, publikované balíčky
-na této expiraci nezávisejí; pravidla čištění registru je nesmějí odstranit.
+changelogu nejsou potřeba. GitLab sestaví i publikuje archivy v jednom jobu;
+každý archiv nahraje přímo do registru, nikoliv společně jako velký CI artefakt.
+Jako CI artefakty zůstávají pouze release notes a kontrolní součty na 30 dní.
+Publikované balíčky na této expiraci nezávisejí; pravidla čištění registru je
+nesmějí odstranit.
 
 Opakování lze spustit ručně přes GitHub workflow nebo GitLab **Run pipeline**
 na výchozí větvi. Existující release se aktualizuje pouze pro stejný commit;

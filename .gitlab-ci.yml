@@ -1,7 +1,6 @@
 stages:
   - verify
   - prepare
-  - build
   - release
 
 default:
@@ -48,33 +47,24 @@ release_notes:
       - dist/release_notes.md
     expire_in: 30 days
 
-release_binaries:
+publish_release:
   extends: .release_rules
-  stage: build
+  stage: release
   timeout: 1h
+  resource_group: release
+  before_script:
+    - apt-get update && apt-get install -y --no-install-recommends curl jq ca-certificates
   needs:
     - job: go_test
       artifacts: false
     - job: release_notes
       artifacts: true
   script:
+    # Keep archives in this job and upload them individually to the registry.
+    # A combined CI artifact can exceed the GitLab artifact upload limit.
     - bash scripts/ci_package_release.sh
+    - bash scripts/ci_publish_release.sh
   artifacts:
     paths:
-      - dist/release/*.tar.gz
       - dist/release/SHA256SUMS
     expire_in: 30 days
-
-publish_release:
-  extends: .release_rules
-  stage: release
-  resource_group: release
-  before_script:
-    - apt-get update && apt-get install -y --no-install-recommends curl jq ca-certificates
-  needs:
-    - job: release_notes
-      artifacts: true
-    - job: release_binaries
-      artifacts: true
-  script:
-    - bash scripts/ci_publish_release.sh
