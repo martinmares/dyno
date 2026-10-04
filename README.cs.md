@@ -174,6 +174,40 @@ go run . --version
 go run ./cmd/dyno-mcp serve --transport stdio --site ./site
 ```
 
+### Automatické releasy binárek
+
+GitHub Actions (`.github/workflows/release.yml`) a GitLab CI (`.gitlab-ci.yml`)
+vytvoří release při změně `VERSION` na větvi `main` (na GitLabu na výchozí větvi).
+Verze například `0.20.2` vytvoří tag `v0.20.2`. Před sestavením se spustí
+`go test ./...`; používají se verzované embedded assety, bez stahování nových
+frontend verzí a bez potřeby Node.js.
+
+Archivy `dyno-<verze>-<os>-<arch>.tar.gz` obsahují `dyno`, `dyno-mcp`, obě README
+a MIT licenci. Vzniknou varianty pro macOS (`darwin`) a Linux na `amd64` i
+`arm64` a pro Windows na `amd64` (binárky s `.exe`). Součástí releasu jsou
+kontrolní součty `SHA256SUMS`. Build obsahuje verzi, commit a UTC čas sestavení.
+
+GitHub používá vestavěný `GITHUB_TOKEN` s oprávněním `contents: write`. GitLab
+používá `CI_JOB_TOKEN` a ukládá archivy do Generic Package Registry, odkud na ně
+release odkazuje. Musí být povolené Packages a Releases; pokud jsou tagy `v*`
+chráněné, musí mít uživatel pipeline právo je vytvářet. Osobní token ani push
+changelogu nejsou potřeba. CI artefakty expirují po 30 dnech, publikované balíčky
+na této expiraci nezávisejí; pravidla čištění registru je nesmějí odstranit.
+
+Opakování lze spustit ručně přes GitHub workflow nebo GitLab **Run pipeline**
+na výchozí větvi. Existující release se aktualizuje pouze pro stejný commit;
+nový commit vyžaduje novou `VERSION`. Historie ani `CHANGELOG.md` se nepřepisují.
+
+Stejné archivy lze sestavit lokálně z rootu projektu (Go, Bash, Git, tar a shasum):
+
+```bash
+bash scripts/ci_release_notes.sh
+bash scripts/ci_package_release.sh
+```
+
+Výstupy jsou v `dist/release/`. Publikování na GitLab navíc potřebuje curl a jq,
+publikování na GitHub používá GitHub CLI.
+
 ### macOS
 
 ```bash

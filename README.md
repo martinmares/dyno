@@ -198,6 +198,42 @@ Local links only resolve to documents in the explicit selection, including links
 
 Recursive scans skip hidden entries and `node_modules`, `vendor`, `target`, `dist`, `build`, `venv`, and `__pycache__`. Other underscore-prefixed directories are included. Repeat `--exclude` to add slash-separated globs relative to each selected directory; `**` matches nested directories. Explicitly selected files are included even when their names would otherwise be skipped by a recursive scan.
 
+### Automated binary releases
+
+GitHub Actions (`.github/workflows/release.yml`) and GitLab CI (`.gitlab-ci.yml`)
+publish a release when `VERSION` changes on `main` (the default branch on GitLab).
+Use a version such as `0.20.2`; the pipeline creates the matching `v0.20.2` tag.
+Both pipelines run `go test ./...` before packaging. They use committed embedded
+assets, without downloading new frontend versions or requiring Node.js.
+
+Each `dyno-<version>-<os>-<arch>.tar.gz` contains `dyno`, `dyno-mcp`, both README
+files, and the MIT license. Targets are macOS (`darwin`) and Linux for `amd64`
+and `arm64`, and Windows for `amd64` (with `.exe` binaries). `SHA256SUMS` verifies
+the archives. Build metadata includes the version, commit, and UTC build time.
+
+GitHub uses its built-in `GITHUB_TOKEN` with `contents: write`. GitLab uses
+`CI_JOB_TOKEN`, stores downloads in the Generic Package Registry, and links them
+from the release; enable Packages and Releases and allow the pipeline user to
+create the `v*` tags if they are protected. No personal token or changelog push
+is required. GitLab job artifacts expire after 30 days; published packages are
+independent of that expiry. Package cleanup policies must retain release files.
+
+For a retry, run the GitHub workflow manually or use GitLab **Run pipeline** on
+the default branch. Existing releases are updated only when their tag points to
+the same commit; a new commit needs a new `VERSION`. The pipelines do not rewrite
+Git history or modify `CHANGELOG.md`.
+
+Build the same packages locally from the repository root (Go, Bash, Git, tar,
+and `shasum` are required):
+
+```bash
+bash scripts/ci_release_notes.sh
+bash scripts/ci_package_release.sh
+```
+
+Outputs are in `dist/release/`. GitLab publication also requires curl and jq;
+GitHub publication uses the GitHub CLI.
+
 ### macOS
 
 ```bash

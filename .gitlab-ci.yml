@@ -1,0 +1,80 @@
+stages:
+  - verify
+  - prepare
+  - build
+  - release
+
+default:
+  image: golang:1.26-bookworm
+
+variables:
+  GIT_DEPTH: "0"
+  GOFLAGS: "-mod=readonly"
+  GOCACHE: "$CI_PROJECT_DIR/.cache/go-build"
+  GOMODCACHE: "$CI_PROJECT_DIR/.cache/go-mod"
+
+cache:
+  key: "go-$CI_COMMIT_REF_SLUG"
+  paths:
+    - .cache/go-build/
+    - .cache/go-mod/
+
+.release_rules:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "web"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"'
+      changes:
+        - VERSION
+
+go_test:
+  stage: verify
+  before_script:
+    - apt-get update && apt-get install -y --no-install-recommends curl jq ca-certificates
+  script:
+    - go test ./...
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+
+release_notes:
+  extends: .release_rules
+  stage: prepare
+  script:
+    - bash scripts/ci_release_notes.sh
+  artifacts:
+    reports:
+      dotenv: dist/release.env
+    paths:
+      - dist/release_notes.md
+    expire_in: 30 days
+
+release_binaries:
+  extends: .release_rules
+  stage: build
+  timeout: 1h
+  needs:
+    - job: go_test
+      artifacts: false
+    - job: release_notes
+      artifacts: true
+  script:
+    - bash scripts/ci_package_release.sh
+  artifacts:
+    paths:
+      - dist/release/*.tar.gz
+      - dist/release/SHA256SUMS
+    expire_in: 30 days
+
+publish_release:
+  extends: .release_rules
+  stage: release
+  resource_group: release
+  before_script:
+    - apt-get update && apt-get install -y --no-install-recommends curl jq ca-certificates
+  needs:
+    - job: release_notes
+      artifacts: true
+    - job: release_binaries
+      artifacts: true
+  script:
+    - bash scripts/ci_publish_release.sh
