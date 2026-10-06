@@ -310,6 +310,14 @@ If a section directory has no `index.md`, dyno serves a synthetic landing page w
 
 ### Examples
 
+Run `dyno examples` for a built-in cookbook with commands, YAML configuration,
+and Markdown examples. Use `dyno examples browse` (or `serve`, `edit`, `library`,
+`git`, `comments`, `config`, `markdown`, `mcp`) to read one topic. Terminal output
+uses colored headings and indented SHELL/FILE blocks; redirected output keeps
+the same layout without colors. Use `--plain` or `NO_COLOR` to disable colors,
+or `--markdown` to export the original Markdown guide.
+The source guide is [docs/examples.md](docs/examples.md).
+
 ```bash
 # Serve one site
 dyno --site ./site

@@ -89,6 +89,7 @@ func main() {
 	root.Flags().StringVar(&commentsManagement, "comments-management", "disabled", "Comment management: disabled, author, or all")
 	root.Flags().StringVar(&logFormat, "log-format", "text", "Log format: text or json")
 	root.AddCommand(newBrowseCommand())
+	root.AddCommand(newExamplesCommand())
 
 	if err := root.Execute(); err != nil {
 		os.Exit(1)

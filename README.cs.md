@@ -1,5 +1,13 @@
 # dyno
 
+Vestavěný průvodce `dyno examples` obsahuje příkazy, YAML konfiguraci a příklady
+Markdownu. Jedno téma zobrazíte například pomocí `dyno examples browse`.
+Další témata: `serve`, `edit`, `library`, `git`, `comments`, `config`, `markdown`,
+`mcp`. Výstup má barevné nadpisy a odsazené bloky SHELL/FILE; přesměrovaný
+výstup zachovává stejné rozložení bez barev. Barvy vypnete pomocí `--plain`
+nebo `NO_COLOR`. Původní Markdown vyexportujete pomocí `--markdown`.
+Zdroj průvodce: [docs/examples.md](docs/examples.md).
+
 Samostatně hostovaný dokumentační server — něco jako GitBook nebo Notion, ale jako jediný Go binární soubor bez externích závislostí.
 
 ## Co umí
