@@ -37,7 +37,13 @@ func loggingMiddleware(next http.Handler) http.Handler {
 		start := time.Now()
 		rw := &responseWriter{ResponseWriter: w, status: 200}
 		next.ServeHTTP(rw, r)
-		slog.Info("request completed",
+		level := slog.LevelDebug
+		if rw.status >= http.StatusInternalServerError {
+			level = slog.LevelError
+		} else if rw.status >= http.StatusBadRequest {
+			level = slog.LevelWarn
+		}
+		slog.Log(r.Context(), level, "request completed",
 			"method", r.Method,
 			"path", r.URL.Path,
 			"status", rw.status,
