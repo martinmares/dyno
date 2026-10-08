@@ -598,6 +598,15 @@ function initTableWidgets() {
 
 // ─── Page comments ───────────────────────────────────────────────────────────
 
+function isCommentSelectionExcluded(node) {
+  const element = node && node.nodeType === Node.ELEMENT_NODE ? node : node && node.parentElement;
+  return !!(element && element.closest(
+    'input, textarea, select, button, [role="textbox"], ' +
+    '[contenteditable]:not([contenteditable="false"]), ' +
+    '.CodeMirror, .cm-editor, .ProseMirror, #editor-pane, dialog, [data-comments-root]'
+  ));
+}
+
 function initComments() {
   document.querySelectorAll('[data-comments-root]:not([data-comments-init])').forEach(function (root) {
     root.setAttribute('data-comments-init', '1');
@@ -709,11 +718,18 @@ function initComments() {
       return '';
     }
 
-    function captureSelection() {
+    function captureSelection(event) {
       if (!article || !quoteInput || !anchorInput) return;
+      // Editors may leave a previous article selection intact while handling their own selection.
+      if (document.querySelector('dialog[open]') ||
+          isCommentSelectionExcluded(event && event.target) ||
+          isCommentSelectionExcluded(document.activeElement)) return;
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
       const range = sel.getRangeAt(0);
+      if (isCommentSelectionExcluded(range.startContainer) ||
+          isCommentSelectionExcluded(range.endContainer) ||
+          isCommentSelectionExcluded(range.commonAncestorContainer)) return;
       if (!article.contains(range.commonAncestorContainer)) return;
       if (root.contains(range.commonAncestorContainer)) return;
       const text = sel.toString().trim();
@@ -734,7 +750,7 @@ function initComments() {
     }
     window.dynoCommentsMouseupHandler = captureSelection;
     window.dynoCommentsKeyupHandler = function (e) {
-      if (e.key === 'Shift' || e.key.startsWith('Arrow')) captureSelection();
+      if (e.key === 'Shift' || e.key.startsWith('Arrow')) captureSelection(e);
     };
     document.addEventListener('mouseup', window.dynoCommentsMouseupHandler);
     document.addEventListener('keyup', window.dynoCommentsKeyupHandler);

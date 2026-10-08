@@ -2,6 +2,7 @@
   "private": true,
   "license": "MIT",
   "scripts": {
+    "test": "node --test scripts/*.test.mjs",
     "build:editor": "node scripts/build-editor.mjs"
   },
   "dependencies": {
