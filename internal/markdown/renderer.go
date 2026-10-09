@@ -607,13 +607,13 @@ func stripTags(s string) string {
 var calloutRe = regexp.MustCompile(`(?s)<blockquote>\s*<p>\[!(NOTE|TIP|IMPORTANT|WARNING|WARN|CAUTION|DANGER|INFO)\]\n?(.*?)</p>(.*?)</blockquote>`)
 
 var calloutMeta = map[string][2]string{
-	"NOTE":      {"💡", "callout-note"},
-	"INFO":      {"ℹ️", "callout-info"},
-	"TIP":       {"✅", "callout-tip"},
-	"IMPORTANT": {"ℹ️", "callout-info"},
-	"WARNING":   {"⚠️", "callout-warning"},
-	"CAUTION":   {"⚠️", "callout-warning"},
-	"DANGER":    {"🚨", "callout-danger"},
+	"NOTE":      {`<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/>`, "callout-note"},
+	"INFO":      {`<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/>`, "callout-info"},
+	"TIP":       {`<path d="M9 18h6m-5 3h4M9 15a6 6 0 1 1 6 0v1H9z"/>`, "callout-tip"},
+	"IMPORTANT": {`<path d="M4 3h16v13h-6l-4 5v-5H4zM12 7v3m0 2v1"/>`, "callout-important"},
+	"WARNING":   {`<path d="M12 3 2 21h20zM12 9v5m0 3v1"/>`, "callout-warning"},
+	"CAUTION":   {`<path d="m8 3-5 5v8l5 5h8l5-5V8l-5-5zM12 7v6m0 3v1"/>`, "callout-danger"},
+	"DANGER":    {`<path d="m8 3-5 5v8l5 5h8l5-5V8l-5-5zM12 7v6m0 3v1"/>`, "callout-danger"},
 }
 
 // transformCallouts converts GitHub-style blockquote callouts into styled divs.
@@ -639,6 +639,7 @@ func transformCallouts(htmlStr string) string {
 			return match
 		}
 		icon, class := meta[0], meta[1]
+		icon = `<svg class="callout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">` + icon + `</svg>`
 		label := strings.Title(strings.ToLower(kind))
 
 		inner := ""
@@ -648,7 +649,7 @@ func transformCallouts(htmlStr string) string {
 		inner += rest
 
 		return `<div class="callout ` + class + `">` +
-			`<div class="callout-title">` + icon + ` ` + label + `</div>` +
+			`<div class="callout-title">` + icon + `<span>` + label + `</span></div>` +
 			`<div class="callout-body">` + inner + `</div>` +
 			`</div>`
 	})

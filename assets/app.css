@@ -1171,18 +1171,18 @@ pre.chroma:hover .copy-btn {
   --dyno-callout-bg: var(--dyno-surface-secondary);
   --dyno-callout-border: var(--dyno-border);
   --dyno-callout-title: var(--dyno-text);
-  border-radius: 0.5rem;
-  padding: 1rem 1.25rem;
-  margin: 1.5rem 0;
-  border-left: 4px solid;
+  border-radius: 0;
+  padding: 0.5rem 1rem;
+  margin: 1rem 0;
+  border-left: 3px solid;
   border-left-color: var(--dyno-callout-border);
-  background: var(--dyno-callout-bg);
+  background: transparent;
   color: var(--dyno-text);
 }
 .callout-title {
   font-weight: 600;
-  font-size: 0.875rem;
-  margin-bottom: 0.4rem;
+  font-size: inherit;
+  margin-bottom: 0.5rem;
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -1190,6 +1190,15 @@ pre.chroma:hover .copy-btn {
 }
 .callout-body p:first-child { margin-top: 0; }
 .callout-body p:last-child  { margin-bottom: 0; }
+
+.callout-icon {
+  width: 1em;
+  height: 1em;
+  flex: none;
+}
+
+.dyno-prose .callout-body > :first-child { margin-top: 0; }
+.dyno-prose .callout-body > :last-child { margin-bottom: 0; }
 
 .mkdocs-admonition.callout {
   overflow: hidden;
@@ -1255,6 +1264,12 @@ pre.chroma:hover .copy-btn {
 
 /* Info */
 .callout-info {
+  --dyno-callout-bg: var(--dyno-info-bg);
+  --dyno-callout-border: var(--dyno-info);
+  --dyno-callout-title: var(--dyno-info-text);
+}
+
+.callout-important {
   --dyno-callout-bg: var(--tblr-indigo-bg-subtle);
   --dyno-callout-border: var(--tblr-indigo);
   --dyno-callout-title: var(--tblr-indigo-text-emphasis);

@@ -155,10 +155,13 @@ func TestRendererSupportsGitHubAlertTypesAndWarnAlias(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, expected := range []string{
-		`class="callout callout-info"`,
-		`<div class="callout-title">ℹ️ Important</div>`,
-		`<div class="callout-title">⚠️ Caution</div>`,
-		`<div class="callout-title">⚠️ Warning</div>`,
+		`class="callout callout-important"`,
+		`class="callout callout-danger"`,
+		`class="callout-icon"`,
+		`aria-hidden="true"`,
+		`<span>Important</span>`,
+		`<span>Caution</span>`,
+		`<span>Warning</span>`,
 	} {
 		if !strings.Contains(res.HTML, expected) {
 			t.Fatalf("expected %q in GitHub alert output, got: %s", expected, res.HTML)
