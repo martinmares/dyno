@@ -8,8 +8,23 @@ test -s dist/release_notes.md
 prerelease=false
 if [[ "${RELEASE_VERSION%%+*}" == *-* ]]; then prerelease=true; fi
 
-if gh release view "$RELEASE_TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
-  remote_commit="$(gh api "repos/$GH_REPO/commits/$RELEASE_TAG" --jq '.sha')"
+if draft_target="$(gh release view "$RELEASE_TAG" --repo "$GH_REPO" \
+    --json isDraft,targetCommitish --jq 'if .isDraft then .targetCommitish else "" end' 2>/dev/null)"; then
+  if [[ -n "$draft_target" ]]; then
+    if [[ "$draft_target" != "$RELEASE_COMMIT" ]]; then
+      echo "Draft release targets a different commit; bump VERSION" >&2
+      exit 1
+    fi
+    # A draft can exist before GitHub creates its tag on publication.
+    tag_count="$(gh api "repos/$GH_REPO/git/matching-refs/tags/$RELEASE_TAG" \
+      --jq "map(select(.ref == \"refs/tags/$RELEASE_TAG\")) | length")"
+    remote_commit="$draft_target"
+    if [[ "$tag_count" != 0 ]]; then
+      remote_commit="$(gh api "repos/$GH_REPO/commits/$RELEASE_TAG" --jq '.sha')"
+    fi
+  else
+    remote_commit="$(gh api "repos/$GH_REPO/commits/$RELEASE_TAG" --jq '.sha')"
+  fi
   if [[ "$remote_commit" != "$RELEASE_COMMIT" ]]; then
     echo "Release tag points to a different commit; bump VERSION" >&2
     exit 1

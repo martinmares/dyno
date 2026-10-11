@@ -209,8 +209,18 @@ func TestGitHubReleasePublication(t *testing.T) {
 set -eu
 printf '%s\n' "$*" >> "$GH_CALL_LOG"
 case "$1 $2" in
-  'release view') test "${GH_EXISTING:-0}" = 1 ;;
-  'api repos/'*) printf '%s\n' "$RELEASE_COMMIT" ;;
+  'release view')
+    test "${GH_EXISTING:-0}" = 1 || exit 1
+    if test "${GH_DRAFT:-0}" = 1; then printf '%s\n' "${GH_TARGET:-$RELEASE_COMMIT}"; fi ;;
+  'api repos/'*)
+    if [[ "$2" == */git/matching-refs/* ]]; then
+      printf '%s\n' "${GH_TAG_COUNT:-0}"
+    elif test "${GH_DRAFT:-0}" = 1 && test "${GH_TAG_COUNT:-0}" = 0; then
+      echo 'No commit found for SHA (HTTP 422)' >&2
+      exit 1
+    else
+      printf '%s\n' "${GH_TAG_COMMIT:-$RELEASE_COMMIT}"
+    fi ;;
   'release create'|'release upload'|'release edit') exit 0 ;;
   *) exit 2 ;;
 esac
@@ -223,8 +233,13 @@ esac
 		"PATH=" + filepath.Dir(tool) + string(os.PathListSeparator) + os.Getenv("PATH"),
 		"GH_TOKEN=test-token", "GH_REPO=test/dyno", "GH_CALL_LOG=" + log,
 	}
-	for _, existing := range []string{"0", "1"} {
-		output, err := runReleaseScript(dir, "ci_publish_github_release.sh", commit, append(env, "GH_EXISTING="+existing)...)
+	for _, scenario := range [][]string{
+		{"GH_EXISTING=0"},
+		{"GH_EXISTING=1", "GH_DRAFT=1"},
+		{"GH_EXISTING=1", "GH_DRAFT=1", "GH_TAG_COUNT=1"},
+		{"GH_EXISTING=1"},
+	} {
+		output, err := runReleaseScript(dir, "ci_publish_github_release.sh", commit, append(env, scenario...)...)
 		if err != nil {
 			t.Fatalf("GitHub publication: %v: %s", err, output)
 		}
@@ -241,7 +256,24 @@ esac
 	if strings.Index(string(calls), "release edit") < strings.Index(string(calls), "release upload") {
 		t.Fatal("GitHub release published before uploads")
 	}
-	if strings.Count(string(calls), "release create") != 1 || strings.Count(string(calls), "release upload") != 2 {
+	if strings.Count(string(calls), "release create") != 1 || strings.Count(string(calls), "release upload") != 4 {
 		t.Fatalf("GitHub retry created a duplicate release: %s", calls)
+	}
+	for _, scenario := range [][]string{
+		{"GH_EXISTING=1", "GH_DRAFT=1", "GH_TARGET=" + strings.Repeat("a", 40)},
+		{"GH_EXISTING=1", "GH_DRAFT=1", "GH_TAG_COUNT=1", "GH_TAG_COMMIT=" + strings.Repeat("a", 40)},
+		{"GH_EXISTING=1", "GH_TAG_COMMIT=" + strings.Repeat("a", 40)},
+	} {
+		output, err := runReleaseScript(dir, "ci_publish_github_release.sh", commit, append(env, scenario...)...)
+		if err == nil || !strings.Contains(string(output), "different commit") {
+			t.Fatalf("unsafe GitHub retry accepted: %v: %s", err, output)
+		}
+	}
+	after, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(string(after), "release upload") != 4 || strings.Count(string(after), "release edit") != 4 {
+		t.Fatal("mismatched commit was uploaded or published")
 	}
 }
