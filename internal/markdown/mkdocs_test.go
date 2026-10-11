@@ -136,6 +136,27 @@ func TestRendererLeavesMkDocsInlineSyntaxInsideCode(t *testing.T) {
 	}
 }
 
+func TestRendererGitHubAlertsConsumeMarkerLineBreak(t *testing.T) {
+	r, err := markdown.NewRenderer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, kind := range []string{"NOTE", "INFO", "TIP", "IMPORTANT", "WARNING", "WARN", "CAUTION", "DANGER"} {
+		t.Run(kind, func(t *testing.T) {
+			res, err := r.RenderString("> [!" + kind + "]\n> First line.\n> Second line.\n>\n> Another paragraph.\n")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(res.HTML, `<div class="callout-body"><p>First line.<br>`) {
+				t.Fatalf("expected body to start with text and preserve its line break, got: %s", res.HTML)
+			}
+			if !strings.Contains(res.HTML, "Second line.</p>") || !strings.Contains(res.HTML, "<p>Another paragraph.</p>") {
+				t.Fatalf("expected remaining body content to be preserved, got: %s", res.HTML)
+			}
+		})
+	}
+}
+
 func TestRendererSupportsGitHubAlertTypesAndWarnAlias(t *testing.T) {
 	r, err := markdown.NewRenderer()
 	if err != nil {

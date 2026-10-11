@@ -603,8 +603,9 @@ func stripTags(s string) string {
 }
 
 // calloutRe matches a blockquote whose first paragraph starts with [!TYPE]
-// Goldmark renders it as: <blockquote>\n<p>[!NOTE]\nrest</p>...
-var calloutRe = regexp.MustCompile(`(?s)<blockquote>\s*<p>\[!(NOTE|TIP|IMPORTANT|WARNING|WARN|CAUTION|DANGER|INFO)\]\n?(.*?)</p>(.*?)</blockquote>`)
+// Goldmark renders the marker's line break as <br> when hard wraps are enabled.
+// Consume that break with the marker so it does not become a blank body line.
+var calloutRe = regexp.MustCompile(`(?s)<blockquote>\s*<p>\[!(NOTE|TIP|IMPORTANT|WARNING|WARN|CAUTION|DANGER|INFO)\](?:<br\s*/?>)?\n?(.*?)</p>(.*?)</blockquote>`)
 
 var calloutMeta = map[string][2]string{
 	"NOTE":      {`<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/>`, "callout-note"},
