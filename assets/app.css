@@ -3275,6 +3275,12 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   background: var(--tblr-body-bg);
 }
 
+.dyno-edit-panes > #preview-pane[hidden],
+.dyno-edit-mobile-tabs > [data-mobile-pane][hidden],
+.dyno-edit-preview-toggle [hidden] {
+  display: none;
+}
+
 .dyno-edit-previewbar {
   position: sticky;
   top: 0;

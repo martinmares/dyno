@@ -148,6 +148,17 @@
       Save <kbd class="dyno-kbd-hint">Ctrl+S</kbd>
     </button>
 
+    <button id="preview-toggle" type="button"
+      class="btn btn-icon btn-ghost-secondary dyno-edit-preview-toggle"
+      aria-expanded="true" aria-controls="preview-pane"
+      aria-label="Hide live preview" title="Hide live preview">
+      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/>
+        <circle cx="12" cy="12" r="3"/>
+        <path data-preview-hidden hidden stroke-linecap="round" d="M3 3l18 18"/>
+      </svg>
+    </button>
+
     <!-- Page text size -->
     <div class="dyno-font-size-controls" role="group" aria-label="Text size">
       <button id="font-size-decrease" type="button" class="btn btn-icon btn-ghost-secondary dyno-font-size-button"
@@ -536,6 +547,21 @@
 
   document.querySelectorAll('[data-mobile-pane]').forEach(function(button) {
     button.addEventListener('click', function() { selectMobilePane(button.dataset.mobilePane); });
+  });
+
+  const previewToggle = document.getElementById('preview-toggle');
+  const mobilePreviewButton = document.querySelector('[data-mobile-pane="preview"]');
+  previewToggle.addEventListener('click', function() {
+    const hiding = !previewPane.hidden;
+    previewPane.hidden = hiding;
+    mobilePreviewButton.hidden = hiding;
+    previewToggle.querySelector('[data-preview-hidden]').hidden = !hiding;
+    previewToggle.setAttribute('aria-expanded', String(!hiding));
+    const label = hiding ? 'Show live preview' : 'Hide live preview';
+    previewToggle.setAttribute('aria-label', label);
+    previewToggle.title = label;
+    if (hiding && panes.dataset.mobileActive === 'preview') selectMobilePane('editor');
+    requestAnimationFrame(function() { cm.refresh(); });
   });
 
   async function switchToVisual() {
