@@ -57,4 +57,6 @@ func main() {
 }
 ```
 
-> **Tip:** Use `Ctrl+K` to open search from anywhere.
+> [!TIP]
+> Use `Ctrl+K` to open search from anywhere.
+

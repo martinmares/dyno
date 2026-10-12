@@ -177,7 +177,7 @@ go run . --version
 go run ./cmd/dyno-mcp serve --transport stdio --site ./site
 ```
 
-The editor opens with **Contents | Visual editor | Live Preview**. Switch to **Source** for front matter and custom blocks; the visual editor preserves these blocks when editing surrounding text. The visual editor assets are committed and embedded in the Go binary. When changing their source files, rebuild them with `just editor-assets` (requires Node.js and npm).
+The editor opens with **Contents | Visual editor | Live Preview**. Click an API block in Visual to edit its method, URL, headers, and advanced options in a **Form / Source** dialog. Placeholders stay literal, and blocks with unsupported form content open in Source so their content is preserved. **Apply** updates the block; **Save** saves the document. Switch to the main **Source** editor for front matter and other custom blocks; the visual editor preserves these blocks when editing surrounding text. The visual editor assets are committed and embedded in the Go binary. When changing their source files, rebuild them with `just editor-assets` (requires Node.js and npm).
 
 ### Local Markdown browser
 
@@ -409,21 +409,26 @@ Uppercase placeholders are expanded before rendering from:
 
 Process environment variables win over both `.env` files.
 
-```markdown
+````markdown
 API base URL: {{HTTPBIN_URL}}
 
 ```api
 {{HTTP_METHOD_FOR_GET}} {{HTTPBIN_URL}}/get
 ```
-```
+````
 
 Interactive API widget variables stay untouched when written in lowercase or mixed case:
 
-```markdown
+````markdown
 ```api
 GET {{HTTPBIN_URL}}/anything/{{userId}}
 Authorization: Bearer {{token}}
 ```
+````
+
+In that example:
+- `{{HTTPBIN_URL}}` is expanded before render
+- `{{userId}}` and `{{token}}` remain editable in the widget UI
 
 For an endpoint with a self-signed TLS certificate, use the explicit `api-insecure` fence. It disables certificate verification only for that widget:
 
@@ -446,11 +451,6 @@ GET {{TSM_BASE_URL}}{{GENERATE_CONFIG_PATH}}/tsm-ticket
 ````
 
 The supported JSONPath subset includes properties, array indexes, quoted properties, and `[*]`. Discovered relative paths, with or without a leading `/`, are resolved from the parent request origin. Absolute HTTP(S) URLs are preserved. Duplicate URLs are removed and at most 50 follow-up widgets are shown.
-```
-
-In that example:
-- `{{HTTPBIN_URL}}` is expanded before render
-- `{{userId}}` and `{{token}}` remain editable in the widget UI
 
 ## dyno-mcp
 

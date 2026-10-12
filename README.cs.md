@@ -1,13 +1,5 @@
 # dyno
 
-Vestavěný průvodce `dyno examples` obsahuje příkazy, YAML konfiguraci a příklady
-Markdownu. Jedno téma zobrazíte například pomocí `dyno examples browse`.
-Další témata: `serve`, `edit`, `library`, `git`, `comments`, `config`, `markdown`,
-`mcp`. Výstup má barevné nadpisy a odsazené bloky SHELL/FILE; přesměrovaný
-výstup zachovává stejné rozložení bez barev. Barvy vypnete pomocí `--plain`
-nebo `NO_COLOR`. Původní Markdown vyexportujete pomocí `--markdown`.
-Zdroj průvodce: [docs/examples.md](docs/examples.md).
-
 Samostatně hostovaný dokumentační server — něco jako GitBook nebo Notion, ale jako jediný Go binární soubor bez externích závislostí.
 
 ## Co umí
@@ -27,6 +19,7 @@ Samostatně hostovaný dokumentační server — něco jako GitBook nebo Notion,
 - **Soubory ke stažení** — bezpečné per-site downloady z `_downloads/` zobrazují název, MIME typ a velikost
 - **Konfigurovatelný base path** — server lze spustit pod libovolnou URL cestou (`/docs`, `/moje/docs` nebo `/`)
 - **Režim knihovny** — více dokumentačních webů pod jednou instancí dyno pomocí opakovaného `--site`
+- **Lokální prohlížeč Markdownu** — `dyno browse` otevře vybrané soubory a rekurzivně načtené adresáře s navigací podle souborového systému a vyhledáváním
 - **Git-backed weby** — `--git-repo-site <url>` naklonuje repozitář a servíruje ho; automaticky pulluje v konfigurovatelném intervalu
 - **Porovnání verzí dokumentu** — porovná libovolné dvě Git revize, staged soubor nebo working tree jako zdrojový Markdown i vyrenderovaný náhled
 - **Konfigurační soubor knihovny** — `--library dyno-library.yaml` popisuje více webů (lokální nebo git) s přepsáním metadat
@@ -36,7 +29,7 @@ Samostatně hostovaný dokumentační server — něco jako GitBook nebo Notion,
 - **Komentáře a zvýraznění** — volitelné lokální komentáře, vláknové odpovědi a zvýraznění označeného textu uložené v JSONL
 - **Hot reload** — příznak `--watch` přenačte navigaci a vyhledávací index při změně souborů
 - **Dev režim** — příznak `--dev` načítá šablony z disku bez nutnosti rebuildu
-- **Jediný binární soubor** — vše je embedováno, žádný Node.js, žádný build pipeline
+- **Jediný binární soubor** — UI assety jsou embedované; za běhu není potřeba Node.js
 - **Vestavěné UI assety** — Tabler CSS a Dyno styly se servírují z lokálních assetů
 - **Volitelný MCP companion** — `dyno-mcp` zpřístupňuje dokumentaci AI agentům přes `stdio` nebo HTTP
 
@@ -122,6 +115,9 @@ frontmatter:
 
 Všechna pole jsou volitelná — dyno funguje i bez konfiguračního souboru.
 
+`api_proxy_allowed_hosts` omezuje interaktivní API widget na explicitně povolené hostitele.
+`api_proxy_allow_private_networks` určuje, zda widget smí volat cíle na loopbacku a v privátních sítích; kvůli kompatibilitě je výchozí hodnota `true`.
+
 `content_include` a `content_exclude` omezují, které Markdown soubory se objeví v navigaci, vyhledávání, předchozí/další navigaci a renderovaných stránkách. Patterny jsou slash-separated globy relativně k adresáři s obsahem; `**` matchuje přes adresáře. Prázdné `content_include` znamená všechny Markdown soubory a `content_exclude` má vždy přednost.
 
 `frontmatter.fields` definuje metadata konkrétního repozitáře bez natvrdo zabudovaného slovníku v Dynu. Podporované typy jsou `text`, `textarea`, `select`, `boolean`, `number`, `date`, `datetime` a `tags`. `display` určuje preferované pořadí, `readonly` zakáže editaci přes formulář a `required` zapne validaci. `frontmatter.defaults` určuje pole, která se nabídnou v hromadné editaci, a jejich doporučené výchozí hodnoty pro tlačítko `Fill defaults`. Pro pole `date` a `datetime` zapíše `update_on_save: true` aktuální datum serveru nebo RFC 3339 timestamp, pokud se obsah dokumentu skutečně změnil. Nastavení `filterable: true` přidá runtime facet do sidebaru, navigace a fulltextového hledání v normálním, editačním i library režimu. Hodnoty facet a počty dokumentů se indexují při startu; hodnoty jednoho pole používají OR a různá pole AND. Filtry jsou pracovní pohled uložený v URL, nejde o publikační ani přístupové omezení. Použití editoru upraví pouze změněná top-level pole; neznámý YAML a nedotčené složité bloky zůstanou beze změny. Stejný blok `frontmatter` lze nakonfigurovat pro každou site zvlášť v `dyno-library.yaml`.
@@ -174,13 +170,33 @@ Vyžaduje **Go 1.22+**.
 ### Vývoj
 
 ```bash
-just css          # jednorázový build produkčního CSS
-just css-watch    # průběžný rebuild CSS při editaci šablon
 go run . --site ./site --dev --watch
+go run . --site ./site --dev --edit
 go run . --site /cesta/k/wiki --dev --watch
 go run . --version
 go run ./cmd/dyno-mcp serve --transport stdio --site ./site
 ```
+
+Editor se otevře s panely **Contents | Visual editor | Live Preview**. Kliknutím na API blok ve Visual otevřete dialog **Form / Source** pro úpravu metody, URL, hlaviček a pokročilých voleb. Placeholdery zůstávají doslovné; bloky s obsahem, který formulář nepodporuje, se otevřou v Source, aby se jejich obsah zachoval. **Apply** upraví blok; **Save** uloží dokument. Pro front matter a další vlastní bloky přepněte hlavní editor do **Source**; při úpravách okolního textu je vizuální editor zachová. Assety vizuálního editoru jsou verzované a embedované v Go binárce. Po změně jejich zdrojových souborů je znovu sestavte pomocí `just editor-assets` (vyžaduje Node.js a npm).
+
+### Lokální prohlížeč Markdownu
+
+Příkaz `browse` lze použít bez konfigurace dokumentačního webu:
+
+```bash
+dyno browse README.md
+dyno browse ./docs ./notes ./TODO.md
+dyno browse . --exclude '**/archive/**'
+dyno browse ./docs --edit --port 3001 --no-open
+```
+
+Cesty mohou odkazovat na Markdown soubory (`.md` nebo `.markdown`, bez ohledu na velikost písmen) i na adresáře. Pokud žádné cesty nezadáte, použije se aktuální adresář. Adresáře se procházejí rekurzivně a zobrazují se pod původními názvy; duplicitní a překrývající se výběry se sloučí. Zahrnou se i dokumenty označené jako draft a publikační pravidla z `dyno.yaml` a `.pages` se nenačítají. `README.md`, `index.md` a `_group.md` zůstávají běžnými dokumenty. Samostatný soubor se otevře přímo; při výběru adresářů se otevře vygenerovaný přehled.
+
+Server naslouchá pouze na `127.0.0.1`, vybere volný port, otevře webový prohlížeč a ve výchozím stavu sleduje změny. Pomocí `--port` nastavíte pevný port, `--no-open` vypíše URL bez otevření prohlížeče, `--no-watch` vypne automatické obnovování a `--edit` zapne Markdown editor. Při změnách se znovu sestaví navigace a vyhledávání a obnoví se čtecí zobrazení; editor se automaticky nepřenačítá a kontrola revizí brání přepsání externích změn.
+
+Lokální odkazy se vyhodnocují pouze mezi dokumenty v explicitním výběru, včetně odkazů mezi vybranými kořenovými adresáři. Výběr samostatného souboru nezpřístupňuje sousední Markdown dokumenty ani libovolné přílohy: servírují se pouze odkazované obrázky pod jeho rodičovským adresářem. Výběr adresářů dovoluje odkazované přílohy uvnitř těchto kořenů. Chybějící, vyloučené a nevybrané cíle zobrazí vysvětlení místo automatického přidání dalších zdrojů. Explicitně zadané symbolické odkazy se jednou vyhodnotí; symbolické odkazy uvnitř vybraných adresářů se přeskakují a při čtení ani editaci nelze opustit vybraný rozsah.
+
+Rekurzivní procházení přeskakuje skryté položky a adresáře `node_modules`, `vendor`, `target`, `dist`, `build`, `venv` a `__pycache__`. Ostatní adresáře s podtržítkem na začátku se zahrnou. Opakovaným `--exclude` přidáte globy oddělené lomítky, relativní ke každému vybranému adresáři; `**` odpovídá i vnořeným adresářům. Explicitně vybrané soubory se zahrnou, i když by jejich názvy rekurzivní procházení jinak přeskočilo.
 
 ### Automatické releasy binárek
 
@@ -278,7 +294,7 @@ Příznaky:
       --enable-comments         Zapne komentáře ke stránkám
       --comments-file string    JSONL soubor pro komentáře (výchozí <site-root>/.dyno-comments.jsonl)
       --comments-management string  Správa komentářů: disabled, author nebo all (výchozí "disabled")
-      --dev                     Dev režim: načítá šablony z disku při každém požadavku
+      --dev                     Dev režim: načítá šablony a assety z disku při každém požadavku
       --watch                   Sleduje web a přenačítá navigaci a vyhledávání (pouze single-site)
       --log-format string       Formát logů: text nebo json (výchozí "text")
       --version                 Vypíše verzi a skončí
@@ -291,6 +307,14 @@ Příznaky:
 Pokud adresář sekce nemá `index.md`, dyno zobrazí syntetickou úvodní stránku s odkazy na podstránky.
 
 ### Příklady
+
+Vestavěný průvodce `dyno examples` obsahuje příkazy, YAML konfiguraci a příklady
+Markdownu. Jedno téma zobrazíte například pomocí `dyno examples browse`.
+Další témata: `serve`, `edit`, `library`, `git`, `comments`, `config`, `markdown`,
+`mcp`. Výstup má barevné nadpisy a odsazené bloky SHELL/FILE; přesměrovaný
+výstup zachovává stejné rozložení bez barev. Barvy vypnete pomocí `--plain`
+nebo `NO_COLOR`. Původní Markdown vyexportujete pomocí `--markdown`.
+Zdroj průvodce: [docs/examples.md](docs/examples.md).
 
 ```bash
 # Jeden web
@@ -383,9 +407,26 @@ Velkými písmeny psané placeholdery jsou expandovány před renderováním z:
 
 Proměnné prostředí procesu mají přednost před oběma `.env` soubory.
 
-```markdown
+````markdown
 API base URL: {{HTTPBIN_URL}}
+
+```api
+{{HTTP_METHOD_FOR_GET}} {{HTTPBIN_URL}}/get
 ```
+````
+
+Proměnné interaktivního API widgetu psané malými nebo smíšenými písmeny zůstávají beze změny:
+
+````markdown
+```api
+GET {{HTTPBIN_URL}}/anything/{{userId}}
+Authorization: Bearer {{token}}
+```
+````
+
+V tomto příkladu:
+- `{{HTTPBIN_URL}}` se expanduje před renderováním
+- `{{userId}}` a `{{token}}` zůstávají editovatelné v UI widgetu
 
 Pro endpoint se self-signed TLS certifikátem použijte explicitní blok `api-insecure`. Ověření certifikátu se vypne pouze pro tento widget:
 
@@ -413,6 +454,13 @@ Podporovaná podmnožina JSONPath zahrnuje vlastnosti, indexy polí, vlastnosti 
 
 `dyno-mcp` je samostatný binární soubor, který zpřístupňuje dokumentaci dyno AI agentům přes MCP, zatímco hlavní `dyno` webový server zůstává zaměřen na doručování HTML.
 
+Současné cíle návrhu:
+- jeden společný engine pro oba transporty
+- pouze nástroje pro čtení
+- fungování v režimu jednoho webu i knihovny
+- veřejné URL dyno ve výsledcích, aby AI klienti mohli zobrazovat klikatelné odkazy zpět na HTML dokumentaci
+- poskytování MCP nástrojů i MCP zdrojů
+
 ### Použití dyno-mcp
 
 ```bash
@@ -434,14 +482,43 @@ Příklady:
 # Lokální stdio MCP pro jeden web
 go run ./cmd/dyno-mcp serve --transport stdio --site ./site
 
-# Vzdálený HTTP MCP endpoint
+# Vzdálený HTTP MCP endpoint pro jeden web
 go run ./cmd/dyno-mcp serve \
   --transport http \
   --site ./site \
   --listen 127.0.0.1:8090 \
   --path /mcp \
   --public-base-url https://docs.example.com
+
+# MCP přes HTTP v režimu knihovny
+go run ./cmd/dyno-mcp serve \
+  --transport http \
+  --site ./site \
+  --site ./site-demo-go/site \
+  --listen 127.0.0.1:8090 \
+  --path /mcp \
+  --public-base-url https://docs.example.com
 ```
+
+Implementované MCP nástroje:
+- `list_books`
+- `search_docs`
+- `get_page`
+- `get_navigation`
+- `list_pages`
+- `get_page_section`
+
+Implementované MCP zdroje:
+- `dyno://book/{slug}` — metadata knihy jako JSON
+- `dyno://book/{slug}/navigation` — navigace jako JSON
+- `dyno://book/{slug}/page?path=...` — zdrojový Markdown stránky
+
+Poznámky ke kompatibilitě HTTP:
+- zatím pouze endpoint `POST`; `GET` vrací `405`
+- vrací `MCP-Protocol-Version: 2025-03-26`
+- nepodporovaná hlavička požadavku `MCP-Protocol-Version` se odmítne se stavem `400`
+- pokud je nastavený `--auth-token` nebo `DYNO_MCP_AUTH_TOKEN`, musí každý HTTP požadavek obsahovat `Authorization: Bearer ...`
+- pokud je přítomná hlavička `Origin`, musí odpovídat některé z hodnot opakovatelného `--allow-origin`
 
 ## Licence
 

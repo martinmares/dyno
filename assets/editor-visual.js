@@ -1,5 +1,6 @@
 import { Crepe } from '@milkdown/crepe';
 import { imageSchema } from '@milkdown/kit/preset/commonmark';
+import { apiBlockLabel, openAPIEditor } from './editor-api.mjs';
 
 const opaqueTokenPrefix = 'DYNOOPAQUEBLOCK';
 
@@ -34,7 +35,8 @@ function protectBlocks(body) {
       }
       const language = fence[2].trim().split(/\s+/)[0].toLowerCase();
       const dynoFences = ['api', 'api-insecure', 'd2', 'mermaid', 'tasks', 'file-download', 'table'];
-      protect(start, i, (language || 'Code') + ' block', dynoFences.includes(language) ? 'other' : 'fence');
+      const isAPI = language === 'api' || language === 'api-insecure';
+      protect(start, i, isAPI ? 'API block' : (language || 'Code') + ' block', isAPI ? 'api' : dynoFences.includes(language) ? 'other' : 'fence');
       continue;
     }
     if (/^ {0,3}>\s*\[!(?:NOTE|TIP|IMPORTANT|WARNING|WARN|CAUTION|DANGER|INFO)\]/i.test(line)) {
@@ -161,6 +163,7 @@ async function create(root, source, onChange, resolveImage = src => src) {
   let patchError = null;
   let ready = false;
   const fenceBlocks = blocks.filter(block => block.kind === 'fence');
+  const apiBlocks = blocks.filter(block => block.kind === 'api');
   const fenceStyle = document.createElement('style');
   document.head.appendChild(fenceStyle);
   function cssString(value) {
@@ -181,7 +184,12 @@ async function create(root, source, onChange, resolveImage = src => src) {
       selector + '::after { display: block; color: var(--tblr-body-color); content: ' + cssString(preview) + '; font-family: var(--tblr-font-monospace); font-size: .875rem; line-height: 1.45; white-space: pre; }';
   }
   function renderFenceStyles() {
-    fenceStyle.textContent = fenceBlocks.map(fenceRule).join('\n');
+    const apiRules = apiBlocks.map(block => {
+      const selector = '.dyno-visual-editor .ProseMirror a[href="#' + block.token + '"]';
+      return selector + ' { display: block; overflow-wrap: anywhere; color: transparent; font-size: 0; }\n' +
+        selector + '::after { color: var(--tblr-body-color); font-size: .875rem; content: ' + cssString(apiBlockLabel(block.source) + ' · ✎') + '; }';
+    });
+    fenceStyle.textContent = fenceBlocks.map(fenceRule).concat(apiRules).join('\n');
   }
   renderFenceStyles();
   editor.on(listener => listener.markdownUpdated(() => {
@@ -197,6 +205,10 @@ async function create(root, source, onChange, resolveImage = src => src) {
   }));
   try {
     await editor.create();
+    apiBlocks.forEach(block => {
+      const link = root.querySelector('a[href="#' + block.token + '"]');
+      if (link) link.setAttribute('aria-label', apiBlockLabel(block.source) + ' · edit block');
+    });
     normalized = editor.getMarkdown();
     restoreBlocks(patched, blocks);
     ready = true;
@@ -221,12 +233,16 @@ async function create(root, source, onChange, resolveImage = src => src) {
       },
       updateBlock(token, value) {
         const block = blocks.find(item => item.token === token);
-        if (!block || !['fence', 'callout'].includes(block.kind)) throw new Error('Block is not editable here.');
+        if (!block || !['fence', 'callout', 'api'].includes(block.kind)) throw new Error('Block is not editable here.');
         const previous = block.source;
         block.source = value;
         try { restoreBlocks(patched, blocks); }
         catch (error) { block.source = previous; throw error; }
-        if (block.kind === 'fence') renderFenceStyles();
+        if (block.kind === 'fence' || block.kind === 'api') {
+          renderFenceStyles();
+          const link = root.querySelector('a[href="#' + token + '"]');
+          if (link && block.kind === 'api') link.setAttribute('aria-label', apiBlockLabel(block.source) + ' · edit block');
+        }
         onChange();
       },
       async destroy() {
@@ -241,4 +257,4 @@ async function create(root, source, onChange, resolveImage = src => src) {
   }
 }
 
-window.DynoVisualEditor = { create };
+window.DynoVisualEditor = { create, openAPIEditor };

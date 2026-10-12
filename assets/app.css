@@ -3281,6 +3281,54 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   display: none;
 }
 
+.dyno-api-dialog [hidden] {
+  display: none;
+}
+
+.dyno-api-fields {
+  display: grid;
+  gap: 1rem;
+}
+
+.dyno-api-tabs {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.dyno-api-dialog .dyno-api-tabs .btn.is-active {
+  color: var(--tblr-primary);
+  background: var(--tblr-primary-lt);
+}
+
+.dyno-api-request-row {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) minmax(0, 3fr);
+  gap: 1rem;
+}
+
+.dyno-api-header-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+  gap: 0.5rem;
+}
+
+.dyno-api-help {
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.dyno-api-advanced {
+  padding-top: 1rem;
+}
+
+.dyno-api-dialog .CodeMirror {
+  padding: 0;
+}
+
+@media (max-width: 575px) {
+  .dyno-api-request-row { grid-template-columns: minmax(0, 1fr); }
+}
+
 .dyno-edit-previewbar {
   position: sticky;
   top: 0;
