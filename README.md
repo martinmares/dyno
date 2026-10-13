@@ -310,6 +310,13 @@ If a section directory has no `index.md`, dyno serves a synthetic landing page w
 
 ### Examples
 
+Use the **Print / Save PDF** toolbar button or your browser's print shortcut to
+print a clean A4 document without navigation, comments or table controls.
+Printing uses a light palette even in dark mode, includes all filtered table
+rows and expands collapsed sections; the original reading state is restored
+after closing the print dialog. For a clean PDF, disable the browser's own
+headers and footers in its print settings.
+
 Run `dyno examples` for a built-in cookbook with commands, YAML configuration,
 and Markdown examples. Use `dyno examples browse` (or `serve`, `edit`, `library`,
 `git`, `comments`, `config`, `markdown`, `mcp`) to read one topic. Terminal output

@@ -351,6 +351,35 @@ function initCopyButtons() {
   });
 }
 
+// ─── Document printing ────────────────────────────────────────────────────────
+
+let printPageState = null;
+
+function preparePagePrint() {
+  if (printPageState) return;
+  const article = document.querySelector('#page-content .dyno-article');
+  if (!article) return;
+  printPageState = {
+    details: Array.from(article.querySelectorAll('details:not([open])')),
+    rows: Array.from(article.querySelectorAll('.dyno-table-widget tbody tr[hidden]'))
+  };
+  printPageState.details.forEach(function (details) { details.open = true; });
+  printPageState.rows.forEach(function (row) { row.hidden = false; });
+}
+
+function restorePagePrint() {
+  if (!printPageState) return;
+  printPageState.details.forEach(function (details) { details.open = false; });
+  printPageState.rows.forEach(function (row) { row.hidden = true; });
+  printPageState = null;
+}
+
+window.addEventListener('beforeprint', preparePagePrint);
+window.addEventListener('afterprint', restorePagePrint);
+document.addEventListener('click', function (event) {
+  if (event.target.closest('[data-print-page]')) window.print();
+});
+
 // ─── TOC scroll spy ───────────────────────────────────────────────────────────
 
 function initTOCScrollSpy() {

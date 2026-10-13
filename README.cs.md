@@ -1,5 +1,11 @@
 # dyno
 
+Tlačítko **Print / Save PDF** nebo tisková zkratka prohlížeče vytvoří čistý
+dokument A4 bez navigace, komentářů a ovládání tabulek. Tisk používá světlé
+barvy i v dark režimu, zobrazí všechny filtrované řádky a rozbalí sekce.
+Po zavření tiskového dialogu obnoví původní stav. Pro čisté PDF vypněte
+v tiskovém dialogu vlastní záhlaví a zápatí prohlížeče.
+
 Samostatně hostovaný dokumentační server — něco jako GitBook nebo Notion, ale jako jediný Go binární soubor bez externích závislostí.
 
 ## Co umí
