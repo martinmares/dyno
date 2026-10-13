@@ -366,7 +366,7 @@
     <ul class="nav nav-pills dyno-toc-list">
       {{ range .TOC }}
       <li class="nav-item {{ if eq .Level 3 }}dyno-toc-level-3{{ end }}">
-        <a href="#{{ .ID }}" class="nav-link toc-link">{{ .Text }}</a>
+        <a href="#{{ .ID }}" class="nav-link toc-link"><span class="dyno-toc-marker" aria-hidden="true">|</span>{{ .Text }}</a>
       </li>
       {{ end }}
     </ul>

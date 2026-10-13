@@ -2521,9 +2521,10 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 }
 
 .dyno-toc-list .toc-link {
+  position: relative;
   display: -webkit-box;
   overflow: hidden;
-  padding: 0.25rem 0.5rem;
+  padding: 0.25rem 0.5rem 0.25rem 1.5rem;
   color: var(--tblr-secondary-color);
   font-size: 0.8125rem;
   font-weight: 400;
@@ -2539,6 +2540,20 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 .dyno-toc-list .toc-link.active {
   color: var(--tblr-body-color);
   background-color: var(--tblr-bg-surface-secondary);
+  font-weight: 600;
+}
+
+.dyno-toc-marker {
+  position: absolute;
+  left: 0.5rem;
+  top: 0.25rem;
+  color: var(--tblr-primary);
+  font-weight: 800;
+  visibility: hidden;
+}
+
+.toc-link.active .dyno-toc-marker {
+  visibility: visible;
 }
 
 .dyno-toc-level-3 {

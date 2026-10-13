@@ -9,7 +9,7 @@ external_refs:
     type: api
   - id: SEC-014
     label: Proxy allowlist policy
-    url: https://github.com/mares/dyno/blob/main/README.md#configuration
+    url: https://github.com/martinmares/dyno/blob/main/README.md#configuration
     type: security
 ---
 

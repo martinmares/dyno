@@ -238,7 +238,7 @@ publikování na GitHub používá GitHub CLI.
 ### macOS
 
 ```bash
-git clone https://github.com/mares/dyno
+git clone https://github.com/martinmares/dyno
 cd dyno
 just release-macos
 ./dyno --site /cesta/k/dokumentaci
@@ -253,7 +253,7 @@ go install github.com/mares/dyno@latest
 ### Linux
 
 ```bash
-git clone https://github.com/mares/dyno
+git clone https://github.com/martinmares/dyno
 cd dyno
 just release-linux
 ./dyno --site /cesta/k/dokumentaci
@@ -268,7 +268,7 @@ GOOS=linux GOARCH=amd64 go build -o dyno-linux-amd64 .
 ### Windows
 
 ```powershell
-git clone https://github.com/mares/dyno
+git clone https://github.com/martinmares/dyno
 cd dyno
 go build -o dyno.exe .
 .\dyno.exe --site C:\cesta\k\dokumentaci

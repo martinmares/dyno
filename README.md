@@ -240,7 +240,7 @@ GitHub publication uses the GitHub CLI.
 ### macOS
 
 ```bash
-git clone https://github.com/mares/dyno
+git clone https://github.com/martinmares/dyno
 cd dyno
 just release-macos
 ./dyno --site /path/to/your/docs
@@ -255,7 +255,7 @@ go install github.com/mares/dyno@latest
 ### Linux
 
 ```bash
-git clone https://github.com/mares/dyno
+git clone https://github.com/martinmares/dyno
 cd dyno
 just release-linux
 ./dyno --site /path/to/your/docs
@@ -270,7 +270,7 @@ GOOS=linux GOARCH=amd64 go build -o dyno-linux-amd64 .
 ### Windows
 
 ```powershell
-git clone https://github.com/mares/dyno
+git clone https://github.com/martinmares/dyno
 cd dyno
 go build -o dyno.exe .
 .\dyno.exe --site C:\path\to\your\docs

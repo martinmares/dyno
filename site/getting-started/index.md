@@ -13,7 +13,7 @@ Everything you need to get up and running with Dyno in minutes.
 Download the binary for your platform from the releases page, or build from source:
 
 ```bash
-git clone https://github.com/mares/dyno
+git clone https://github.com/martinmares/dyno
 cd dyno
 go build -o dyno .
 ```

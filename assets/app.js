@@ -371,6 +371,8 @@ function initTOCScrollSpy() {
     tocLinks.forEach(function (link) {
       const isActive = link.getAttribute('href') === '#' + active.id;
       link.classList.toggle('active', isActive);
+      if (isActive) link.setAttribute('aria-current', 'location');
+      else link.removeAttribute('aria-current');
     });
   }
 

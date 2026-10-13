@@ -6,11 +6,11 @@ comment_id: dyno-home
 external_refs:
   - id: DYNO-001
     label: Product overview
-    url: https://github.com/mares/dyno
+    url: https://github.com/martinmares/dyno
     type: repository
   - id: DOCS-128
     label: Documentation backlog
-    url: https://github.com/mares/dyno/issues
+    url: https://github.com/martinmares/dyno/issues
     type: backlog
 ---
 
