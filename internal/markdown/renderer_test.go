@@ -5,6 +5,21 @@ import (
 	"testing"
 )
 
+func TestSyntaxHighlightingUsesDistinctLightAndDarkThemes(t *testing.T) {
+	renderer, err := NewRenderer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	light := renderer.LightCSS()
+	dark := renderer.DarkCSS()
+	if !strings.Contains(light, "html:not(.dark) .chroma .k") || !strings.Contains(dark, "html.dark .chroma .k") {
+		t.Fatal("expected each syntax palette to be scoped to its own theme")
+	}
+	if strings.ReplaceAll(light, "html:not(.dark) .chroma", ".chroma") == strings.ReplaceAll(dark, "html.dark .chroma", ".chroma") {
+		t.Fatal("light and dark modes must use different syntax palettes")
+	}
+}
+
 func TestRendererTerminalCodeChromeIsOptIn(t *testing.T) {
 	renderer, err := NewRenderer()
 	if err != nil {

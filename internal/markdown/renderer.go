@@ -157,10 +157,17 @@ func renderCodeBlockWrapper(w util.BufWriter, context highlighting.CodeBlockCont
 
 // Renderer wraps goldmark with our configuration.
 type Renderer struct {
-	md          goldmark.Markdown
-	lightCSS    string
-	darkCSS     string
-	templateEnv map[string]string
+	md                goldmark.Markdown
+	lightCSS          string
+	darkCSS           string
+	templateEnv       map[string]string
+	interactiveTables bool
+}
+
+// RendererOptions configures rendering across all documents using a renderer.
+type RendererOptions struct {
+	TemplateEnv       map[string]string
+	InteractiveTables bool // Force sorting and filtering, overriding document front matter.
 }
 
 // NewRenderer creates a configured Renderer and pre-generates chroma CSS.
@@ -170,14 +177,24 @@ func NewRenderer() (*Renderer, error) {
 
 // NewRendererWithEnv creates a configured Renderer with optional template env substitution.
 func NewRendererWithEnv(templateEnv map[string]string) (*Renderer, error) {
+	return NewRendererWithOptions(RendererOptions{TemplateEnv: templateEnv})
+}
+
+// NewRendererWithOptions creates a renderer with global settings.
+func NewRendererWithOptions(options RendererOptions) (*Renderer, error) {
 	lightBuf := &bytes.Buffer{}
 
 	lightFmt := chromahtml.New(chromahtml.WithClasses(true))
-	if err := lightFmt.WriteCSS(lightBuf, styles.Get("github-dark")); err != nil {
+	if err := lightFmt.WriteCSS(lightBuf, styles.Get("github")); err != nil {
 		return nil, err
 	}
+	// Scope both palettes: token rules present only in the light theme must not
+	// leak into dark mode when that theme leaves a token's colour inherited.
+	lightBuf = bytes.NewBufferString(
+		strings.ReplaceAll(lightBuf.String(), ".chroma", "html:not(.dark) .chroma"),
+	)
 
-	// Dark mode uses the same style — dark code blocks work in both modes
+	// Dark syntax colours override the light palette only when dark mode is active.
 	rawDark := &bytes.Buffer{}
 	darkFmt := chromahtml.New(chromahtml.WithClasses(true))
 	if err := darkFmt.WriteCSS(rawDark, styles.Get("github-dark")); err != nil {
@@ -196,7 +213,7 @@ func NewRendererWithEnv(templateEnv map[string]string) (*Renderer, error) {
 			extension.Footnote,
 			extension.DefinitionList,
 			highlighting.NewHighlighting(
-				highlighting.WithStyle("github-dark"),
+				highlighting.WithStyle("github"),
 				highlighting.WithGuessLanguage(true),
 				highlighting.WithWrapperRenderer(renderCodeBlockWrapper),
 				highlighting.WithFormatOptions(
@@ -218,10 +235,11 @@ func NewRendererWithEnv(templateEnv map[string]string) (*Renderer, error) {
 	)
 
 	return &Renderer{
-		md:          md,
-		lightCSS:    lightBuf.String(),
-		darkCSS:     darkBuf.String(),
-		templateEnv: templateEnv,
+		md:                md,
+		lightCSS:          lightBuf.String(),
+		darkCSS:           darkBuf.String(),
+		templateEnv:       options.TemplateEnv,
+		interactiveTables: options.InteractiveTables,
 	}, nil
 }
 
@@ -241,7 +259,11 @@ func (r *Renderer) Render(src []byte) (*Result, error) {
 func (r *Renderer) RenderWithOptions(src []byte, opts RenderOptions) (*Result, error) {
 	fm, body := parseFrontmatter(src)
 	body = r.applyTemplateEnv(body)
-	htmlStr, err := r.renderMarkdownBody(body, opts, fm.Dyno.Tables)
+	tableOptions := fm.Dyno.Tables
+	if r.interactiveTables {
+		tableOptions = TableOptions{Sortable: true, Filter: true}
+	}
+	htmlStr, err := r.renderMarkdownBody(body, opts, tableOptions)
 	if err != nil {
 		return nil, err
 	}

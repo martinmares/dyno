@@ -23,7 +23,7 @@ import (
 
 func newBrowseCommand() *cobra.Command {
 	var port int
-	var noOpen, noWatch, edit bool
+	var noOpen, noWatch, edit, interactiveTables bool
 	var excludes []string
 	cmd := &cobra.Command{
 		Use:     "browse [PATH...]",
@@ -34,18 +34,19 @@ func newBrowseCommand() *cobra.Command {
 			if port < 0 || port > 65535 {
 				return fmt.Errorf("--port must be between 0 and 65535")
 			}
-			return runBrowse(cmd.Context(), paths, excludes, port, !noOpen, !noWatch, edit)
+			return runBrowse(cmd.Context(), paths, excludes, port, !noOpen, !noWatch, edit, interactiveTables)
 		},
 	}
 	cmd.Flags().IntVarP(&port, "port", "p", 0, "Local port (0 selects a free port)")
 	cmd.Flags().BoolVar(&noOpen, "no-open", false, "Do not open the web browser automatically")
 	cmd.Flags().BoolVar(&noWatch, "no-watch", false, "Do not watch sources or refresh the reader automatically")
 	cmd.Flags().BoolVar(&edit, "edit", false, "Enable editing the selected Markdown documents")
+	cmd.Flags().BoolVar(&interactiveTables, "interactive-tables", false, "Force sorting and filtering for all Markdown tables, overriding front matter")
 	cmd.Flags().StringArrayVar(&excludes, "exclude", nil, "Exclude a relative glob from recursive scans (repeatable; supports **)")
 	return cmd
 }
 
-func runBrowse(ctx context.Context, paths, excludes []string, port int, open, watch, edit bool) error {
+func runBrowse(ctx context.Context, paths, excludes []string, port int, open, watch, edit, interactiveTables bool) error {
 	setupLogger("text")
 	catalog, err := browse.New(paths, excludes)
 	if err != nil {
@@ -56,7 +57,7 @@ func runBrowse(ctx context.Context, paths, excludes []string, port int, open, wa
 	if err != nil {
 		return fmt.Errorf("browse navigation: %w", err)
 	}
-	renderer, err := markdown.NewRenderer()
+	renderer, err := markdown.NewRendererWithOptions(markdown.RendererOptions{InteractiveTables: interactiveTables})
 	if err != nil {
 		return err
 	}

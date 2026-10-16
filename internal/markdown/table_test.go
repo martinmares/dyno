@@ -41,6 +41,32 @@ dyno:
 	}
 }
 
+func TestRendererForcesInteractiveTablesAcrossDocuments(t *testing.T) {
+	renderer, err := NewRendererWithOptions(RendererOptions{InteractiveTables: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	table := "| Name |\n| --- |\n| Dyno |\n"
+	for _, frontmatter := range []string{
+		"",
+		"---\ndyno:\n  tables:\n    sortable: false\n    filter: false\n---\n",
+		"---\ndyno:\n  tables:\n    sortable: true\n    filter: false\n---\n",
+	} {
+		result, err := renderer.RenderString(frontmatter + table + "\n" + table + "\n!!! note \"Nested\"\n    | Name |\n    | --- |\n    | Nested table |\n")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, expected := range []string{`class="dyno-table-widget"`, `data-table-sortable="true"`, `data-table-filter="true"`} {
+			if count := strings.Count(result.HTML, expected); count != 3 {
+				t.Fatalf("expected %q for all three tables, got %d: %s", expected, count, result.HTML)
+			}
+		}
+		if result.Frontmatter.Dyno.Tables.Filter {
+			t.Fatal("global rendering must not rewrite the document's front matter")
+		}
+	}
+}
+
 func TestRendererKeepsRegularTablesStatic(t *testing.T) {
 	renderer, err := NewRenderer()
 	if err != nil {

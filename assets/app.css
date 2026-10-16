@@ -36,6 +36,14 @@ html {
   --dyno-danger-bg: var(--tblr-danger-bg-subtle);
   --dyno-danger-border: var(--tblr-danger-border-subtle);
   --dyno-danger-text: var(--tblr-danger-text-emphasis);
+  --dyno-code-bg: var(--tblr-bg-surface-secondary);
+  --dyno-code-surface: var(--tblr-bg-surface-tertiary);
+  --dyno-code-border: var(--tblr-border-color);
+  --dyno-code-text: var(--tblr-body-color);
+}
+
+html.dark,
+:root[data-bs-theme="dark"] {
   --dyno-code-bg: var(--tblr-gray-900);
   --dyno-code-surface: var(--tblr-gray-800);
   --dyno-code-border: var(--tblr-gray-700);
@@ -328,7 +336,7 @@ pre.chroma {
 .dyno-prose .dyno-terminal-code pre.chroma,
 .dyno-prose pre.dyno-terminal-code {
   padding-top: 2.5rem !important;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.25) !important;
+  box-shadow: var(--tblr-shadow-card) !important;
 }
 
 .dyno-prose .dyno-terminal-code pre.chroma::before,

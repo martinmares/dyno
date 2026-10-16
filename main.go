@@ -52,6 +52,7 @@ func main() {
 		edit               bool
 		watch              bool
 		enableComments     bool
+		interactiveTables  bool
 		commentsFile       string
 		commentsManagement string
 		logFormat          string
@@ -72,7 +73,7 @@ func main() {
 					return fmt.Errorf("--library cannot be combined with --git-repo-site; add the repository to dyno-library.yaml instead")
 				}
 			}
-			return run(sites, gitRepos, workDir, libraryFile, port, dev, edit, watch, enableComments, commentsFile, commentsManagement, logFormat)
+			return run(sites, gitRepos, workDir, libraryFile, port, dev, edit, watch, enableComments, interactiveTables, commentsFile, commentsManagement, logFormat)
 		},
 	}
 
@@ -85,6 +86,7 @@ func main() {
 	root.Flags().BoolVar(&edit, "edit", false, "Enable in-browser markdown editor (local use only)")
 	root.Flags().BoolVar(&watch, "watch", false, "Watch site for changes and reload navigation/search (single-site only)")
 	root.Flags().BoolVar(&enableComments, "enable-comments", false, "Enable page comments")
+	root.Flags().BoolVar(&interactiveTables, "interactive-tables", false, "Force sorting and filtering for all Markdown tables, overriding front matter")
 	root.Flags().StringVar(&commentsFile, "comments-file", "", "JSONL file for comments (default: <site-root>/.dyno-comments.jsonl)")
 	root.Flags().StringVar(&commentsManagement, "comments-management", "disabled", "Comment management: disabled, author, or all")
 	root.Flags().StringVar(&logFormat, "log-format", "text", "Log format: text or json")
@@ -96,7 +98,7 @@ func main() {
 	}
 }
 
-func run(sites, gitRepos []string, workDir, libraryFile, port string, dev, edit, watch, enableComments bool, commentsFile, commentsManagement, logFormat string) error {
+func run(sites, gitRepos []string, workDir, libraryFile, port string, dev, edit, watch, enableComments, interactiveTables bool, commentsFile, commentsManagement, logFormat string) error {
 	setupLogger(logFormat)
 	commentsManagement = strings.ToLower(strings.TrimSpace(commentsManagement))
 	if commentsManagement != "disabled" && commentsManagement != "author" && commentsManagement != "all" {
@@ -234,7 +236,9 @@ func run(sites, gitRepos []string, workDir, libraryFile, port string, dev, edit,
 	if err != nil {
 		return fmt.Errorf("failed to load template env: %w", err)
 	}
-	renderer, err := markdown.NewRendererWithEnv(templateEnv)
+	renderer, err := markdown.NewRendererWithOptions(markdown.RendererOptions{
+		TemplateEnv: templateEnv, InteractiveTables: interactiveTables,
+	})
 	if err != nil {
 		return fmt.Errorf("failed to create renderer: %w", err)
 	}

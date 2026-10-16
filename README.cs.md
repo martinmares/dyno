@@ -18,7 +18,7 @@ Samostatně hostovaný dokumentační server — něco jako GitBook nebo Notion,
 - **Obsah stránky** — TOC s automatickým sledováním pozice při scrollování
 - **Předchozí / Další stránka** — automaticky podle pořadí v sidebaru
 - **Odkaz na GitHub** — tlačítko „Upravit tuto stránku" s odkazem na repozitář
-- **Bloky kódu ve stylu macOS terminálu** — terminálový chrome se zvýrazněním syntaxe
+- **Bloky kódu podle motivu** — světlé a tmavé zvýraznění syntaxe, s volitelným záhlavím ve stylu macOS terminálu
 - **Tlačítko kopírovat** — jedním klikem zkopíruje obsah každého bloku kódu
 - **Kotevní odkazy** — nadpisy s přímými odkazy
 - **Adresáře assetů** — adresáře s prefixem `_` (např. `_images/`) servírují soubory, ale nezobrazují se v sidebaru
@@ -298,6 +298,7 @@ Příznaky:
       --work-dir string         Zapisovatelný adresář pro git klony (povinné s --git-repo-site)
       --library string          Cesta k dyno-library.yaml se seznamem webů a metadaty (nelze kombinovat s --site ani --git-repo-site)
       --enable-comments         Zapne komentáře ke stránkám
+      --interactive-tables      Vynutí řazení a filtrování všech Markdown tabulek bez ohledu na frontmatter
       --comments-file string    JSONL soubor pro komentáře (výchozí <site-root>/.dyno-comments.jsonl)
       --comments-management string  Správa komentářů: disabled, author nebo all (výchozí "disabled")
       --dev                     Dev režim: načítá šablony a assety z disku při každém požadavku
@@ -307,6 +308,16 @@ Příznaky:
 ```
 
 `--site` vždy ukazuje přímo na adresář s obsahem, například `./site` nebo `/cesta/k/wiki`.
+
+Pomocí `--interactive-tables` zapnete řazení a filtrování všech Markdown tabulek ve všech dokumentech, včetně vnořených tabulek v admonitions a náhledů v editoru. Přepínač platí pro všechny weby v režimu knihovny a je dostupný také v `dyno browse`:
+
+```bash
+dyno --site ./site --interactive-tables
+dyno --library dyno-library.yaml --interactive-tables
+dyno browse ./docs --interactive-tables
+```
+
+Přepínač má přednost před nastavením dokumentu, i před `dyno.tables.sortable: false` nebo `dyno.tables.filter: false`. Bez něj interaktivitu nadále řídí frontmatter `dyno.tables`; běžné tabulky zůstávají statické.
 
 `--library` se nesmí kombinovat s `--site` ani `--git-repo-site`: při použití souboru knihovny definuj všechny knihy uvnitř `dyno-library.yaml`. `--work-dir` lze dál použít k přepsání `work_dir` pro git-backed záznamy z knihovního souboru.
 

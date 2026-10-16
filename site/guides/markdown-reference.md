@@ -50,6 +50,8 @@ dyno:
 
 `sortable` sorts by a clicked column, while `filter` adds a case-insensitive substring filter for table rows. Other Markdown renderers ignore the `dyno` section and still render a normal table.
 
+To force both features for all documents, start Dyno with `--interactive-tables`, for example `dyno --site ./site --interactive-tables` or `dyno browse ./docs --interactive-tables`. This also applies to every site in library mode and overrides any `false` values in document front matter. Without the flag, tables follow their document settings.
+
 ---
 
 ## Lists

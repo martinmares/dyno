@@ -12,7 +12,7 @@ A self-hosted documentation server — think GitBook or Notion, but as a single 
 - **Table of contents** — per-page TOC with scroll spy
 - **Prev / Next navigation** — automatic based on sidebar order
 - **GitHub edit links** — "Edit this page" links pointing to your repo
-- **macOS-style code blocks** — terminal chrome with syntax highlighting
+- **Code blocks that follow the theme** — light and dark syntax highlighting, with optional macOS-style terminal chrome
 - **Copy button** — one-click copy on every code block
 - **Anchor links** — deep-linkable headings
 - **Asset directories** — prefix a directory with `_` (e.g. `_images/`) to serve files without showing them in the sidebar
@@ -294,6 +294,7 @@ Flags:
       --work-dir string         Writable directory for git clones (required with --git-repo-site)
       --library string          Path to dyno-library.yaml with site list and metadata (cannot be combined with --site or --git-repo-site)
       --enable-comments         Enable page comments
+      --interactive-tables      Force sorting and filtering for all Markdown tables, overriding front matter
       --comments-file string    JSONL file for comments (default: <site-root>/.dyno-comments.jsonl)
       --comments-management string  Comment management: disabled, author, or all (default "disabled")
       --dev                     Dev mode: reload templates and assets from disk on every request
@@ -303,6 +304,16 @@ Flags:
 ```
 
 `--site` always points directly to the content directory, for example `./site` or `/path/to/wiki`.
+
+Use `--interactive-tables` to enable sorting and filtering for every Markdown table in every document, including nested tables in admonitions and editor previews. The flag applies to all sites in library mode and is also available with `dyno browse`:
+
+```bash
+dyno --site ./site --interactive-tables
+dyno --library dyno-library.yaml --interactive-tables
+dyno browse ./docs --interactive-tables
+```
+
+This flag overrides document settings, even `dyno.tables.sortable: false` or `dyno.tables.filter: false`. Without it, the document's `dyno.tables` front matter controls interactivity as before; ordinary tables stay static.
 
 `--library` is exclusive with `--site` and `--git-repo-site`: when you use a library file, define all books inside `dyno-library.yaml`. `--work-dir` may still be used to override the library file's `work_dir` for git-backed entries.
 

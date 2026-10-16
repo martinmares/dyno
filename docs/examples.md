@@ -289,6 +289,20 @@ dyno:
 The table stays standard Markdown for other renderers. Dyno adds column sorting
 and case-insensitive substring filtering with matching-text highlights.
 
+To force both features for all tables across all documents, use the CLI flag
+instead of adding front matter to each file:
+
+SHELL:
+
+```bash
+dyno --site ./site --interactive-tables
+dyno --library dyno-library.yaml --interactive-tables
+dyno browse ./docs --interactive-tables
+```
+
+The flag takes precedence even when a document explicitly disables sorting or
+filtering. Without it, the document-level settings apply as before.
+
 ### Callouts and collapsible details
 
 ````markdown
