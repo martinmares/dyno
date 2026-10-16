@@ -31,7 +31,11 @@
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
       <a href="{{ .BasePath }}/" class="dyno-brand">
-        <svg fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        {{ if and .Site .Site.LogoURL }}
+        <img src="{{ .Site.LogoURL }}" alt="{{ .Site.LogoText }}">
+        {{ else }}
+        {{ template "dyno-logo" . }}
+        {{ end }}
         <span>{{ if .Site }}{{ .Site.LogoText }}{{ else }}dyno{{ end }}</span>
       </a>
       <div class="dyno-search">

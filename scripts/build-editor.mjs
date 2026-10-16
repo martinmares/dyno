@@ -1,4 +1,17 @@
-import { build } from 'esbuild';
+import { build, transform } from 'esbuild';
+import { readFile, writeFile } from 'node:fs/promises';
+
+// The reader and editor load exactly the same modes and runMode tokenizer.
+const syntaxFiles = [
+  'codemirror.min.js', 'codemirror-shell.min.js', 'codemirror-go.min.js',
+  'codemirror-yaml.min.js', 'codemirror-javascript.min.js',
+  'codemirror-python.min.js', 'codemirror-xml.min.js',
+  'codemirror-overlay.min.js', 'codemirror-markdown.min.js',
+  'codemirror-continuelist.min.js', 'codemirror-runmode.min.js', 'syntax.js',
+];
+const syntaxSource = await Promise.all(syntaxFiles.map(name => readFile('assets/' + name, 'utf8')));
+const syntax = await transform(syntaxSource.join('\n;\n'), { minify: true, legalComments: 'inline' });
+await writeFile('assets/syntax.min.js', syntax.code);
 
 await build({
   entryPoints: ['assets/editor-visual.js'],

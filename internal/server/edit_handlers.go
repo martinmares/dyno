@@ -114,6 +114,7 @@ func (s *Server) editPageHandler(w http.ResponseWriter, r *http.Request) {
 			BulmaCSSURL:   s.assetURL("bulma.min.css"),
 			AppCSSURL:     s.assetURL("app.css"),
 			AppJSURL:      s.assetURL("app.js"),
+			SyntaxJSURL:   s.assetURL("syntax.min.js"),
 			HTMXURL:       s.assetURL("htmx.min.js"),
 			MermaidURL:    s.assetURL("mermaid.min.js"),
 			FaviconURL:    s.faviconURL(),

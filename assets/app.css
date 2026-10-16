@@ -62,6 +62,13 @@ html {
   --dyno-code-surface: var(--dyno-surface-tertiary);
   --dyno-code-border: var(--dyno-border);
   --dyno-code-text: var(--dyno-text);
+  --dyno-code-font-size: 0.875rem;
+  --dyno-code-line-height: 1.5;
+  --dyno-syntax-keyword: var(--dyno-primary);
+  --dyno-syntax-string: #0a3069;
+  --dyno-syntax-number: #0550ae;
+  --dyno-syntax-comment: #57606a;
+  --dyno-syntax-function: #8250df;
 }
 
 :root[data-theme="dark"] {
@@ -84,6 +91,10 @@ html {
   --dyno-danger: #f08e8e;
   --dyno-danger-rgb: 240, 142, 142;
   --dyno-important: #ba9bf7;
+  --dyno-syntax-string: #a5d6ff;
+  --dyno-syntax-number: #79c0ff;
+  --dyno-syntax-comment: #8b949e;
+  --dyno-syntax-function: #d2a8ff;
   --dyno-shadow-lg: none;
 }
 
@@ -406,6 +417,48 @@ pre.mermaid::after,
 }
 
 /* ── Fenced code blocks ─────────────────────────────────────────────────── */
+/* Chroma and CodeMirror classify tokens separately, but share one palette. */
+:is(.dyno-edit-body .CodeMirror, .dyno-code-highlight) :where(span)[class*="cm-"] {
+  color: var(--dyno-code-text);
+}
+html:root .chroma :is(.k, .kc, .kd, .kn, .kp, .kr, .o, .ow),
+:is(.dyno-edit-body .CodeMirror, .dyno-code-highlight) :is(.cm-keyword, .cm-operator, .cm-tag) {
+  color: var(--dyno-syntax-keyword);
+  font-weight: 400;
+}
+html:root .chroma :is(.s, .sa, .sb, .sc, .dl, .sd, .s2, .se, .sh, .si, .sx, .sr, .s1, .ss),
+:is(.dyno-edit-body .CodeMirror, .dyno-code-highlight) :is(.cm-string, .cm-string-2) {
+  color: var(--dyno-syntax-string);
+}
+html:root .chroma :is(.m, .mb, .mf, .mh, .mi, .il, .mo),
+:is(.dyno-edit-body .CodeMirror, .dyno-code-highlight) :is(.cm-number, .cm-atom) {
+  color: var(--dyno-syntax-number);
+}
+html:root .chroma :is(.c, .ch, .cm, .c1, .cs, .cp, .cpf),
+:is(.dyno-edit-body .CodeMirror, .dyno-code-highlight) .cm-comment {
+  color: var(--dyno-syntax-comment);
+  font-style: italic;
+}
+html:root .chroma :is(.nf, .fm, .nb, .nc, .kt),
+:is(.dyno-edit-body .CodeMirror, .dyno-code-highlight) :is(.cm-def, .cm-builtin, .cm-type, .cm-attribute) {
+  color: var(--dyno-syntax-function);
+}
+:is(.dyno-edit-body .CodeMirror, .dyno-code-highlight) :is(.cm-variable, .cm-variable-2, .cm-variable-3) {
+  color: var(--dyno-code-text);
+}
+:is(.dyno-edit-body .CodeMirror, .dyno-code-highlight) {
+  color: var(--dyno-code-text) !important;
+  font-family: var(--dyno-font-mono);
+  font-size: var(--dyno-code-font-size);
+  font-weight: 400;
+  line-height: var(--dyno-code-line-height);
+  tab-size: 4;
+}
+:is(.dyno-edit-body .CodeMirror, .dyno-code-highlight) :is(.cm-link, .cm-url) { color: var(--dyno-primary); }
+:is(.dyno-edit-body .CodeMirror, .dyno-code-highlight) :is(.cm-error, .cm-invalidchar) { color: var(--dyno-danger); }
+:is(.dyno-edit-body .CodeMirror, .dyno-code-highlight) :is(.cm-header, .cm-strong) { font-weight: 700; }
+:is(.dyno-edit-body .CodeMirror, .dyno-code-highlight) .cm-em { font-style: italic; }
+
 .dyno-prose pre:not(.mermaid),
 pre.chroma {
   position: relative;
@@ -415,8 +468,9 @@ pre.chroma {
   border-radius: 0.625rem !important;
   border: 1px solid var(--dyno-code-border) !important;
   overflow-x: auto !important;
-  font-size: 0.875rem !important;
-  line-height: 1.45 !important;
+  font-family: var(--dyno-font-mono);
+  font-size: var(--dyno-code-font-size) !important;
+  line-height: var(--dyno-code-line-height) !important;
   box-shadow: none !important;
 }
 
@@ -461,6 +515,7 @@ pre.chroma {
   background: transparent !important;
   color: inherit !important;
   padding: 0 !important;
+  font-family: inherit;
   font-size: inherit !important;
   border: none !important;
   border-radius: 0 !important;
@@ -1396,9 +1451,6 @@ pre.chroma:hover .copy-btn {
 
 /* ── API widget ──────────────────────────────────────────────────────────── */
 
-/* Keep the API widget button color independent from document typography. */
-.dyno-prose .api-widget button { color: inherit; }
-
 .file-download-card {
   display: flex;
   align-items: center;
@@ -2207,10 +2259,9 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 .dyno-content-grid {
   display: flex;
   width: 100%;
-  max-width: 1280px;
   flex: 1 1 auto;
   gap: 1.5rem;
-  justify-content: center;
+  justify-content: flex-start;
   margin-inline: auto;
   padding: 0;
 }
@@ -2543,7 +2594,21 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 }
 
 .dyno-breadcrumb {
+  --bulma-breadcrumb-item-color: var(--dyno-primary);
+  --bulma-breadcrumb-item-hover-color: var(--dyno-primary-hover);
+  --bulma-breadcrumb-item-separator-color: var(--dyno-subtle);
   margin-bottom: 1.5rem;
+  font-size: 0.8125rem;
+  white-space: normal;
+}
+
+.dyno-breadcrumb :is(a, span) {
+  overflow-wrap: anywhere;
+}
+
+.dyno-breadcrumb [aria-current="page"] {
+  padding-inline: var(--bulma-breadcrumb-item-padding-horizontal);
+  color: var(--dyno-text);
 }
 
 .dyno-external-refs {
@@ -4329,6 +4394,11 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
     --dyno-heading: #17202a;
     --dyno-muted: #52606d;
     --dyno-primary: #174b78;
+    --dyno-syntax-keyword: #174b78;
+    --dyno-syntax-string: #0a3069;
+    --dyno-syntax-number: #0550ae;
+    --dyno-syntax-comment: #57606a;
+    --dyno-syntax-function: #8250df;
   }
 
   .dyno-navbar, #sidebar, #sidebar-overlay, #toc-sidebar, .dyno-footer,

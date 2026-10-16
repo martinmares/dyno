@@ -2,13 +2,13 @@
 <article class="dyno-article">
   {{/* Breadcrumbs */}}
   {{ if gt (len .Breadcrumbs) 1 }}
-  <nav aria-label="Breadcrumb">
-    <ol class="breadcrumb dyno-breadcrumb">
+  <nav class="breadcrumb dyno-breadcrumb" aria-label="Breadcrumb">
+    <ol>
     {{ range $i, $crumb := .Breadcrumbs }}
       {{ if eq $i (add (len $.Breadcrumbs) -1) }}
-        <li class="is-active" aria-current="page">{{ $crumb.Title }}</li>
+        <li class="is-active"><span aria-current="page">{{ $crumb.Title }}</span></li>
       {{ else }}
-        <li class=""><a href="{{ $crumb.FullPath }}{{ $.FilterQuery }}"
+        <li><a href="{{ $crumb.FullPath }}{{ $.FilterQuery }}"
            hx-get="{{ $crumb.FullPath }}{{ $.FilterQuery }}"
            hx-target="#page-content"
            hx-push-url="true">{{ $crumb.Title }}</a></li>

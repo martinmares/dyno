@@ -174,6 +174,11 @@ JavaScript. Light/dark colors are shared through `--dyno-*` tokens in
 `assets/app.css`; the visual editor uses the same palette. `just assets-refresh`
 refreshes vendored assets using the Bulma version pinned in `justfile`.
 
+CodeMirror 5 modes are shared by the reader, live preview, and editors through
+`assets/syntax.js` and the generated `assets/syntax.min.js` bundle. Chroma remains
+the server-side fallback for disabled JavaScript and unsupported languages.
+`just editor-assets` rebuilds both the syntax bundle and the visual editor.
+
 ```bash
 go run . --site ./site --dev --watch
 go run . --site ./site --dev --edit

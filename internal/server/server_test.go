@@ -663,6 +663,58 @@ func TestFooterUsesBuildMetadata(t *testing.T) {
 	}
 }
 
+func TestBreadcrumbUsesBulmaContainer(t *testing.T) {
+	srv := newTestServer(t)
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/guides/api-widget", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	body := rec.Body.String()
+	for _, expected := range []string{
+		`<nav class="breadcrumb dyno-breadcrumb" aria-label="Breadcrumb">`,
+		`<ol>`, `<span aria-current="page">Api Widget</span>`,
+		`hx-get="/guides/"`,
+	} {
+		if !strings.Contains(body, expected) {
+			t.Fatalf("missing breadcrumb markup %s", expected)
+		}
+	}
+	if strings.Contains(body, `<ol class="breadcrumb`) {
+		t.Fatal("breadcrumb styling must be on the navigation container")
+	}
+}
+
+func TestDefaultDynoLogoAndCustomBranding(t *testing.T) {
+	srv := newTestServer(t)
+	if got := srv.faviconURL(); got != srv.assetURL("dyno.svg") {
+		t.Fatalf("default favicon = %q", got)
+	}
+	for _, target := range []string{"/", "/_search?q=dyno"} {
+		rec := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, target, nil))
+		if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `/assets/dyno.svg#dyno-logo`) {
+			t.Fatalf("%s: missing default dinosaur logo", target)
+		}
+	}
+	srv.siteCfg.LogoURL = "https://example.test/logo.svg"
+	if got := srv.faviconURL(); got != srv.siteCfg.LogoURL {
+		t.Fatalf("custom logo favicon = %q", got)
+	}
+	srv.siteCfg.Favicon = "/assets/custom-icon.svg"
+	if got := srv.faviconURL(); got != srv.assetURL("custom-icon.svg") {
+		t.Fatalf("custom favicon = %q", got)
+	}
+	for _, target := range []string{"/", "/_search?q=dyno"} {
+		rec := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, target, nil))
+		body := rec.Body.String()
+		if !strings.Contains(body, `src="https://example.test/logo.svg"`) || !strings.Contains(body, `href="/assets/custom-icon.svg"`) {
+			t.Fatalf("%s: custom branding was not preserved", target)
+		}
+	}
+}
+
 func TestBulmaUIAssetsAndTemplates(t *testing.T) {
 	srv := newTestServer(t)
 	for _, target := range []string{"/", "/_search?q=API", "/_edit/", "/_git/history", "/_tasks", "/_graph/"} {
@@ -690,7 +742,7 @@ func TestBulmaUIAssetsAndTemplates(t *testing.T) {
 			}
 		})
 	}
-	for _, asset := range []string{"bulma.min.css", "app.css", "app.js", "editor-visual.min.css", "editor-visual.min.js"} {
+	for _, asset := range []string{"bulma.min.css", "app.css", "app.js", "dyno.svg", "syntax.min.js", "editor-visual.min.css", "editor-visual.min.js"} {
 		rec := httptest.NewRecorder()
 		srv.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, srv.assetURL(asset), nil))
 		if rec.Code != http.StatusOK {

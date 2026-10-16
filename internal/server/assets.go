@@ -54,7 +54,10 @@ func (s *Server) assetURL(name string) string {
 
 func (s *Server) faviconURL() string {
 	if s.siteCfg == nil || s.siteCfg.Favicon == "" {
-		return ""
+		if s.siteCfg != nil && s.siteCfg.LogoURL != "" {
+			return s.siteCfg.LogoURL
+		}
+		return s.assetURL("dyno.svg")
 	}
 	switch {
 	case strings.HasPrefix(s.siteCfg.Favicon, "/assets/"):

@@ -54,6 +54,7 @@ type PageData struct {
 	BulmaCSSURL         string
 	AppCSSURL           string
 	AppJSURL            string
+	SyntaxJSURL         string
 	EasyMDECSSURL       string
 	EasyMDEJSURL        string
 	FontAwesomeURL      string
@@ -198,6 +199,7 @@ func (s *Server) render(w http.ResponseWriter, name string, data any) error {
 			page.TasksURL, page.SectionTasksURL, page.GraphURL, page.EgoGraphURL = "", "", "", ""
 		}
 		page.BulmaCSSURL = s.assetURL("bulma.min.css")
+		page.SyntaxJSURL = s.assetURL("syntax.min.js")
 		if s.comments != nil {
 			page.EasyMDECSSURL = s.assetURL("easymde.min.css")
 			page.EasyMDEJSURL = s.assetURL("easymde.min.js")

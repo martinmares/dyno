@@ -142,6 +142,7 @@ document.addEventListener('click', function (event) {
 });
 
 document.addEventListener('DOMContentLoaded', function () {
+  if (window.DynoSyntax) DynoSyntax.highlightAll();
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('sidebar-overlay');
   const toggleBtn = document.getElementById('sidebar-toggle');
@@ -1544,6 +1545,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 document.addEventListener('htmx:afterSwap', function (e) {
   if (e.target.id === 'page-content') {
+    if (window.DynoSyntax) DynoSyntax.highlightAll(e.target);
     // Update search URL from response header so search stays scoped to current book.
     var searchURL = e.detail.xhr && e.detail.xhr.getResponseHeader('X-Search-URL');
     if (searchURL) {

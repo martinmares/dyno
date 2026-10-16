@@ -180,6 +180,11 @@ JavaScript Dyno. Barvy light/dark režimu sdílí přes tokeny `--dyno-*` v
 `assets/app.css`, které používá i vizuální editor. `just assets-refresh`
 obnoví vendorizované assety; verze Bulmy je připnutá v `justfile`.
 
+Prohlížení, live preview i editory sdílí jazykové režimy CodeMirror 5 přes
+`assets/syntax.js` a generovaný balíček `assets/syntax.min.js`. Chroma zůstává
+serverovým fallbackem pro vypnutý JavaScript a nepodporované jazyky.
+`just editor-assets` znovu sestaví zvýrazňování syntaxe i vizuální editor.
+
 ```bash
 go run . --site ./site --dev --watch
 go run . --site ./site --dev --edit

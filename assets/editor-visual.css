@@ -196,6 +196,15 @@
   min-height: 20rem;
 }
 
+.dyno-visual-editor .dyno-fence-preview {
+  display: block;
+  color: var(--dyno-code-text);
+  font-family: var(--dyno-font-mono);
+  font-size: var(--dyno-code-font-size);
+  line-height: var(--dyno-code-line-height);
+  white-space: pre;
+}
+
 .dyno-visual-block-dialog .CodeMirror {
   height: clamp(20rem, 55vh, 42rem);
   padding: 0;
@@ -204,8 +213,8 @@
   background: var(--dyno-surface-secondary);
   color: var(--dyno-text);
   font-family: var(--dyno-font-mono);
-  font-size: 0.875rem;
-  line-height: 1.5;
+  font-size: var(--dyno-code-font-size);
+  line-height: var(--dyno-code-line-height);
 }
 
 .dyno-visual-block-dialog .CodeMirror-gutters {
@@ -221,12 +230,6 @@
 .dyno-visual-block-dialog .CodeMirror-lines { padding: 0.75rem 0; }
 .dyno-visual-block-dialog .CodeMirror pre.CodeMirror-line,
 .dyno-visual-block-dialog .CodeMirror pre.CodeMirror-line-like { padding-left: 0; }
-.dyno-visual-block-dialog .cm-keyword { color: var(--dyno-primary); }
-.dyno-visual-block-dialog .cm-string { color: var(--dyno-success); }
-.dyno-visual-block-dialog .cm-string-2 { color: var(--dyno-success); }
-.dyno-visual-block-dialog .cm-comment { color: var(--dyno-muted); }
-.dyno-visual-block-dialog .cm-number { color: var(--dyno-warning); }
-.dyno-visual-block-dialog .cm-variable-2 { color: var(--dyno-info); }
 
 @media (max-width: 640px) {
   .dyno-visual-block-dialog { padding: 0.75rem; }

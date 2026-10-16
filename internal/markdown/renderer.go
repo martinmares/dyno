@@ -129,12 +129,22 @@ func isTerminalCodeBlock(context highlighting.CodeBlockContext) bool {
 func renderCodeBlockWrapper(w util.BufWriter, context highlighting.CodeBlockContext, entering bool) {
 	terminal := isTerminalCodeBlock(context)
 	if context.Highlighted() {
+		if entering {
+			_, _ = w.WriteString(`<div data-code-language="`)
+			if language, ok := context.Language(); ok {
+				_, _ = w.WriteString(htmpl.HTMLEscapeString(string(language)))
+			}
+			_, _ = w.WriteString(`">`)
+		}
 		if terminal {
 			if entering {
 				_, _ = w.WriteString(`<div class="dyno-terminal-code">`)
 			} else {
 				_, _ = w.WriteString(`</div>`)
 			}
+		}
+		if !entering {
+			_, _ = w.WriteString(`</div>`)
 		}
 		return
 	}

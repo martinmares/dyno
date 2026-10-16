@@ -5,6 +5,22 @@ import (
 	"testing"
 )
 
+func TestHighlightedBlocksKeepLanguageAndServerFallback(t *testing.T) {
+	renderer, err := NewRenderer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := renderer.RenderString("```sql\nSELECT 1;\n```\n\n```ruby\nputs 'hello'\n```\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, expected := range []string{`data-code-language="sql"`, `data-code-language="ruby"`, `class="chroma"`, `class="k">SELECT`} {
+		if !strings.Contains(result.HTML, expected) {
+			t.Fatalf("missing %s in highlighted HTML", expected)
+		}
+	}
+}
+
 func TestSyntaxHighlightingUsesDistinctLightAndDarkThemes(t *testing.T) {
 	renderer, err := NewRenderer()
 	if err != nil {

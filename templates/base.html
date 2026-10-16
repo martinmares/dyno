@@ -15,7 +15,7 @@
       } catch (_) {}
     })();
   </script>
-  {{ if .FaviconURL }}<link rel="icon" href="{{ .FaviconURL }}">{{ else if and .Site .Site.LogoURL }}<link rel="icon" href="{{ .Site.LogoURL }}">{{ else }}<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230284c7'%3E%3Cpath d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/%3E%3C/svg%3E">{{ end }}
+  {{ if .FaviconURL }}<link rel="icon" href="{{ .FaviconURL }}">{{ else if and .Site .Site.LogoURL }}<link rel="icon" href="{{ .Site.LogoURL }}">{{ else }}<link rel="icon" href="/assets/dyno.svg">{{ end }}
 
   <!-- HTMX -->
   <script src="{{ .HTMXURL }}" defer></script>
@@ -59,9 +59,7 @@
       {{ if and .Site .Site.LogoURL }}
         <img src="{{ .Site.LogoURL }}" alt="{{ .Site.LogoText }}">
       {{ else }}
-        <svg fill="currentColor" viewBox="0 0 24 24">
-          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-        </svg>
+        {{ template "dyno-logo" . }}
       {{ end }}
       <span>{{ if .Site }}{{ .Site.LogoText }}{{ else }}dyno{{ end }}</span>
     </a>
@@ -255,6 +253,7 @@
   </div>
 
   {{ if .EasyMDEJSURL }}<script src="{{ .EasyMDEJSURL }}"></script>{{ end }}
+  <script src="{{ .SyntaxJSURL }}"></script>
   <script src="{{ .AppJSURL }}"></script>
 </body>
 

@@ -1,5 +1,8 @@
 import { Crepe } from '@milkdown/crepe';
 import { imageSchema } from '@milkdown/kit/preset/commonmark';
+import { editorViewCtx, prosePluginsCtx } from '@milkdown/kit/core';
+import { Plugin } from '@milkdown/kit/prose/state';
+import { Decoration, DecorationSet } from '@milkdown/kit/prose/view';
 import { apiBlockLabel, openAPIEditor } from './editor-api.mjs';
 
 const opaqueTokenPrefix = 'DYNOOPAQUEBLOCK';
@@ -166,6 +169,36 @@ async function create(root, source, onChange, resolveImage = src => src) {
   const apiBlocks = blocks.filter(block => block.kind === 'api');
   const fenceStyle = document.createElement('style');
   document.head.appendChild(fenceStyle);
+  function fenceContent(block) {
+    const lines = block.source.replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n');
+    const language = lines.shift().replace(/^ {0,3}(?:`{3,}|~{3,})/, '').trim().split(/\s+/)[0] || 'Text';
+    lines.pop();
+    return { language, text: lines.join('\n') || ' ' };
+  }
+  // Decorations are excluded from Markdown serialization and undo history.
+  editor.editor.config(ctx => ctx.update(prosePluginsCtx, plugins => plugins.concat(new Plugin({
+    props: {
+      decorations(state) {
+        const widgets = [];
+        state.doc.descendants((node, position) => {
+          if (!node.isText) return;
+          const link = node.marks.find(mark => mark.type.name === 'link');
+          const block = link && fenceBlocks.find(block => link.attrs.href === '#' + block.token);
+          if (!block) return;
+          widgets.push(Decoration.widget(position + node.nodeSize, () => {
+            const preview = document.createElement('span');
+            preview.className = 'dyno-fence-preview dyno-code-highlight';
+            preview.contentEditable = 'false';
+            const { language, text } = fenceContent(block);
+            preview.textContent = text;
+            window.DynoSyntax.highlight(preview, language);
+            return preview;
+          }, { key: block.token + block.source, marks: node.marks, side: -1, ignoreSelection: true }));
+        });
+        return DecorationSet.create(state.doc, widgets);
+      },
+    },
+  }))));
   function cssString(value) {
     return '"' + Array.from(value.replace(/\r\n/g, '\n'), character => {
       if (character === '\\' || character === '"') return '\\' + character;
@@ -174,14 +207,10 @@ async function create(root, source, onChange, resolveImage = src => src) {
     }).join('') + '"';
   }
   function fenceRule(block) {
-    const lines = block.source.replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n');
-    const language = lines.shift().replace(/^ {0,3}(?:`{3,}|~{3,})/, '').trim().split(/\s+/)[0] || 'Text';
-    lines.pop();
-    const preview = lines.join('\n') || ' ';
+    const { language } = fenceContent(block);
     const selector = '.dyno-visual-editor .ProseMirror a[href="#' + block.token + '"]';
     return selector + ' { display: block; max-height: 22rem; overflow: auto; padding: .5rem .75rem .75rem; border: 1px solid var(--dyno-border); border-radius: var(--dyno-radius); background: var(--dyno-surface-secondary); color: transparent; font-size: 0; }\n' +
-      selector + '::before { display: block; margin-bottom: .5rem; padding-bottom: .4rem; border-bottom: 1px solid var(--dyno-border); color: var(--dyno-muted); content: ' + cssString(language.toUpperCase() + ' · CLICK TO EDIT') + '; font-family: var(--dyno-font-sans); font-size: .75rem; }\n' +
-      selector + '::after { display: block; color: var(--dyno-text); content: ' + cssString(preview) + '; font-family: var(--dyno-font-mono); font-size: .875rem; line-height: 1.45; white-space: pre; }';
+      selector + '::before { display: block; margin-bottom: .5rem; padding-bottom: .4rem; border-bottom: 1px solid var(--dyno-border); color: var(--dyno-muted); content: ' + cssString(language.toUpperCase() + ' · CLICK TO EDIT') + '; font-family: var(--dyno-font-sans); font-size: .75rem; }';
   }
   function renderFenceStyles() {
     const apiRules = apiBlocks.map(block => {
@@ -240,6 +269,10 @@ async function create(root, source, onChange, resolveImage = src => src) {
         catch (error) { block.source = previous; throw error; }
         if (block.kind === 'fence' || block.kind === 'api') {
           renderFenceStyles();
+          if (block.kind === 'fence') editor.editor.action(ctx => {
+            const view = ctx.get(editorViewCtx);
+            view.dispatch(view.state.tr);
+          });
           const link = root.querySelector('a[href="#' + token + '"]');
           if (link && block.kind === 'api') link.setAttribute('aria-label', apiBlockLabel(block.source) + ' · edit block');
         }
