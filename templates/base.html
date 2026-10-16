@@ -236,6 +236,17 @@
       <div class="dyno-content-grid">
         <!-- Page content -->
         <div class="dyno-document">
+          <div class="dyno-document-tools dyno-screen-only">
+            <button id="document-expand" type="button" class="button dyno-icon-button is-ghost" hidden
+                    aria-label="Expand article" title="Expand article" aria-expanded="false" aria-controls="document-expanded">
+              <svg data-expand-icon fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 3H3v5m0-5 6 6m7-6h5v5m0-5-6 6M3 16v5h5m-5 0 6-6m12 1v5h-5m5 0-6-6"/>
+              </svg>
+              <svg data-restore-icon hidden fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 9h6V3m0 6L3 3m18 6h-6V3m0 6 6-6M3 15h6v6m0-6-6 6m18-6h-6v6m0-6 6 6"/>
+              </svg>
+            </button>
+          </div>
           <div id="page-content" class="dyno-page-content">
             {{ block "page-content" . }}{{ end }}
           </div>
@@ -251,6 +262,8 @@
       </div>
     </main>
   </div>
+
+  <dialog id="document-expanded" aria-label="Expanded article"></dialog>
 
   {{ if .EasyMDEJSURL }}<script src="{{ .EasyMDEJSURL }}"></script>{{ end }}
   <script src="{{ .SyntaxJSURL }}"></script>

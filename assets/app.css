@@ -2285,8 +2285,7 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   display: flex;
   flex-direction: column;
   min-width: 0;
-  max-width: 870px;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   padding: 2rem 2.5rem;
   background: var(--dyno-surface);
   border-radius: var(--dyno-shell-radius);
@@ -2295,6 +2294,58 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 .dyno-page-content {
   min-width: 0;
   flex: 1 1 auto;
+}
+
+.dyno-document-tools {
+  position: sticky;
+  top: 6.25rem;
+  height: 0;
+  z-index: 3;
+}
+
+.dyno-document-tools .button {
+  position: absolute;
+  top: -1.75rem;
+  right: -2rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  background: var(--dyno-surface);
+}
+
+#document-expanded {
+  position: fixed;
+  inset: 0.75rem;
+  width: calc(100% - 1.5rem);
+  height: calc(100% - 1.5rem);
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  color: var(--dyno-text);
+  background: var(--dyno-surface);
+  border: 1px solid var(--dyno-border);
+  border-radius: var(--dyno-shell-radius);
+}
+
+#document-expanded::backdrop {
+  background: var(--dyno-shell-bg);
+}
+
+#document-expanded > .dyno-document {
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+#document-expanded .dyno-document-tools { top: 0; }
+.dyno-document-placeholder { flex: 1 1 0; min-width: 0; }
+.dyno-reading-expanded { overflow: hidden; overflow-anchor: none; }
+
+@media (max-width: 640px) {
+  .dyno-document-tools { top: 4.75rem; }
+  .dyno-document-tools .button { top: -1.25rem; right: -0.75rem; }
+  #document-expanded .dyno-document-tools { top: 0; }
 }
 
 .dyno-article {
@@ -4392,6 +4443,18 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 
 /* Print the document, not the surrounding application. */
 @media print {
+  .dyno-reading-expanded { overflow: visible !important; }
+  #document-expanded[open] {
+    display: block !important;
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+  }
+  #document-expanded::backdrop { display: none; }
   .dyno-body::before,
   .dyno-standalone-body::before {
     display: none;

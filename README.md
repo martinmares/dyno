@@ -27,6 +27,7 @@ A self-hosted documentation server — think GitBook or Notion, but as a single 
 - **Ego-graph** — D2 dependency graph (±1 hop) for each page, accessible via the graph icon in the navbar
 - **Tasks** — collects `- [ ]` / `- [x]` task items across all pages; section-scoped and global views
 - **Comments and highlights** — optional local JSONL-backed comments, threaded replies, and selected-text highlights
+- **Expanded reading** — animate the article into a distraction-free panel; restore with the same button or Escape, preserving reading position and respecting reduced motion
 - **Hot reload** — `--watch` flag reloads navigation and search index on file changes
 - **Dev mode** — `--dev` flag reloads templates from disk without rebuilding
 - **Single binary** — UI assets are embedded; no Node.js is needed at runtime

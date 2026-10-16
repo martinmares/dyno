@@ -754,6 +754,27 @@ func TestBulmaUIAssetsAndTemplates(t *testing.T) {
 	}
 }
 
+func TestArticleExpansionIsPartOfShellOnly(t *testing.T) {
+	srv := newTestServer(t)
+	for _, partial := range []bool{false, true} {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		if partial {
+			req.Header.Set("HX-Request", "true")
+		}
+		rec := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(rec, req)
+		want := 1
+		if partial {
+			want = 0
+		}
+		for _, id := range []string{`id="document-expand"`, `id="document-expanded"`} {
+			if strings.Count(rec.Body.String(), id) != want {
+				t.Fatalf("partial=%v: unexpected number of %s", partial, id)
+			}
+		}
+	}
+}
+
 func TestDocumentShellKeepsFooterOutsideHTMXTarget(t *testing.T) {
 	srv := newTestServer(t)
 	for _, partial := range []bool{false, true} {

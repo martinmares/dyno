@@ -33,6 +33,7 @@ Samostatně hostovaný dokumentační server — něco jako GitBook nebo Notion,
 - **Graf závislostí** — D2 graf (±1 hop) pro každou stránku, dostupný přes ikonu grafu v navbaru
 - **Úkoly** — sbírá `- [ ]` / `- [x]` položky ze všech stránek; zobrazení za sekci i globálně
 - **Komentáře a zvýraznění** — volitelné lokální komentáře, vláknové odpovědi a zvýraznění označeného textu uložené v JSONL
+- **Roztažené čtení** — animované roztažení článku bez okolních panelů; návrat stejným tlačítkem nebo Escape zachová místo při čtení a respektuje systémové omezení pohybu
 - **Hot reload** — příznak `--watch` přenačte navigaci a vyhledávací index při změně souborů
 - **Dev režim** — příznak `--dev` načítá šablony z disku bez nutnosti rebuildu
 - **Jediný binární soubor** — UI assety jsou embedované; za běhu není potřeba Node.js

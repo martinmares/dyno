@@ -116,6 +116,109 @@
   document.addEventListener('DOMContentLoaded', initFontSizeControls);
 })();
 
+// ─── Expanded article ─────────────────────────────────────────────────────────
+
+function initArticleExpansion() {
+  const panel = document.querySelector('.dyno-document');
+  const dialog = document.getElementById('document-expanded');
+  const button = document.getElementById('document-expand');
+  if (!panel || !dialog || !button || typeof dialog.showModal !== 'function') return;
+  button.hidden = false;
+  let saved = null;
+  let busy = false;
+
+  function headerBottom() {
+    const header = document.querySelector('.dyno-navbar');
+    return header ? header.getBoundingClientRect().bottom : 0;
+  }
+
+  function readingAnchor(top, bottom) {
+    const element = Array.from(panel.querySelectorAll('.dyno-article h1, .dyno-article h2, .dyno-article h3, .dyno-article p, .dyno-article pre, .dyno-article table'))
+      .find(element => {
+        const rect = element.getBoundingClientRect();
+        return rect.bottom > top && rect.top < bottom;
+      });
+    return element && { element, offset: element.getBoundingClientRect().top - top };
+  }
+
+  function visibleRect(rect) {
+    const top = Math.max(headerBottom(), rect.top);
+    return { top, left: rect.left, width: rect.width, height: Math.max(1, Math.min(rect.bottom, innerHeight) - top) };
+  }
+
+  async function animate(from, to) {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const frame = rect => ({ top: rect.top + 'px', left: rect.left + 'px', width: rect.width + 'px', height: rect.height + 'px' });
+    const animation = dialog.animate([frame(from), frame(to)], { duration: 360, easing: 'cubic-bezier(.22, 1, .36, 1)' });
+    try { await animation.finished; } catch (_) {}
+  }
+
+  function updateButton(expanded) {
+    const label = expanded ? 'Restore article size (Esc)' : 'Expand article';
+    button.setAttribute('aria-expanded', String(expanded));
+    button.setAttribute('aria-label', label);
+    button.title = label;
+    button.querySelector('[data-expand-icon]').hidden = expanded;
+    button.querySelector('[data-restore-icon]').hidden = !expanded;
+  }
+
+  async function expand() {
+    const rect = panel.getBoundingClientRect();
+    const scroll = window.scrollY;
+    const anchor = readingAnchor(Math.max(rect.top, headerBottom()), innerHeight);
+    const placeholder = document.createElement('div');
+    placeholder.className = 'dyno-document-placeholder dyno-screen-only';
+    placeholder.style.height = rect.height + 'px';
+    saved = { placeholder, scroll, content: document.getElementById('page-content').firstElementChild };
+    document.body.classList.add('dyno-reading-expanded');
+    panel.before(placeholder);
+    dialog.append(panel);
+    updateButton(true);
+    dialog.showModal();
+    dialog.focus({ preventScroll: true });
+    const target = dialog.getBoundingClientRect();
+    if (anchor) panel.scrollTop += anchor.element.getBoundingClientRect().top - target.top - anchor.offset;
+    await animate(visibleRect(rect), target);
+    // Width changes during the animation can temporarily clamp the scroll offset.
+    if (anchor) panel.scrollTop += anchor.element.getBoundingClientRect().top - target.top - anchor.offset;
+    saved.initialScroll = panel.scrollTop;
+  }
+
+  async function restore() {
+    const anchor = readingAnchor(dialog.getBoundingClientRect().top, innerHeight);
+    const readFurther = Math.abs(panel.scrollTop - saved.initialScroll) > 2;
+    await animate(dialog.getBoundingClientRect(), visibleRect(saved.placeholder.getBoundingClientRect()));
+    const changedPage = saved.content !== document.getElementById('page-content').firstElementChild;
+    dialog.close();
+    saved.placeholder.replaceWith(panel);
+    panel.scrollTop = 0;
+    document.body.classList.remove('dyno-reading-expanded');
+    updateButton(false);
+    let top = changedPage ? 0 : saved.scroll;
+    if (!changedPage && readFurther && anchor && anchor.element.isConnected) {
+      top = window.scrollY + anchor.element.getBoundingClientRect().top - headerBottom() - anchor.offset;
+    }
+    window.scrollTo({ top, behavior: 'instant' });
+    saved = null;
+    button.focus({ preventScroll: true });
+  }
+
+  async function toggle() {
+    if (busy) return;
+    busy = true;
+    try { if (saved) await restore(); else await expand(); }
+    finally { busy = false; }
+  }
+
+  button.addEventListener('click', toggle);
+  dialog.addEventListener('cancel', function (event) {
+    event.preventDefault();
+    if (saved) toggle();
+  });
+}
+
+document.addEventListener('DOMContentLoaded', initArticleExpansion);
+
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
 function initSidebarCollapse() {
@@ -665,7 +768,7 @@ function isCommentSelectionExcluded(node) {
   return !!(element && element.closest(
     'input, textarea, select, button, [role="textbox"], ' +
     '[contenteditable]:not([contenteditable="false"]), ' +
-    '.CodeMirror, .cm-editor, .ProseMirror, #editor-pane, dialog, [data-comments-root]'
+    '.CodeMirror, .cm-editor, .ProseMirror, #editor-pane, dialog:not(#document-expanded), [data-comments-root]'
   ));
 }
 
@@ -783,7 +886,7 @@ function initComments() {
     function captureSelection(event) {
       if (!article || !quoteInput || !anchorInput) return;
       // Editors may leave a previous article selection intact while handling their own selection.
-      if (document.querySelector('dialog[open]') ||
+      if (document.querySelector('dialog[open]:not(#document-expanded)') ||
           isCommentSelectionExcluded(event && event.target) ||
           isCommentSelectionExcluded(document.activeElement)) return;
       const sel = window.getSelection();
@@ -1565,7 +1668,8 @@ document.addEventListener('htmx:afterSwap', function (e) {
     applySearchHighlights();
     requestAnimationFrame(initNavTree);
     if (!getSearchQuery()) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      const expanded = document.querySelector('#document-expanded[open] .dyno-document');
+      (expanded || window).scrollTo({ top: 0, behavior: 'smooth' });
     }
   }
   if (e.target.id === 'page-content' || e.target.id === 'search-results-container') {

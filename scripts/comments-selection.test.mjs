@@ -41,6 +41,14 @@ test('reading selection still opens annotation actions', () => {
   assert.equal(state.context.selectedQuote, 'Selected text');
 });
 
+test('expanded reading dialog does not block annotation actions', () => {
+  const state = setup();
+  state.context.document.querySelector = selector => selector === 'dialog[open]' ? {} : null;
+  state.paragraph.closest = selector => selector.includes('dialog:not(#document-expanded)') ? null : {};
+  state.context.captureSelection({ target: state.paragraph });
+  assert.equal(state.opens(), 1);
+});
+
 for (const location of ['event target', 'focused editor', 'selection start', 'selection end', 'selection ancestor', 'open dialog']) {
   test(`annotation actions ignore ${location}`, () => {
     const state = setup();
