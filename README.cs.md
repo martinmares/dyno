@@ -36,7 +36,7 @@ Samostatně hostovaný dokumentační server — něco jako GitBook nebo Notion,
 - **Hot reload** — příznak `--watch` přenačte navigaci a vyhledávací index při změně souborů
 - **Dev režim** — příznak `--dev` načítá šablony z disku bez nutnosti rebuildu
 - **Jediný binární soubor** — UI assety jsou embedované; za běhu není potřeba Node.js
-- **Vestavěné UI assety** — Tabler CSS a Dyno styly se servírují z lokálních assetů
+- **Vestavěné UI assety** — Bulma CSS a Dyno styly se servírují lokálně, bez JavaScriptu UI frameworku
 - **Volitelný MCP companion** — `dyno-mcp` zpřístupňuje dokumentaci AI agentům přes `stdio` nebo HTTP
 
 ## Struktura projektu
@@ -174,6 +174,11 @@ Každý záznam používá buď `path` (lokální adresář) nebo `url` (git rep
 Vyžaduje **Go 1.22+**.
 
 ### Vývoj
+
+UI používá lokálně embedované CSS Bulma 1.0.4, nativní dialogy a vlastní
+JavaScript Dyno. Barvy light/dark režimu sdílí přes tokeny `--dyno-*` v
+`assets/app.css`, které používá i vizuální editor. `just assets-refresh`
+obnoví vendorizované assety; verze Bulmy je připnutá v `justfile`.
 
 ```bash
 go run . --site ./site --dev --watch

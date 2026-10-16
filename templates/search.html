@@ -4,7 +4,7 @@
   <div class="dyno-search-results-summary">
     {{ len .Results }} result{{ if ne (len .Results) 1 }}s{{ end }} for "<strong>{{ .Query }}</strong>"
   </div>
-  <ul class="list-unstyled dyno-search-results-list">
+  <ul class="dyno-unstyled dyno-search-results-list">
     {{ range .Results }}
     <li>
       <a href="{{ .Path }}{{ $.ResultQuery }}"
@@ -14,7 +14,7 @@
          class="dyno-search-result search-result-link">
         <div class="dyno-search-result-title">
           <span>{{ .Title | safeHTML }}</span>
-          {{ if .BookTitle }}<span class="badge bg-secondary-lt dyno-search-result-book">{{ .BookTitle }}</span>{{ end }}
+          {{ if .BookTitle }}<span class="tag is-light dyno-search-result-book">{{ .BookTitle }}</span>{{ end }}
         </div>
         <div class="dyno-search-result-snippet">{{ .Snippet | safeHTML }}</div>
         <div class="dyno-search-result-path">{{ .Path }}</div>

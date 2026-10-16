@@ -11,7 +11,7 @@
         var stored = localStorage.getItem('dyno-theme');
         var dark = stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches);
         document.documentElement.classList.toggle('dark', dark);
-        document.documentElement.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
       } catch (_) {}
     })();
   </script>
@@ -21,12 +21,12 @@
   <script src="{{ .MermaidURL }}"></script>
   <style>{{ .LightCSS }}</style>
   <style>{{ .DarkCSS }}</style>
-  <link rel="stylesheet" href="{{ .TablerCSSURL }}" />
+  <link rel="stylesheet" href="{{ .BulmaCSSURL }}" />
   <link rel="stylesheet" href="{{ .AppCSSURL }}" />
 </head>
 <body class="dyno-standalone-body">
 
-  <header class="navbar navbar-expand-md dyno-navbar">
+  <header class="navbar dyno-navbar">
     <div class="dyno-navbar-inner">
       <a href="{{ .BasePath }}/" class="dyno-brand dyno-library-brand">
         <svg fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -44,7 +44,7 @@
             id="search-input"
             type="search"
             placeholder="Search all books… (Ctrl+K)"
-            class="form-control form-control-sm"
+            class="input is-small"
             hx-get="{{ .SearchURL }}"
             hx-trigger="input changed delay:300ms, search"
             hx-target="#search-results-container"
@@ -65,14 +65,14 @@
 
       <div class="dyno-navbar-actions">
         <div class="dyno-font-size-controls" role="group" aria-label="Text size">
-          <button id="font-size-decrease" type="button" class="btn btn-icon btn-ghost-secondary dyno-font-size-button"
+          <button id="font-size-decrease" type="button" class="button dyno-icon-button is-ghost dyno-font-size-button"
                   aria-label="Decrease text size" title="Decrease text size">A-</button>
-          <button id="font-size-reset" type="button" class="btn btn-icon btn-ghost-secondary dyno-font-size-button"
+          <button id="font-size-reset" type="button" class="button dyno-icon-button is-ghost dyno-font-size-button"
                   aria-label="Reset text size" title="Reset text size">A</button>
-          <button id="font-size-increase" type="button" class="btn btn-icon btn-ghost-secondary dyno-font-size-button"
+          <button id="font-size-increase" type="button" class="button dyno-icon-button is-ghost dyno-font-size-button"
                   aria-label="Increase text size" title="Increase text size">A+</button>
         </div>
-        <button id="theme-toggle" class="btn btn-icon btn-ghost-secondary" aria-label="Toggle theme">
+        <button id="theme-toggle" class="button dyno-icon-button is-ghost" aria-label="Toggle theme">
           <svg id="icon-sun" class="dyno-theme-icon hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/>
           </svg>
@@ -93,9 +93,9 @@
       {{ if .MetadataFacets }}
       <form id="metadata-filters" action="{{ .BasePath }}/" method="get" onchange="this.submit()" class="card dyno-library-filters">
         <div class="dyno-library-filter-header">
-          <h2 class="subheader">Filters</h2>
+          <h2 class="dyno-eyebrow">Filters</h2>
           {{ if .FiltersActive }}
-          <a href="{{ .BasePath }}/" class="btn btn-sm btn-ghost-primary">Clear</a>
+          <a href="{{ .BasePath }}/" class="button is-small is-ghost">Clear</a>
           {{ end }}
         </div>
         <div class="dyno-library-filter-grid">
@@ -106,9 +106,9 @@
             <div class="dyno-library-facet-values">
               {{ range .Values }}
               <label class="dyno-library-facet-option">
-                <input type="checkbox" name="meta.{{ $facet.Name }}" value="{{ .Value }}" {{ if .Selected }}checked{{ end }} class="form-check-input">
+                <input type="checkbox" name="meta.{{ $facet.Name }}" value="{{ .Value }}" {{ if .Selected }}checked{{ end }} class="dyno-checkbox-input">
                 <span class="dyno-truncate" title="{{ .Value }}">{{ .Value }}</span>
-                <span class="badge bg-secondary-lt">{{ .Count }}</span>
+                <span class="tag is-light">{{ .Count }}</span>
               </label>
               {{ end }}
             </div>
@@ -167,7 +167,6 @@
     <div>Built with <a href="https://github.com/martinmares/dyno">dyno</a></div>
   </footer>
 
-  <script src="{{ .TablerJSURL }}"></script>
   <script src="{{ .AppJSURL }}"></script>
 </body>
 </html>

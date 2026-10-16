@@ -30,7 +30,7 @@ A self-hosted documentation server — think GitBook or Notion, but as a single 
 - **Hot reload** — `--watch` flag reloads navigation and search index on file changes
 - **Dev mode** — `--dev` flag reloads templates from disk without rebuilding
 - **Single binary** — UI assets are embedded; no Node.js is needed at runtime
-- **Bundled UI assets** — Tabler CSS and Dyno styles are served from local assets
+- **Bundled UI assets** — Bulma CSS and Dyno styles are served locally, with no framework JavaScript
 - **Optional MCP companion** — `dyno-mcp` exposes the same docs to AI agents over `stdio` or HTTP
 
 ## Project layout
@@ -168,6 +168,11 @@ Each entry uses either `path` (local directory) or `url` (git repo), never both.
 Requires **Go 1.22+**.
 
 ### Development
+
+The UI uses locally embedded Bulma 1.0.4 CSS, native dialogs, and Dyno's own
+JavaScript. Light/dark colors are shared through `--dyno-*` tokens in
+`assets/app.css`; the visual editor uses the same palette. `just assets-refresh`
+refreshes vendored assets using the Bulma version pinned in `justfile`.
 
 ```bash
 go run . --site ./site --dev --watch

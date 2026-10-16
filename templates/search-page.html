@@ -1,4 +1,4 @@
-{{/* Search full-page: uses the same Tabler shell as the document view. */}}
+{{/* Search full-page: uses the same Bulma shell as the document view. */}}
 {{ define "search-page.html" }}
 <!DOCTYPE html>
 <html lang="en">
@@ -13,7 +13,7 @@
         var stored = localStorage.getItem('dyno-theme');
         var dark = stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches);
         document.documentElement.classList.toggle('dark', dark);
-        document.documentElement.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
       } catch (_) {}
     })();
   </script>
@@ -21,13 +21,13 @@
   <script src="{{ .HTMXURL }}" defer></script>
   <style id="chroma-light">{{ .LightCSS }}</style>
   <style id="chroma-dark">{{ .DarkCSS }}</style>
-  <link rel="stylesheet" href="{{ .TablerCSSURL }}" />
+  <link rel="stylesheet" href="{{ .BulmaCSSURL }}" />
   <link rel="stylesheet" href="{{ .AppCSSURL }}" />
 </head>
 <body class="dyno-standalone-body{{ if .BrowseMode }} dyno-browse{{ end }}"{{ if .BrowseStatusURL }} data-browse-status="{{ .BrowseStatusURL }}" data-browse-revision="{{ .BrowseRevision }}"{{ end }}>
-  <header class="navbar navbar-expand-md dyno-navbar">
+  <header class="navbar dyno-navbar">
     <div class="dyno-navbar-inner">
-      <button id="sidebar-toggle" class="btn btn-icon btn-ghost-secondary" aria-label="Toggle sidebar">
+      <button id="sidebar-toggle" class="button dyno-icon-button is-ghost" aria-label="Toggle sidebar">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
       <a href="{{ .BasePath }}/" class="dyno-brand">
@@ -38,13 +38,13 @@
         <div class="dyno-search-control">
           <svg class="dyno-search-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
           <input id="search-input" type="search" placeholder="Search docs… (Ctrl+K)" value="{{ .Query }}"
-            class="form-control form-control-sm"
+            class="input is-small"
             hx-get="{{ .SearchURL }}" hx-trigger="input changed delay:300ms, search" hx-target="#search-results-container" name="q" autocomplete="off" />
         </div>
         <div id="search-results-container" class="dyno-standalone-search-results hidden"></div>
       </div>
       <div class="dyno-navbar-actions">
-        <button id="theme-toggle" class="btn btn-icon btn-ghost-secondary" aria-label="Toggle theme">
+        <button id="theme-toggle" class="button dyno-icon-button is-ghost" aria-label="Toggle theme">
           <svg id="icon-sun" class="dyno-theme-icon hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
           <svg id="icon-moon" class="dyno-theme-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
         </button>
@@ -58,8 +58,8 @@
       <div id="sidebar-content" class="dyno-sidebar-content">
       <nav class="dyno-sidebar-nav">
         <div class="dyno-sidebar-heading">
-          <p class="subheader m-0">Contents</p>
-          <button type="button" data-nav-expand-all class="btn btn-sm btn-ghost-secondary">Expand all</button>
+          <p class="dyno-eyebrow m-0">Contents</p>
+          <button type="button" data-nav-expand-all class="button is-small is-ghost">Expand all</button>
         </div>
         <div class="dyno-nav-tree">
           {{ template "nav-tree" (dict "node" .Nav "current" "" "depth" 0 "filterQuery" .FilterQuery) }}
@@ -77,7 +77,6 @@
       </div>
     </main>
   </div>
-  <script src="{{ .TablerJSURL }}"></script>
   <script src="{{ .AppJSURL }}"></script>
 </body>
 </html>

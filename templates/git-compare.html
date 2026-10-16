@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ .Title }}</title>
   <link rel="icon" href="{{ .FaviconURL }}">
-  <link rel="stylesheet" href="{{ .TablerCSSURL }}">
+  <link rel="stylesheet" href="{{ .BulmaCSSURL }}">
   <link rel="stylesheet" href="{{ .AppCSSURL }}">
   <style>{{ .LightCSS }}</style>
   <style>{{ .DarkCSS }}</style>
@@ -16,7 +16,7 @@
         var stored = localStorage.getItem('dyno-theme');
         var dark = stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches);
         document.documentElement.classList.toggle('dark', dark);
-        document.documentElement.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
       } catch (_) {}
     })();
   </script>
@@ -25,7 +25,7 @@
   <main class="dyno-compare">
     <header class="dyno-compare-header">
       <div class="dyno-compare-toolbar">
-        <a href="{{ .PageURL }}" class="btn btn-sm btn-ghost-secondary dyno-compare-back">
+        <a href="{{ .PageURL }}" class="button is-small is-ghost dyno-compare-back">
           <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
           Back
         </a>
@@ -34,17 +34,17 @@
         <form id="compare-form" action="{{ .CompareURL }}" method="get" class="dyno-compare-form" data-compare-form>
           <input type="hidden" name="mode" value="{{ .Mode }}">
           {{ if and (eq .Mode "preview") .IgnoreFrontmatter }}<input type="hidden" name="ignore_frontmatter" value="1">{{ end }}
-          <label class="visually-hidden" for="left-revision">Older revision</label>
-          <select id="left-revision" name="left" class="form-select form-select-sm dyno-compare-select" data-revision-select>
+          <label class="is-sr-only" for="left-revision">Older revision</label>
+          <span class="select dyno-select is-small"><select id="left-revision" name="left" class="dyno-select-input dyno-compare-select" data-revision-select>
             {{ range .Revisions }}<option value="{{ .ID }}" {{ if eq .ID $.Left.ID }}selected{{ end }}>{{ .Label }}</option>{{ end }}
-          </select>
-          <a href="{{ .SwapURL }}" class="btn btn-icon btn-ghost-secondary" title="Swap revisions" aria-label="Swap revisions">
+          </select></span>
+          <a href="{{ .SwapURL }}" class="button dyno-icon-button is-ghost" title="Swap revisions" aria-label="Swap revisions">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h11l-3-3m3 3l-3 3M17 17H6l3 3m-3-3l3-3"/></svg>
           </a>
-          <label class="visually-hidden" for="right-revision">Newer revision</label>
-          <select id="right-revision" name="right" class="form-select form-select-sm dyno-compare-select" data-revision-select>
+          <label class="is-sr-only" for="right-revision">Newer revision</label>
+          <span class="select dyno-select is-small"><select id="right-revision" name="right" class="dyno-select-input dyno-compare-select" data-revision-select>
             {{ range .Revisions }}<option value="{{ .ID }}" {{ if eq .ID $.Right.ID }}selected{{ end }}>{{ .Label }}</option>{{ end }}
-          </select>
+          </select></span>
         </form>
       </div>
 
@@ -54,9 +54,9 @@
           <a href="{{ .PreviewURL }}" class="{{ if eq .Mode "preview" }}is-active{{ end }}">Preview</a>
         </div>
         {{ if eq .Mode "source" }}
-        <label class="form-check dyno-compare-checkbox">
-          <input form="compare-form" type="checkbox" name="ignore_frontmatter" value="1" {{ if .IgnoreFrontmatter }}checked{{ end }} class="form-check-input" onchange="this.form.submit()">
-          <span class="form-check-label">Ignore frontmatter</span>
+        <label class="checkbox dyno-compare-checkbox">
+          <input form="compare-form" type="checkbox" name="ignore_frontmatter" value="1" {{ if .IgnoreFrontmatter }}checked{{ end }} class="dyno-checkbox-input" onchange="this.form.submit()">
+          <span class="dyno-checkbox-label">Ignore frontmatter</span>
         </label>
         {{ end }}
         {{ if eq .Mode "source" }}
@@ -64,8 +64,8 @@
           <span class="dyno-diff-count dyno-diff-added">+{{ .Added }}</span>
           <span class="dyno-diff-count dyno-diff-deleted">-{{ .Deleted }}</span>
           <span class="dyno-diff-count dyno-diff-changed">~{{ .Changed }}</span>
-          <button type="button" class="btn btn-sm btn-outline-secondary" data-diff-nav="previous">Previous change</button>
-          <button type="button" class="btn btn-sm btn-outline-secondary" data-diff-nav="next">Next change</button>
+          <button type="button" class="button is-small" data-diff-nav="previous">Previous change</button>
+          <button type="button" class="button is-small" data-diff-nav="next">Next change</button>
         </div>
         {{ end }}
       </div>
@@ -78,7 +78,7 @@
     </div>
     {{ else }}
     <div class="dyno-diff-scroll" data-diff-scroll>
-      <table class="table table-vcenter dyno-diff-table">
+      <table class="table dyno-table-vcenter dyno-diff-table">
         <colgroup><col class="dyno-diff-line"><col><col class="dyno-diff-line"><col></colgroup>
         <thead>
           <tr><th colspan="2">{{ .Left.Label }}</th><th colspan="2">{{ .Right.Label }}</th></tr>

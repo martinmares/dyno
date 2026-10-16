@@ -10,7 +10,7 @@
         var stored = localStorage.getItem('dyno-theme');
         var dark = stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches);
         document.documentElement.classList.toggle('dark', dark);
-        document.documentElement.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
       } catch (_) {}
     })();
   </script>
@@ -18,7 +18,7 @@
 
   <style>{{ .LightCSS }}</style>
   <style>{{ .DarkCSS }}</style>
-  <link rel="stylesheet" href="{{ .TablerCSSURL }}" />
+  <link rel="stylesheet" href="{{ .BulmaCSSURL }}" />
   <link rel="stylesheet" href="{{ .AppCSSURL }}" />
   <link rel="stylesheet" href="{{ .VisualCSSURL }}" />
 
@@ -42,33 +42,33 @@
     #editor-root { display: flex; flex-direction: column; height: 100vh; }
     #editor-toolbar { flex-shrink: 0; }
     #editor-panes { flex: 1; display: flex; min-height: 0; }
-    #editor-pane { flex: 1; display: flex; flex-direction: column; min-width: 0; border-right: var(--tblr-border-width) solid var(--tblr-border-color); }
-    #preview-pane { flex: 1; overflow-y: auto; min-width: 0; background: var(--tblr-body-bg); }
+    #editor-pane { flex: 1; display: flex; flex-direction: column; min-width: 0; border-right: var(--dyno-border-width) solid var(--dyno-border); }
+    #preview-pane { flex: 1; overflow-y: auto; min-width: 0; background: var(--dyno-page-bg); }
     .CodeMirror { flex: 1; height: 100%; font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace; font-size: 0.875rem; line-height: 1.7; padding: 0 2rem; }
     .CodeMirror-scroll { height: 100%; }
     #editor-pane .CodeMirror-wrap { flex: 1; display: flex; flex-direction: column; }
     #save-status { transition: opacity 0.3s; }
 
     /* Keep markdown token colours on the same semantic palette as the app. */
-    .CodeMirror.cm-s-default { background: var(--tblr-bg-surface); color: var(--tblr-body-color); }
-    .cm-s-default .cm-header { color: var(--tblr-heading-color, var(--tblr-body-color)); font-weight: 700; }
-    .cm-s-default .cm-strong { color: var(--tblr-emphasis-color, var(--tblr-body-color)); font-weight: 700; }
-    .cm-s-default .cm-em { color: var(--tblr-secondary-color); font-style: italic; }
-    .cm-s-default .cm-link { color: var(--tblr-link-color); }
-    .cm-s-default .cm-url { color: var(--tblr-link-color); }
-    .cm-s-default .cm-comment { color: var(--tblr-tertiary-color); }
-    .cm-s-default .cm-string { color: var(--tblr-info-text-emphasis, var(--tblr-info)); }
+    .CodeMirror.cm-s-default { background: var(--dyno-surface); color: var(--dyno-text); }
+    .cm-s-default .cm-header { color: var(--dyno-heading, var(--dyno-text)); font-weight: 700; }
+    .cm-s-default .cm-strong { color: var(--dyno-heading, var(--dyno-text)); font-weight: 700; }
+    .cm-s-default .cm-em { color: var(--dyno-muted); font-style: italic; }
+    .cm-s-default .cm-link { color: var(--dyno-primary); }
+    .cm-s-default .cm-url { color: var(--dyno-primary); }
+    .cm-s-default .cm-comment { color: var(--dyno-subtle); }
+    .cm-s-default .cm-string { color: var(--dyno-info-text, var(--dyno-info)); }
     /* Inline code and code blocks */
     .cm-s-default .cm-formatting-code,
-    .cm-s-default .cm-inline-code { color: var(--tblr-info-text-emphasis, var(--tblr-info)); background: var(--tblr-info-bg-subtle); border-radius: 2px; padding: 0 2px; }
-    .cm-s-default .cm-formatting-code-block { color: var(--tblr-indigo); }
-    .cm-s-default .cm-variable-2 { color: var(--tblr-emphasis-color, var(--tblr-body-color)); }
+    .cm-s-default .cm-inline-code { color: var(--dyno-info-text, var(--dyno-info)); background: var(--dyno-info-bg); border-radius: 2px; padding: 0 2px; }
+    .cm-s-default .cm-formatting-code-block { color: var(--dyno-important); }
+    .cm-s-default .cm-variable-2 { color: var(--dyno-heading, var(--dyno-text)); }
 
     /* Dark theme — editor pane background */
-    html.dark #editor-pane { background: var(--tblr-body-bg) !important; }
+    html.dark #editor-pane { background: var(--dyno-page-bg) !important; }
     html.dark .CodeMirror.cm-s-dracula,
     html.dark .CodeMirror.cm-s-dracula .CodeMirror-scroll,
-    html.dark .CodeMirror.cm-s-dracula .CodeMirror-gutters { background: var(--tblr-body-bg) !important; }
+    html.dark .CodeMirror.cm-s-dracula .CodeMirror-gutters { background: var(--dyno-page-bg) !important; }
 
     /* Dark theme (dracula) — minimal overrides, let the theme do its job */
     .cm-s-dracula .cm-header { color: #f8f8f2; font-weight: 700; }
@@ -90,7 +90,7 @@
   <div id="editor-toolbar" class="dyno-edit-toolbar">
     <!-- Back to page -->
     <a href="{{ .PageURL }}"
-       class="btn btn-sm btn-ghost-secondary dyno-edit-back">
+       class="button is-small is-ghost dyno-edit-back">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
       </svg>
@@ -105,7 +105,7 @@
     </span>
 
     <span id="git-file-status"
-      class="badge bg-warning-lt dyno-edit-git-status"
+      class="tag is-warning is-light dyno-edit-git-status"
       {{ if not .GitStatus }}style="display: none"{{ end }}
       title="Git working tree status">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
@@ -116,7 +116,7 @@
 
     {{ if .GitCompareURL }}
     <a href="{{ .GitCompareURL }}"
-      class="btn btn-sm btn-outline-secondary">
+      class="button is-small">
       <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h11l-3-3m3 3l-3 3M16 17H5l3 3m-3-3l3-3"/></svg>
       Versions
     </a>
@@ -124,7 +124,7 @@
 
     {{ if or .MetadataFields .MetadataError }}
     <button id="metadata-toggle" type="button"
-      class="btn btn-sm btn-outline-secondary"
+      class="button is-small"
       aria-expanded="false" aria-controls="metadata-pane">
       <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h10"/>
@@ -139,7 +139,7 @@
 
     <!-- Save button -->
     <button id="save-btn"
-      class="btn btn-primary dyno-edit-save">
+      class="button is-link dyno-edit-save">
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M17 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V7l-4-4z"/>
         <path stroke-linecap="round" stroke-linejoin="round" d="M17 3v4H7V3"/>
@@ -149,7 +149,7 @@
     </button>
 
     <button id="preview-toggle" type="button"
-      class="btn btn-icon btn-ghost-secondary dyno-edit-preview-toggle"
+      class="button dyno-icon-button is-ghost dyno-edit-preview-toggle"
       aria-expanded="true" aria-controls="preview-pane"
       aria-label="Hide live preview" title="Hide live preview">
       <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
@@ -161,19 +161,19 @@
 
     <!-- Page text size -->
     <div class="dyno-font-size-controls" role="group" aria-label="Text size">
-      <button id="font-size-decrease" type="button" class="btn btn-icon btn-ghost-secondary dyno-font-size-button"
+      <button id="font-size-decrease" type="button" class="button dyno-icon-button is-ghost dyno-font-size-button"
               aria-label="Decrease text size" title="Decrease text size">A-</button>
-      <button id="font-size-reset" type="button" class="btn btn-icon btn-ghost-secondary dyno-font-size-button"
+      <button id="font-size-reset" type="button" class="button dyno-icon-button is-ghost dyno-font-size-button"
               aria-label="Reset text size" title="Reset text size">A</button>
-      <button id="font-size-increase" type="button" class="btn btn-icon btn-ghost-secondary dyno-font-size-button"
+      <button id="font-size-increase" type="button" class="button dyno-icon-button is-ghost dyno-font-size-button"
               aria-label="Increase text size" title="Increase text size">A+</button>
     </div>
   </div>
 
   <div class="dyno-edit-mobile-tabs" role="group" aria-label="Editor panels">
-    <button type="button" class="btn btn-sm btn-ghost-secondary" data-mobile-pane="outline">Contents</button>
-    <button type="button" class="btn btn-sm btn-ghost-secondary is-active" data-mobile-pane="editor">Edit</button>
-    <button type="button" class="btn btn-sm btn-ghost-secondary" data-mobile-pane="preview">Preview</button>
+    <button type="button" class="button is-small is-ghost" data-mobile-pane="outline">Contents</button>
+    <button type="button" class="button is-small is-ghost is-active" data-mobile-pane="editor">Edit</button>
+    <button type="button" class="button is-small is-ghost" data-mobile-pane="preview">Preview</button>
   </div>
 
   <!-- Outline + Editor + Preview panes -->
@@ -185,8 +185,8 @@
     <!-- Editor pane -->
     <div id="editor-pane">
       <div class="dyno-edit-modebar" role="group" aria-label="Editing mode">
-        <button id="visual-mode-btn" type="button" class="btn btn-sm btn-ghost-secondary" aria-pressed="false">Visual</button>
-        <button id="source-mode-btn" type="button" class="btn btn-sm btn-ghost-secondary is-active" aria-pressed="true">Source</button>
+        <button id="visual-mode-btn" type="button" class="button is-small is-ghost" aria-pressed="false">Visual</button>
+        <button id="source-mode-btn" type="button" class="button is-small is-ghost is-active" aria-pressed="true">Source</button>
         <span id="visual-mode-status" role="status"></span>
       </div>
       <div id="source-editor" class="dyno-edit-source-editor"><textarea id="cm-source">{{ .Source }}</textarea></div>
@@ -200,7 +200,7 @@
         <p>Configured in dyno.yaml. Unknown YAML fields are preserved.</p>
       </div>
       {{ if .MetadataError }}
-      <div class="alert alert-danger m-4">
+      <div class="notification is-danger is-light m-4">
         {{ .MetadataError }}
       </div>
       {{ else }}
@@ -212,22 +212,22 @@
           </span>
           {{ if eq .Type "boolean" }}
           <span class="dyno-edit-checkbox">
-            <input type="checkbox" class="form-check-input"
+            <input type="checkbox" class="dyno-checkbox-input"
               data-metadata-input data-name="{{ .Name }}" data-type="{{ .Type }}" {{ if .Checked }}checked{{ end }} {{ if .ReadOnly }}disabled{{ end }}>
             <span>Enabled</span>
           </span>
           {{ else if eq .Type "select" }}
-          <select class="form-select"
+          <span class="select dyno-select"><select class="dyno-select-input"
             data-metadata-input data-name="{{ .Name }}" data-type="{{ .Type }}" {{ if .Required }}required{{ end }} {{ if .ReadOnly }}disabled{{ end }}>
             {{ if not .Required }}<option value=""></option>{{ end }}
             {{ range .Options }}<option value="{{ .Value }}" {{ if .Selected }}selected{{ end }}>{{ .Value }}</option>{{ end }}
-          </select>
+          </select></span>
           {{ else if eq .Type "textarea" }}
-          <textarea rows="4" class="form-control"
+          <textarea rows="4" class="textarea"
             data-metadata-input data-name="{{ .Name }}" data-type="{{ .Type }}" {{ if .Required }}required{{ end }} {{ if .ReadOnly }}readonly{{ end }}>{{ .Value }}</textarea>
           {{ else }}
           <input type="{{ .InputType }}" value="{{ .Value }}"
-            class="form-control"
+            class="input"
             data-metadata-input data-name="{{ .Name }}" data-type="{{ .Type }}" {{ if .Required }}required{{ end }} {{ if .ReadOnly }}readonly{{ end }}>
           {{ end }}
           {{ if .Description }}<span class="dyno-edit-field-description">{{ .Description }}</span>{{ end }}
@@ -236,7 +236,7 @@
         {{ end }}
         <div class="dyno-edit-metadata-actions">
           <p id="metadata-status" class="hidden"></p>
-          <button type="submit" class="btn btn-primary w-100">
+          <button type="submit" class="button is-link dyno-fullwidth">
             Apply metadata
           </button>
         </div>
@@ -259,20 +259,20 @@
   <form id="visual-block-form" method="dialog">
     <div class="dyno-visual-block-header">
       <h2 id="visual-block-title">Edit block</h2>
-      <button type="button" id="visual-block-close" class="btn btn-icon btn-ghost-secondary" aria-label="Close">&times;</button>
+      <button type="button" id="visual-block-close" class="button dyno-icon-button is-ghost" aria-label="Close">&times;</button>
     </div>
-    <label id="visual-block-type-row" class="form-label" hidden>Callout type
-      <select id="visual-block-type" class="form-select">
+    <label id="visual-block-type-row" class="label" hidden>Callout type
+      <span class="select dyno-select"><select id="visual-block-type" class="dyno-select-input">
         <option>NOTE</option><option>TIP</option><option>IMPORTANT</option><option>WARNING</option>
         <option>WARN</option><option>CAUTION</option><option>DANGER</option><option>INFO</option>
-      </select>
+      </select></span>
     </label>
-    <label for="visual-block-content" class="form-label" id="visual-block-content-label">Content</label>
-    <textarea id="visual-block-content" class="form-control dyno-visual-block-content" spellcheck="false" aria-label="Block content"></textarea>
-    <p id="visual-block-error" class="text-danger" role="alert" hidden></p>
+    <label for="visual-block-content" class="label" id="visual-block-content-label">Content</label>
+    <textarea id="visual-block-content" class="textarea dyno-visual-block-content" spellcheck="false" aria-label="Block content"></textarea>
+    <p id="visual-block-error" class="has-text-danger" role="alert" hidden></p>
     <div class="dyno-visual-block-actions">
-      <button type="button" id="visual-block-cancel" class="btn btn-ghost-secondary">Cancel</button>
-      <button type="submit" class="btn btn-primary">Apply</button>
+      <button type="button" id="visual-block-cancel" class="button is-ghost">Cancel</button>
+      <button type="submit" class="button is-link">Apply</button>
     </div>
   </form>
 </dialog>
@@ -281,53 +281,53 @@
   <form method="dialog">
     <div class="dyno-visual-block-header">
       <h2 id="visual-api-title">Edit API block</h2>
-      <button type="button" data-api-cancel class="btn btn-icon btn-ghost-secondary" aria-label="Close">&times;</button>
+      <button type="button" data-api-cancel class="button dyno-icon-button is-ghost" aria-label="Close">&times;</button>
     </div>
     <div class="dyno-api-tabs" role="tablist" aria-label="API block editor">
-      <button type="button" id="api-form-tab" data-api-tab="form" class="btn btn-sm btn-ghost-secondary" role="tab" aria-selected="true" aria-controls="api-form-panel">Form</button>
-      <button type="button" id="api-source-tab" data-api-tab="source" class="btn btn-sm btn-ghost-secondary" role="tab" aria-selected="false" aria-controls="api-source-panel">Source</button>
+      <button type="button" id="api-form-tab" data-api-tab="form" class="button is-small is-ghost" role="tab" aria-selected="true" aria-controls="api-form-panel">Form</button>
+      <button type="button" id="api-source-tab" data-api-tab="source" class="button is-small is-ghost" role="tab" aria-selected="false" aria-controls="api-source-panel">Source</button>
     </div>
-    <p data-api-hint class="text-secondary" hidden></p>
+    <p data-api-hint class="has-text-grey" hidden></p>
     <div id="api-form-panel" data-api-panel="form" role="tabpanel" aria-labelledby="api-form-tab" class="dyno-api-fields">
       <div class="dyno-api-request-row">
-        <label class="form-label">Method
-          <input data-api-field="method" class="form-control" list="api-methods" spellcheck="false" autocomplete="off" placeholder="GET">
+        <label class="label">Method
+          <input data-api-field="method" class="input" list="api-methods" spellcheck="false" autocomplete="off" placeholder="GET">
         </label>
-        <label class="form-label">URL
-          <input data-api-field="url" class="form-control" spellcheck="false" autocomplete="off" placeholder="https://example.com/api/{{"{{resourceId}}"}}">
+        <label class="label">URL
+          <input data-api-field="url" class="input" spellcheck="false" autocomplete="off" placeholder="https://example.com/api/{{"{{resourceId}}"}}">
         </label>
       </div>
-      <p class="text-secondary dyno-api-help">You can use placeholders such as <code>{{"{{HTTPBIN_URL}}"}}</code> and <code>{{"{{token}}"}}</code>. They stay unchanged in the source.</p>
+      <p class="has-text-grey dyno-api-help">You can use placeholders such as <code>{{"{{HTTPBIN_URL}}"}}</code> and <code>{{"{{token}}"}}</code>. They stay unchanged in the source.</p>
       <div>
         <div class="dyno-visual-block-header">
-          <span class="form-label">Headers</span>
-          <button type="button" data-api-add-header class="btn btn-sm btn-ghost-secondary">+ Add header</button>
+          <span class="label">Headers</span>
+          <button type="button" data-api-add-header class="button is-small is-ghost">+ Add header</button>
         </div>
         <div data-api-headers class="dyno-api-fields"></div>
       </div>
       <details>
         <summary>Advanced</summary>
         <div class="dyno-api-fields dyno-api-advanced">
-          <label class="form-check"><input type="checkbox" data-api-field="insecure" class="form-check-input"><span class="form-check-label">Allow unverified TLS certificates (api-insecure)</span></label>
-          <label class="form-check"><input type="checkbox" data-api-field="noAuth" class="form-check-input"><span class="form-check-label">Hide Auth controls (no-auth)</span></label>
-          <label class="form-label">Follow-up JSONPath
-            <input data-api-field="followJSONPath" class="form-control" spellcheck="false" placeholder="$[*].labels.__metrics_path__">
+          <label class="checkbox"><input type="checkbox" data-api-field="insecure" class="dyno-checkbox-input"><span class="dyno-checkbox-label">Allow unverified TLS certificates (api-insecure)</span></label>
+          <label class="checkbox"><input type="checkbox" data-api-field="noAuth" class="dyno-checkbox-input"><span class="dyno-checkbox-label">Hide Auth controls (no-auth)</span></label>
+          <label class="label">Follow-up JSONPath
+            <input data-api-field="followJSONPath" class="input" spellcheck="false" placeholder="$[*].labels.__metrics_path__">
           </label>
-          <label class="form-label">Follow-up method
-            <input data-api-field="followMethod" class="form-control" list="api-methods" spellcheck="false" placeholder="GET (default)">
+          <label class="label">Follow-up method
+            <input data-api-field="followMethod" class="input" list="api-methods" spellcheck="false" placeholder="GET (default)">
           </label>
         </div>
       </details>
     </div>
     <div id="api-source-panel" data-api-panel="source" role="tabpanel" aria-labelledby="api-source-tab" hidden>
-      <label class="form-label" for="api-block-source">API block source</label>
-      <textarea id="api-block-source" class="form-control" spellcheck="false" aria-label="API block source"></textarea>
+      <label class="label" for="api-block-source">API block source</label>
+      <textarea id="api-block-source" class="textarea" spellcheck="false" aria-label="API block source"></textarea>
     </div>
     <datalist id="api-methods"><option value="GET"><option value="POST"><option value="PUT"><option value="PATCH"><option value="DELETE"><option value="HEAD"><option value="OPTIONS"></datalist>
-    <p data-api-error class="text-danger" role="alert" hidden></p>
+    <p data-api-error class="has-text-danger" role="alert" hidden></p>
     <div class="dyno-visual-block-actions">
-      <button type="button" data-api-cancel class="btn btn-ghost-secondary">Cancel</button>
-      <button type="submit" class="btn btn-primary">Apply</button>
+      <button type="button" data-api-cancel class="button is-ghost">Cancel</button>
+      <button type="submit" class="button is-link">Apply</button>
     </div>
   </form>
 </dialog>

@@ -179,15 +179,15 @@ async function create(root, source, onChange, resolveImage = src => src) {
     lines.pop();
     const preview = lines.join('\n') || ' ';
     const selector = '.dyno-visual-editor .ProseMirror a[href="#' + block.token + '"]';
-    return selector + ' { display: block; max-height: 22rem; overflow: auto; padding: .5rem .75rem .75rem; border: 1px solid var(--tblr-border-color); border-radius: var(--tblr-border-radius); background: var(--tblr-bg-surface-secondary); color: transparent; font-size: 0; }\n' +
-      selector + '::before { display: block; margin-bottom: .5rem; padding-bottom: .4rem; border-bottom: 1px solid var(--tblr-border-color); color: var(--tblr-secondary-color); content: ' + cssString(language.toUpperCase() + ' · CLICK TO EDIT') + '; font-family: var(--tblr-font-sans-serif); font-size: .75rem; }\n' +
-      selector + '::after { display: block; color: var(--tblr-body-color); content: ' + cssString(preview) + '; font-family: var(--tblr-font-monospace); font-size: .875rem; line-height: 1.45; white-space: pre; }';
+    return selector + ' { display: block; max-height: 22rem; overflow: auto; padding: .5rem .75rem .75rem; border: 1px solid var(--dyno-border); border-radius: var(--dyno-radius); background: var(--dyno-surface-secondary); color: transparent; font-size: 0; }\n' +
+      selector + '::before { display: block; margin-bottom: .5rem; padding-bottom: .4rem; border-bottom: 1px solid var(--dyno-border); color: var(--dyno-muted); content: ' + cssString(language.toUpperCase() + ' · CLICK TO EDIT') + '; font-family: var(--dyno-font-sans); font-size: .75rem; }\n' +
+      selector + '::after { display: block; color: var(--dyno-text); content: ' + cssString(preview) + '; font-family: var(--dyno-font-mono); font-size: .875rem; line-height: 1.45; white-space: pre; }';
   }
   function renderFenceStyles() {
     const apiRules = apiBlocks.map(block => {
       const selector = '.dyno-visual-editor .ProseMirror a[href="#' + block.token + '"]';
       return selector + ' { display: block; overflow-wrap: anywhere; color: transparent; font-size: 0; }\n' +
-        selector + '::after { color: var(--tblr-body-color); font-size: .875rem; content: ' + cssString(apiBlockLabel(block.source) + ' · ✎') + '; }';
+        selector + '::after { color: var(--dyno-text); font-size: .875rem; content: ' + cssString(apiBlockLabel(block.source) + ' · ✎') + '; }';
     });
     fenceStyle.textContent = fenceBlocks.map(fenceRule).concat(apiRules).join('\n');
   }

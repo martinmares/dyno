@@ -1,8 +1,7 @@
 htmx_url                := "https://unpkg.com/htmx.org@latest/dist/htmx.min.js"
 mermaid_url             := "https://cdn.jsdelivr.net/npm/mermaid@latest/dist/mermaid.min.js"
-tabler_version          := "1.4.0"
-tabler_css_url          := "https://cdn.jsdelivr.net/npm/@tabler/core@{{ tabler_version }}/dist/css/tabler.min.css"
-tabler_js_url           := "https://cdn.jsdelivr.net/npm/@tabler/core@{{ tabler_version }}/dist/js/tabler.min.js"
+bulma_version           := "1.0.4"
+bulma_css_url           := "https://cdn.jsdelivr.net/npm/bulma@" + bulma_version + "/css/bulma.min.css"
 dyno_version            := `tr -d '\n' < VERSION`
 
 default:
@@ -15,8 +14,7 @@ editor-assets:
 assets-refresh:
     curl -sL "{{ htmx_url }}" -o assets/htmx.min.js
     curl -sL "{{ mermaid_url }}" -o assets/mermaid.min.js
-    curl -fsSL "{{ tabler_css_url }}" -o assets/tabler.min.css
-    curl -fsSL "{{ tabler_js_url }}" -o assets/tabler.min.js
+    curl -fsSL "{{ bulma_css_url }}" -o assets/bulma.min.css
 
 build-macos:
     #!/usr/bin/env sh

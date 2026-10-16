@@ -652,14 +652,53 @@ func TestFooterUsesBuildMetadata(t *testing.T) {
 	if !strings.Contains(body, "/assets/app.css") {
 		t.Fatalf("expected app.css stylesheet link, got: %s", body)
 	}
-	if !strings.Contains(body, "/assets/tabler.min.css") {
-		t.Fatalf("expected Tabler stylesheet link, got: %s", body)
+	if !strings.Contains(body, "/assets/bulma.min.css") {
+		t.Fatalf("expected Bulma stylesheet link, got: %s", body)
 	}
-	if !strings.Contains(body, "/assets/tabler.min.js") {
-		t.Fatalf("expected Tabler script link, got: %s", body)
+	if strings.Contains(body, "tabler.min") || strings.Contains(body, "data-bs-theme") {
+		t.Fatalf("unexpected legacy UI dependency, got: %s", body)
 	}
-	if !strings.Contains(body, "setAttribute('data-bs-theme'") {
-		t.Fatalf("expected Tabler theme initialization, got: %s", body)
+	if !strings.Contains(body, "setAttribute('data-theme'") {
+		t.Fatalf("expected Bulma theme initialization, got: %s", body)
+	}
+}
+
+func TestBulmaUIAssetsAndTemplates(t *testing.T) {
+	srv := newTestServer(t)
+	for _, target := range []string{"/", "/_search?q=API", "/_edit/", "/_git/history", "/_tasks", "/_graph/"} {
+		t.Run(target, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, target, nil)
+			if target == "/_edit/" {
+				srv.editPageHandler(rec, req)
+			} else if target == "/_git/history" {
+				srv.gitHistoryHandler(rec, req)
+			} else {
+				srv.Handler().ServeHTTP(rec, req)
+			}
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+			}
+			body := rec.Body.String()
+			if !strings.Contains(body, srv.assetURL("bulma.min.css")) || !strings.Contains(body, "setAttribute('data-theme'") {
+				t.Fatal("missing local Bulma asset or theme initialization")
+			}
+			for _, legacy := range []string{"tabler.min", "data-bs-theme", "--tblr-", `class="btn`, `class="form-control`} {
+				if strings.Contains(body, legacy) {
+					t.Fatalf("legacy UI dependency %q remains", legacy)
+				}
+			}
+		})
+	}
+	for _, asset := range []string{"bulma.min.css", "app.css", "app.js", "editor-visual.min.css", "editor-visual.min.js"} {
+		rec := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, srv.assetURL(asset), nil))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("asset %s returned %d", asset, rec.Code)
+		}
+		if strings.Contains(rec.Body.String(), "--tblr-") || strings.Contains(rec.Body.String(), "data-bs-theme") {
+			t.Fatalf("legacy theme dependency in asset %s", asset)
+		}
 	}
 }
 

@@ -51,8 +51,7 @@ type PageData struct {
 	// Prev/Next for bottom navigation
 	Prev                *navigation.NavNode
 	Next                *navigation.NavNode
-	TablerCSSURL        string
-	TablerJSURL         string
+	BulmaCSSURL         string
 	AppCSSURL           string
 	AppJSURL            string
 	EasyMDECSSURL       string
@@ -104,8 +103,7 @@ type LibraryData struct {
 	Books          []bookCardData
 	BasePath       string
 	SearchURL      string
-	TablerCSSURL   string
-	TablerJSURL    string
+	BulmaCSSURL    string
 	AppCSSURL      string
 	AppJSURL       string
 	HTMXURL        string
@@ -130,8 +128,7 @@ type SearchData struct {
 	TOC             []markdown.TOCEntry
 	Site            *config.SiteConfig
 	BasePath        string
-	TablerCSSURL    string
-	TablerJSURL     string
+	BulmaCSSURL     string
 	AppCSSURL       string
 	AppJSURL        string
 	HTMXURL         string
@@ -200,8 +197,7 @@ func (s *Server) render(w http.ResponseWriter, name string, data any) error {
 			}
 			page.TasksURL, page.SectionTasksURL, page.GraphURL, page.EgoGraphURL = "", "", "", ""
 		}
-		page.TablerCSSURL = s.assetURL("tabler.min.css")
-		page.TablerJSURL = s.assetURL("tabler.min.js")
+		page.BulmaCSSURL = s.assetURL("bulma.min.css")
 		if s.comments != nil {
 			page.EasyMDECSSURL = s.assetURL("easymde.min.css")
 			page.EasyMDEJSURL = s.assetURL("easymde.min.js")
@@ -589,8 +585,7 @@ func (s *Server) searchHandler(w http.ResponseWriter, r *http.Request) {
 		Title:          "Search",
 		Site:           s.siteCfg,
 		BasePath:       s.basePath,
-		TablerCSSURL:   s.assetURL("tabler.min.css"),
-		TablerJSURL:    s.assetURL("tabler.min.js"),
+		BulmaCSSURL:    s.assetURL("bulma.min.css"),
 		AppCSSURL:      s.assetURL("app.css"),
 		AppJSURL:       s.assetURL("app.js"),
 		HTMXURL:        s.assetURL("htmx.min.js"),

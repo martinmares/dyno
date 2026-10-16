@@ -6,9 +6,9 @@
     <ol class="breadcrumb dyno-breadcrumb">
     {{ range $i, $crumb := .Breadcrumbs }}
       {{ if eq $i (add (len $.Breadcrumbs) -1) }}
-        <li class="breadcrumb-item active" aria-current="page">{{ $crumb.Title }}</li>
+        <li class="is-active" aria-current="page">{{ $crumb.Title }}</li>
       {{ else }}
-        <li class="breadcrumb-item"><a href="{{ $crumb.FullPath }}{{ $.FilterQuery }}"
+        <li class=""><a href="{{ $crumb.FullPath }}{{ $.FilterQuery }}"
            hx-get="{{ $crumb.FullPath }}{{ $.FilterQuery }}"
            hx-target="#page-content"
            hx-push-url="true">{{ $crumb.Title }}</a></li>
@@ -36,17 +36,17 @@
   {{ end }}
 
   {{ if .ExternalRefs }}
-  <section class="card card-sm dyno-external-refs" aria-label="External references">
-    <div class="card-body dyno-external-refs-body">
-      <span class="subheader">Links</span>
+  <section class="card dyno-card-compact dyno-external-refs" aria-label="External references">
+    <div class="card-content dyno-external-refs-body">
+      <span class="dyno-eyebrow">Links</span>
       <div class="dyno-external-ref-list">
         {{ range .ExternalRefs }}
           {{ if .URL }}
           <a href="{{ .URL }}"
              target="_blank"
              rel="noopener noreferrer"
-             class="btn btn-sm btn-outline-secondary dyno-external-ref">
-            {{ if .ID }}<span class="font-monospace text-secondary">{{ .ID }}</span>{{ end }}
+             class="button is-small dyno-external-ref">
+            {{ if .ID }}<span class="is-family-monospace has-text-grey">{{ .ID }}</span>{{ end }}
             {{ if .Label }}<span>{{ .Label }}</span>{{ else if not .ID }}<span>{{ .URL }}</span>{{ end }}
             <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M9 7h8v8"/>
@@ -72,13 +72,13 @@
       <input type="hidden" name="entries" data-frontmatter-entries>
       <div class="card-header">
         <div>
-          <h3 class="card-title">Edit frontmatter</h3>
-          <p class="text-secondary small mb-0 mt-1">Quickly edit the page header as key/value rows.</p>
+          <h3 class="dyno-card-title">Edit frontmatter</h3>
+          <p class="has-text-grey is-size-7 mb-0 mt-1">Quickly edit the page header as key/value rows.</p>
         </div>
-        <button type="button" data-frontmatter-cancel class="btn-close ms-auto" aria-label="Close"></button>
+        <button type="button" data-frontmatter-cancel class="delete ml-auto" aria-label="Close"></button>
       </div>
-      <div class="card-body dyno-dialog-scroll">
-        <table class="table table-vcenter dyno-frontmatter-table">
+      <div class="card-content dyno-dialog-scroll">
+        <table class="table dyno-table-vcenter dyno-frontmatter-table">
           <thead>
             <tr>
               <th class="dyno-frontmatter-key">Key</th>
@@ -91,13 +91,13 @@
               {{ range .FrontmatterEntries }}
               <tr data-frontmatter-row>
                 <td>
-                  <input type="text" value="{{ .Key }}" class="form-control" data-frontmatter-key>
+                  <input type="text" value="{{ .Key }}" class="input" data-frontmatter-key>
                 </td>
                 <td>
-                  <textarea rows="2" class="form-control font-monospace" data-frontmatter-value>{{ .Value }}</textarea>
+                  <textarea rows="2" class="textarea is-family-monospace" data-frontmatter-value>{{ .Value }}</textarea>
                 </td>
-                <td class="text-end">
-                  <button type="button" data-frontmatter-remove class="btn btn-sm btn-ghost-danger">Remove</button>
+                <td class="has-text-right">
+                  <button type="button" data-frontmatter-remove class="button is-small is-danger is-light">Remove</button>
                 </td>
               </tr>
               {{ end }}
@@ -107,25 +107,25 @@
         <template data-frontmatter-row-template>
           <tr data-frontmatter-row>
             <td>
-              <input type="text" class="form-control" data-frontmatter-key placeholder="key">
+              <input type="text" class="input" data-frontmatter-key placeholder="key">
             </td>
             <td>
-              <textarea rows="2" class="form-control font-monospace" data-frontmatter-value placeholder="value"></textarea>
+              <textarea rows="2" class="textarea is-family-monospace" data-frontmatter-value placeholder="value"></textarea>
             </td>
-            <td class="text-end">
-              <button type="button" data-frontmatter-remove class="btn btn-sm btn-ghost-danger">Remove</button>
+            <td class="has-text-right">
+              <button type="button" data-frontmatter-remove class="button is-small is-danger is-light">Remove</button>
             </td>
           </tr>
         </template>
       </div>
       <div class="card-footer dyno-dialog-footer">
         <div>
-          <button type="button" data-frontmatter-add class="btn btn-outline-secondary">Add field</button>
-          <p data-frontmatter-status class="small text-secondary mb-0 mt-1"></p>
+          <button type="button" data-frontmatter-add class="button">Add field</button>
+          <p data-frontmatter-status class="is-size-7 has-text-grey mb-0 mt-1"></p>
         </div>
-        <div class="btn-list">
-          <button type="button" data-frontmatter-cancel class="btn btn-ghost-secondary">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save</button>
+        <div class="buttons">
+          <button type="button" data-frontmatter-cancel class="button is-ghost">Cancel</button>
+          <button type="submit" class="button is-link">Save</button>
         </div>
       </div>
     </form>
@@ -142,63 +142,63 @@
            data-page-path="{{ .CurrentPath }}">
     <div class="dyno-section-header">
       <div>
-        <h2 class="h3 mb-1">Comments</h2>
-        <p class="text-secondary small mb-0">Add a page note or comment on selected text.</p>
+        <h2 class="title is-5 mb-1">Comments</h2>
+        <p class="has-text-grey is-size-7 mb-0">Add a page note or comment on selected text.</p>
       </div>
-      <span data-comments-count class="badge bg-secondary-lt">{{ len .Comments }}</span>
-      <button type="button" data-comment-new class="btn btn-outline-secondary">Add comment</button>
+      <span data-comments-count class="tag is-light">{{ len .Comments }}</span>
+      <button type="button" data-comment-new class="button">Add comment</button>
     </div>
 
     <div class="card dyno-annotation-list" data-comments-list>
       {{ if .CommentTree }}
         {{ template "comment-tree" dict "Nodes" .CommentTree "CommentsURL" .CommentsURL "CurrentPath" .CurrentPath "Management" .CommentsManagement }}
       {{ else }}
-        <p class="text-secondary small p-3 mb-0">No comments yet.</p>
+        <p class="has-text-grey is-size-7 p-3 mb-0">No comments yet.</p>
       {{ end }}
     </div>
 
     <div class="dyno-highlights" data-highlights-section>
-      <div class="dyno-section-header"><h2 class="h3 mb-0">Highlights</h2><span data-highlights-count class="badge bg-secondary-lt">{{ len .Highlights }}</span></div>
+      <div class="dyno-section-header"><h2 class="title is-5 mb-0">Highlights</h2><span data-highlights-count class="tag is-light">{{ len .Highlights }}</span></div>
       <div class="card dyno-annotation-list" data-highlights-list>
       {{ if .Highlights }}
         {{ range .Highlights }}
         <article class="dyno-highlight-row" data-highlight-row="{{ .ID }}">
           <p class="dyno-highlight-quote" title="{{ .Quote }}">{{ .Quote }}</p>
-          <div class="btn-list flex-nowrap">
-            <button type="button" data-highlight-go="{{ .ID }}" class="btn btn-sm btn-ghost-primary">Go to</button>
-            {{ if $.CommentsManagement }}<button type="button" data-annotation-delete="{{ .ID }}" class="btn btn-sm btn-ghost-danger">Delete</button>{{ end }}
+          <div class="buttons is-flex-wrap-nowrap">
+            <button type="button" data-highlight-go="{{ .ID }}" class="button is-small is-ghost">Go to</button>
+            {{ if $.CommentsManagement }}<button type="button" data-annotation-delete="{{ .ID }}" class="button is-small is-danger is-light">Delete</button>{{ end }}
           </div>
         </article>
         <span hidden data-comment-highlight data-highlight-id="{{ .ID }}" data-quote="{{ .Quote }}" data-anchor="{{ .Anchor }}"></span>
         {{ end }}
-      {{ else }}<p class="text-secondary small p-3 mb-0">No highlights yet.</p>{{ end }}
+      {{ else }}<p class="has-text-grey is-size-7 p-3 mb-0">No highlights yet.</p>{{ end }}
       </div>
     </div>
 
     <dialog data-selection-actions-dialog class="dyno-dialog dyno-dialog-md">
       <div class="card">
-      <div class="card-header d-block">
-        <h3 class="card-title">Selected text</h3>
-        <p class="text-secondary small mb-0 mt-1 dyno-line-clamp" data-selection-preview></p>
+      <div class="card-header is-block">
+        <h3 class="dyno-card-title">Selected text</h3>
+        <p class="has-text-grey is-size-7 mb-0 mt-1 dyno-line-clamp" data-selection-preview></p>
       </div>
-      <div class="card-footer d-flex flex-wrap justify-content-end gap-2">
-        <button type="button" data-selection-cancel class="btn btn-ghost-secondary">Cancel</button>
-        <button type="button" data-selection-copy class="btn btn-outline-primary">Copy to clipboard</button>
-        <button type="button" data-selection-highlight class="btn btn-warning">Highlight</button>
-        <button type="button" data-selection-comment class="btn btn-primary">Comment</button>
+      <div class="card-footer is-flex is-flex-wrap-wrap is-justify-content-flex-end dyno-gap">
+        <button type="button" data-selection-cancel class="button is-ghost">Cancel</button>
+        <button type="button" data-selection-copy class="button is-link is-outlined">Copy to clipboard</button>
+        <button type="button" data-selection-highlight class="button is-warning">Highlight</button>
+        <button type="button" data-selection-comment class="button is-link">Comment</button>
       </div>
       </div>
     </dialog>
 
     <dialog data-delete-dialog class="dyno-dialog dyno-dialog-sm">
       <div class="card">
-      <div class="card-header d-block">
-        <h3 class="card-title">Delete annotation?</h3>
-        <p class="text-secondary small mb-0 mt-1">This removes the annotation from the page. Its audit event remains in JSONL.</p>
+      <div class="card-header is-block">
+        <h3 class="dyno-card-title">Delete annotation?</h3>
+        <p class="has-text-grey is-size-7 mb-0 mt-1">This removes the annotation from the page. Its audit event remains in JSONL.</p>
       </div>
-      <div class="card-footer justify-content-end btn-list">
-        <button type="button" data-delete-cancel class="btn btn-ghost-secondary">Cancel</button>
-        <button type="button" data-delete-confirm class="btn btn-danger">Delete</button>
+      <div class="card-footer is-justify-content-flex-end buttons">
+        <button type="button" data-delete-cancel class="button is-ghost">Cancel</button>
+        <button type="button" data-delete-confirm class="button is-danger">Delete</button>
       </div>
       </div>
     </dialog>
@@ -210,28 +210,28 @@
       <input type="hidden" name="parent_id" data-comment-parent-id>
       <input type="hidden" name="anchor" data-comment-anchor>
       <input type="hidden" name="quote" data-comment-quote>
-      <div class="card-header"><h3 class="card-title">Add comment</h3><button type="button" data-comment-editor-cancel class="btn-close ms-auto" aria-label="Close"></button></div>
-      <div class="alert alert-info mx-3 mt-3 mb-0 dyno-inline-notice" data-comment-reply hidden>
+      <div class="card-header"><h3 class="dyno-card-title">Add comment</h3><button type="button" data-comment-editor-cancel class="delete ml-auto" aria-label="Close"></button></div>
+      <div class="notification is-info is-light mx-3 mt-3 mb-0 dyno-inline-notice" data-comment-reply hidden>
         <span data-comment-reply-text></span>
-        <button type="button" class="btn-close" data-comment-clear-reply aria-label="Clear reply"></button>
+        <button type="button" class="delete" data-comment-clear-reply aria-label="Clear reply"></button>
       </div>
-      <div class="alert alert-secondary mx-3 mt-3 mb-0 dyno-inline-notice" data-comment-selection hidden>
+      <div class="notification is-light mx-3 mt-3 mb-0 dyno-inline-notice" data-comment-selection hidden>
         <span data-comment-selection-text></span>
-        <button type="button" class="btn-close" data-comment-clear-selection aria-label="Clear selection"></button>
+        <button type="button" class="delete" data-comment-clear-selection aria-label="Clear selection"></button>
       </div>
-      <div class="card-body">
-      <label class="form-label">
-        <span class="visually-hidden">Comment</span>
-        <textarea class="form-control dyno-comment-editor" name="body" rows="3" required data-comment-editor placeholder="Add a note here... Markdown is supported."></textarea>
+      <div class="card-content">
+      <label class="label">
+        <span class="is-sr-only">Comment</span>
+        <textarea class="textarea dyno-comment-editor" name="body" rows="3" required data-comment-editor placeholder="Add a note here... Markdown is supported."></textarea>
       </label>
-      <label class="form-label mt-3">
-        <span class="form-label">Author</span>
-        <input class="form-control" type="text" name="author" autocomplete="name" placeholder="Anonymous">
+      <label class="label mt-3">
+        <span class="label">Author</span>
+        <input class="input" type="text" name="author" autocomplete="name" placeholder="Anonymous">
       </label>
       </div>
-      <div class="card-footer justify-content-end btn-list">
-        <button type="button" data-comment-editor-cancel class="btn btn-ghost-secondary">Cancel</button>
-        <button type="submit" class="btn btn-primary" aria-label="Add comment">
+      <div class="card-footer is-justify-content-flex-end buttons">
+        <button type="button" data-comment-editor-cancel class="button is-ghost">Cancel</button>
+        <button type="submit" class="button is-link" aria-label="Add comment">
           <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" d="M22 2L11 13"/>
             <path stroke-linecap="round" stroke-linejoin="round" d="M22 2l-7 20-4-9-9-4 20-7z"/>
@@ -248,7 +248,7 @@
   {{ if .EditURL }}
   <div class="dyno-edit-link-wrap">
     <a href="{{ .EditURL }}" target="_blank" rel="noopener"
-       class="btn btn-sm btn-ghost-secondary">
+       class="button is-small is-ghost">
       <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
       </svg>
@@ -287,7 +287,7 @@
        hx-get="{{ .Prev.FullPath }}{{ .FilterQuery }}"
        hx-target="#page-content"
        hx-push-url="true"
-       class="card card-link dyno-page-navigation-card">
+       class="card dyno-card-link dyno-page-navigation-card">
       <span class="dyno-page-navigation-direction">
         <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         Previous
@@ -301,7 +301,7 @@
        hx-get="{{ .Next.FullPath }}{{ .FilterQuery }}"
        hx-target="#page-content"
        hx-push-url="true"
-       class="card card-link dyno-page-navigation-card dyno-page-navigation-next">
+       class="card dyno-card-link dyno-page-navigation-card dyno-page-navigation-next">
       <span class="dyno-page-navigation-direction">
         Next
         <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
@@ -323,7 +323,7 @@
           <strong>{{ .Comment.Author }}</strong>
           <time datetime="{{ .Comment.CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}">{{ .Comment.CreatedAt.Format "2006-01-02 15:04" }}</time>
           {{ if .Comment.Anchor }}<a href="#{{ .Comment.Anchor }}">#{{ .Comment.Anchor }}</a>{{ end }}
-          {{ if .Comment.ParentID }}<span class="badge bg-secondary-lt">RE</span>{{ end }}
+          {{ if .Comment.ParentID }}<span class="tag is-light">RE</span>{{ end }}
         </div>
         {{ if .Comment.Quote }}
         <blockquote class="dyno-comment-quote">{{ .Comment.Quote }}</blockquote>
@@ -332,9 +332,9 @@
           {{ .BodyHTML }}
         </div>
       </div>
-      <div class="btn-list flex-nowrap dyno-comment-actions">
+      <div class="buttons is-flex-wrap-nowrap dyno-comment-actions">
       <button type="button"
-              class="btn btn-sm btn-ghost-primary"
+              class="button is-small is-ghost"
               data-comment-reply-to="{{ .Comment.ID }}"
               data-comment-reply-author="{{ .Comment.Author }}"
               aria-label="Reply">
@@ -345,8 +345,8 @@
         Reply
       </button>
       {{ if $.Management }}
-      <button type="button" data-annotation-edit="{{ .Comment.ID }}" data-annotation-kind="comment" data-annotation-body="{{ .Comment.Body }}" data-annotation-author="{{ .Comment.Author }}" class="btn btn-sm btn-ghost-secondary">Edit</button>
-      <button type="button" data-annotation-delete="{{ .Comment.ID }}" class="btn btn-sm btn-ghost-danger">Delete</button>
+      <button type="button" data-annotation-edit="{{ .Comment.ID }}" data-annotation-kind="comment" data-annotation-body="{{ .Comment.Body }}" data-annotation-author="{{ .Comment.Author }}" class="button is-small is-ghost">Edit</button>
+      <button type="button" data-annotation-delete="{{ .Comment.ID }}" class="button is-small is-danger is-light">Delete</button>
       {{ end }}
       </div>
     </div>
@@ -362,11 +362,11 @@
 {{ define "toc-sidebar-inner" }}
   {{ if .TOC }}
   <div class="toc-scroll">
-    <p class="subheader dyno-toc-heading">On this page</p>
-    <ul class="nav nav-pills dyno-toc-list">
+    <p class="dyno-eyebrow dyno-toc-heading">On this page</p>
+    <ul class="menu-list dyno-toc-list">
       {{ range .TOC }}
-      <li class="nav-item {{ if eq .Level 3 }}dyno-toc-level-3{{ end }}">
-        <a href="#{{ .ID }}" class="nav-link toc-link"><span class="dyno-toc-marker" aria-hidden="true">|</span>{{ .Text }}</a>
+      <li class="{{ if eq .Level 3 }}dyno-toc-level-3{{ end }}">
+        <a href="#{{ .ID }}" class="dyno-nav-link toc-link"><span class="dyno-toc-marker" aria-hidden="true">|</span>{{ .Text }}</a>
       </li>
       {{ end }}
     </ul>
@@ -388,7 +388,7 @@
      hx-get="{{ .EgoGraphURL }}"
      hx-target="#page-content"
      hx-push-url="true"
-     class="btn btn-icon btn-ghost-secondary"
+     class="button dyno-icon-button is-ghost"
      aria-label="Page dependency graph">
     <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
       <circle cx="5" cy="12" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="19" cy="19" r="2"/>
@@ -408,7 +408,7 @@
 <span id="git-compare-btn" hx-swap-oob="outerHTML" class="dyno-contents">
   {{ if .GitCompareURL }}
   <a href="{{ .GitCompareURL }}"
-     class="btn btn-icon btn-ghost-secondary"
+     class="button dyno-icon-button is-ghost"
      aria-label="Compare versions" title="Compare versions">
     <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h11l-3-3m3 3l-3 3M16 17H5l3 3m-3-3l3-3"/>
@@ -420,7 +420,7 @@
 <span id="edit-page-btn" hx-swap-oob="outerHTML" class="dyno-contents">
   {{ if .EditPageURL }}
   <a href="{{ .EditPageURL }}"
-     class="btn btn-icon btn-ghost-secondary"
+     class="button dyno-icon-button is-ghost"
      aria-label="Edit page" title="Edit page">
     <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/>
@@ -432,7 +432,7 @@
   {{ if .FrontmatterEditURL }}
   <button type="button"
      data-frontmatter-open
-     class="btn btn-icon btn-ghost-secondary"
+     class="button dyno-icon-button is-ghost"
      aria-label="Edit frontmatter" title="Edit frontmatter">
     <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h10"/>

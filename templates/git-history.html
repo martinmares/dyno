@@ -4,10 +4,10 @@
   <p class="dyno-history-summary">Latest {{ len .Commits }} commits</p>
 
   {{ if not .Commits }}
-  <p class="text-secondary">Git history is not available for this page.</p>
+  <p class="has-text-grey">Git history is not available for this page.</p>
   {{ else }}
-  <div class="table-responsive">
-    <table class="table table-vcenter dyno-history-table">
+  <div class="table-container">
+    <table class="table dyno-table-vcenter dyno-history-table">
       <thead>
         <tr>
           <th>Datum</th>

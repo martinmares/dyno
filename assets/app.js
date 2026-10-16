@@ -6,7 +6,7 @@
 
   function applyTheme(dark) {
     html.classList.toggle('dark', dark);
-    html.setAttribute('data-bs-theme', dark ? 'dark' : 'light');
+    html.setAttribute('data-theme', dark ? 'dark' : 'light');
     const sun = document.getElementById('icon-sun');
     const moon = document.getElementById('icon-moon');
     if (sun) sun.classList.toggle('hidden', !dark);
@@ -162,7 +162,7 @@ document.addEventListener('DOMContentLoaded', function () {
   if (!sidebar) return;
   // Delegation survives HTMX out-of-band replacements of the sidebar content.
   sidebar.addEventListener('click', function (event) {
-    if (event.target.closest('.nav-link') && window.innerWidth < 1024) closeSidebar();
+    if (event.target.closest('.dyno-nav-link') && window.innerWidth < 1024) closeSidebar();
   });
 });
 
@@ -205,7 +205,7 @@ function initNavTree() {
   if (!sidebar) return;
   const collapsed = readCollapsedNavPaths(sidebar);
   sidebar.querySelectorAll('[data-nav-section]').forEach(function (section) {
-    const containsActivePage = !!section.querySelector('.nav-link[data-active="true"]');
+    const containsActivePage = !!section.querySelector('.dyno-nav-link[data-active="true"]');
     setNavSectionExpanded(section, containsActivePage || !collapsed.has(section.dataset.navPath));
   });
 }
@@ -264,12 +264,12 @@ function initMermaid() {
     border: '#0D32B2', text: '#0A0F25', muted: '#676C7E',
     pie: ['#E3E9FD', '#DCE9E2', '#F4E5CB', '#EBDFF3', '#D9EAF1', '#F1DDE2'],
   };
-  const background = dynoThemeColor('--tblr-body-bg');
+  const background = dynoThemeColor('--dyno-page-bg');
 
   const themeVariables = {
     darkMode: dark,
     background,
-    fontFamily: dynoThemeColor('--tblr-font-sans-serif'),
+    fontFamily: dynoThemeColor('--dyno-font-sans'),
     primaryColor: colors.fill,
     secondaryColor: colors.secondary,
     tertiaryColor: colors.tertiary,
@@ -1115,10 +1115,10 @@ function appendSavedHighlight(root, highlight) {
   const quote = document.createElement('p');
   quote.className = 'dyno-highlight-quote';
   quote.textContent = highlight.quote; quote.title = highlight.quote;
-  const actions = document.createElement('div'); actions.className = 'btn-list flex-nowrap';
-  actions.innerHTML = '<button type="button" data-highlight-go="' + highlight.id + '" class="btn btn-sm btn-ghost-primary">Go to</button>';
+  const actions = document.createElement('div'); actions.className = 'buttons is-flex-wrap-nowrap';
+  actions.innerHTML = '<button type="button" data-highlight-go="' + highlight.id + '" class="button is-small is-ghost">Go to</button>';
   if (root.dataset.commentsManagement === 'true') {
-    actions.innerHTML += '<button type="button" data-annotation-delete="' + highlight.id + '" class="btn btn-sm btn-ghost-danger">Delete</button>';
+    actions.innerHTML += '<button type="button" data-annotation-delete="' + highlight.id + '" class="button is-small is-danger is-light">Delete</button>';
   }
   row.append(quote, actions); list.appendChild(row);
   const count = root.querySelector('[data-highlights-count]');
@@ -1161,13 +1161,13 @@ function initBulkFrontmatterEditor() {
     function setStatus(message, kind) {
       if (!status) return;
       status.textContent = message || '';
-      status.className = 'small mb-0 mt-1';
+      status.className = 'is-size-7 mb-0 mt-1';
       if (kind === 'error') {
-        status.classList.add('text-danger');
+        status.classList.add('has-text-danger');
       } else if (kind === 'success') {
-        status.classList.add('text-success');
+        status.classList.add('has-text-success');
       } else {
-        status.classList.add('text-secondary');
+        status.classList.add('has-text-grey');
       }
     }
 
@@ -1313,13 +1313,13 @@ function initFrontmatterEditor() {
     function setStatus(message, kind) {
       if (!status) return;
       status.textContent = message || '';
-      status.className = 'small mb-0 mt-1';
+      status.className = 'is-size-7 mb-0 mt-1';
       if (kind === 'error') {
-        status.classList.add('text-danger');
+        status.classList.add('has-text-danger');
       } else if (kind === 'success') {
-        status.classList.add('text-success');
+        status.classList.add('has-text-success');
       } else {
-        status.classList.add('text-secondary');
+        status.classList.add('has-text-grey');
       }
     }
 
@@ -2154,11 +2154,11 @@ function initSiteGraph(container) {
     container._dynoGraphTooltip = null;
   }
 
-  var bg = dynoThemeColor('--tblr-body-bg');
-  var nodeFill = dynoThemeColor('--tblr-primary-bg-subtle');
-  var nodeStroke = dynoThemeColor('--tblr-primary');
-  var nodeText = dynoThemeColor('--tblr-primary-text-emphasis');
-  var edgeColor = dynoThemeColor('--tblr-border-color');
+  var bg = dynoThemeColor('--dyno-page-bg');
+  var nodeFill = dynoThemeColor('--dyno-primary-bg');
+  var nodeStroke = dynoThemeColor('--dyno-primary');
+  var nodeText = dynoThemeColor('--dyno-primary-text');
+  var edgeColor = dynoThemeColor('--dyno-border');
 
   container.innerHTML = '<canvas id="site-graph-canvas" class="site-graph-canvas"></canvas>';
   var canvas = document.getElementById('site-graph-canvas');
@@ -2321,7 +2321,7 @@ function initSiteGraph(container) {
     });
     canvas.addEventListener('mouseleave', function() { tooltip.style.display = 'none'; });
   }).catch(function() {
-    ctx.fillStyle = dynoThemeColor('--tblr-danger');
+    ctx.fillStyle = dynoThemeColor('--dyno-danger');
     ctx.font = '14px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('Failed to load graph data.', W/2, H/2);

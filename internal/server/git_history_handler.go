@@ -82,7 +82,7 @@ func renderGitHistoryHTML(commits []GitCommit) string {
 	fmt.Fprintf(&b, `<h1>Git history</h1>`)
 	fmt.Fprintf(&b, `<p class="dyno-history-summary">Latest %d commits</p>`, len(commits))
 	b.WriteString(`<div class="dyno-history-table-wrap">`)
-	b.WriteString(`<table class="table table-vcenter dyno-history-table">`)
+	b.WriteString(`<table class="table dyno-table-vcenter dyno-history-table">`)
 	b.WriteString(`<thead><tr>`)
 	b.WriteString(`<th>Date</th>`)
 	b.WriteString(`<th>Commit</th>`)

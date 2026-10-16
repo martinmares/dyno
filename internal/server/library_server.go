@@ -309,31 +309,29 @@ func (ls *LibraryServer) dashboardHandler(w http.ResponseWriter, r *http.Request
 
 	// Reuse asset URLs from any book server.
 	appJSURL, appCSSURL := "/assets/app.js", "/assets/app.css"
-	tablerCSSURL, tablerJSURL, htmxURL, mermaidURL := "/assets/tabler.min.css", "/assets/tabler.min.js", "/assets/htmx.min.js", "/assets/mermaid.min.js"
+	bulmaCSSURL, htmxURL, mermaidURL := "/assets/bulma.min.css", "/assets/htmx.min.js", "/assets/mermaid.min.js"
 	for _, srv := range ls.servers {
 		appJSURL = srv.assetURL("app.js")
 		appCSSURL = srv.assetURL("app.css")
-		tablerCSSURL = srv.assetURL("tabler.min.css")
-		tablerJSURL = srv.assetURL("tabler.min.js")
+		bulmaCSSURL = srv.assetURL("bulma.min.css")
 		htmxURL = srv.assetURL("htmx.min.js")
 		mermaidURL = srv.assetURL("mermaid.min.js")
 		break
 	}
 
 	data := LibraryData{
-		Title:        ls.title,
-		LogoText:     ls.logoText,
-		Subtitle:     ls.subtitle,
-		Books:        cards,
-		BasePath:     ls.basePath,
-		SearchURL:    strings.TrimRight(ls.basePath, "/") + "/_search" + filterQuery,
-		AppJSURL:     appJSURL,
-		AppCSSURL:    appCSSURL,
-		TablerCSSURL: tablerCSSURL,
-		TablerJSURL:  tablerJSURL,
-		HTMXURL:      htmxURL,
-		MermaidURL:   mermaidURL,
-		IsHTMX:       r.Header.Get("HX-Request") == "true",
+		Title:       ls.title,
+		LogoText:    ls.logoText,
+		Subtitle:    ls.subtitle,
+		Books:       cards,
+		BasePath:    ls.basePath,
+		SearchURL:   strings.TrimRight(ls.basePath, "/") + "/_search" + filterQuery,
+		AppJSURL:    appJSURL,
+		AppCSSURL:   appCSSURL,
+		BulmaCSSURL: bulmaCSSURL,
+		HTMXURL:     htmxURL,
+		MermaidURL:  mermaidURL,
+		IsHTMX:      r.Header.Get("HX-Request") == "true",
 		// The library dashboard is an orientation page, not a faceted search
 		// form. Book-level catalogues can opt into focused metadata filters.
 		MetadataFacets: nil,
@@ -371,29 +369,26 @@ func (ls *LibraryServer) searchHandler(w http.ResponseWriter, r *http.Request) {
 	// Build asset URLs
 	appJSURL := "/assets/app.js"
 	appCSSURL := "/assets/app.css"
-	tablerCSSURL := "/assets/tabler.min.css"
-	tablerJSURL := "/assets/tabler.min.js"
+	bulmaCSSURL := "/assets/bulma.min.css"
 	for _, srv := range ls.servers {
 		appJSURL = srv.assetURL("app.js")
 		appCSSURL = srv.assetURL("app.css")
-		tablerCSSURL = srv.assetURL("tabler.min.css")
-		tablerJSURL = srv.assetURL("tabler.min.js")
+		bulmaCSSURL = srv.assetURL("bulma.min.css")
 		break
 	}
 
 	data := SearchData{
-		Query:        q,
-		Results:      results,
-		IsHTMX:       r.Header.Get("HX-Request") == "true",
-		Title:        "Search",
-		BasePath:     ls.basePath,
-		SearchURL:    strings.TrimRight(ls.basePath, "/") + "/_search" + metadata.Encode(filter),
-		AppJSURL:     appJSURL,
-		AppCSSURL:    appCSSURL,
-		TablerCSSURL: tablerCSSURL,
-		TablerJSURL:  tablerJSURL,
-		FilterQuery:  metadata.Encode(filter),
-		ResultQuery:  "?" + resultValues.Encode(),
+		Query:       q,
+		Results:     results,
+		IsHTMX:      r.Header.Get("HX-Request") == "true",
+		Title:       "Search",
+		BasePath:    ls.basePath,
+		SearchURL:   strings.TrimRight(ls.basePath, "/") + "/_search" + metadata.Encode(filter),
+		AppJSURL:    appJSURL,
+		AppCSSURL:   appCSSURL,
+		BulmaCSSURL: bulmaCSSURL,
+		FilterQuery: metadata.Encode(filter),
+		ResultQuery: "?" + resultValues.Encode(),
 	}
 
 	tmpl, err := ls.getTemplate()

@@ -93,13 +93,13 @@ func renderTableWidget(tableHTML string, options TableOptions) string {
 		out.WriteString(`<div class="dyno-table-toolbar">`)
 		out.WriteString(`<label class="dyno-table-filter-control">`)
 		out.WriteString(`<svg class="dyno-table-filter-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z"/></svg>`)
-		out.WriteString(`<input type="search" class="form-control form-control-sm dyno-table-filter" placeholder="Filter table" aria-label="Filter table" autocomplete="off">`)
+		out.WriteString(`<input type="search" class="input is-small dyno-table-filter" placeholder="Filter table" aria-label="Filter table" autocomplete="off">`)
 		out.WriteString(`</label>`)
 		out.WriteString(`<span class="dyno-table-status" aria-live="polite"></span>`)
 		out.WriteString(`</div>`)
 	}
 
-	out.WriteString(`<div class="table-responsive dyno-table-responsive">`)
+	out.WriteString(`<div class="table-container dyno-table-responsive">`)
 	out.WriteString(tableHTML)
 	out.WriteString(`</div>`)
 	if options.Filter {

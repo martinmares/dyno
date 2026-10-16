@@ -3,15 +3,15 @@
   <div class="card dyno-bulk-card">
     <div class="card-header dyno-bulk-header">
       <div>
-        <h3 class="card-title">{{ .Title }}</h3>
-        <p class="text-secondary">Editing {{ .Count }} document(s) in the current metadata filter.</p>
+        <h3 class="dyno-card-title">{{ .Title }}</h3>
+        <p class="has-text-grey">Editing {{ .Count }} document(s) in the current metadata filter.</p>
       </div>
-      <button type="button" data-bulk-frontmatter-close class="btn-close" aria-label="Close"></button>
+      <button type="button" data-bulk-frontmatter-close class="delete" aria-label="Close"></button>
     </div>
 
-    <div class="card-body dyno-bulk-scroll">
-      <div class="table-responsive">
-        <table class="table table-vcenter dyno-bulk-table">
+    <div class="card-content dyno-bulk-scroll">
+      <div class="table-container">
+        <table class="table dyno-table-vcenter dyno-bulk-table">
           <thead>
             <tr>
               <th class="dyno-bulk-document-column">Document</th>
@@ -32,20 +32,20 @@
               <td class="{{ if eq $col.InputType "number" }}dyno-bulk-number-cell{{ else }}dyno-bulk-value-cell{{ end }}">
                 {{ $value := index $row.Values $i }}
                 {{ if eq $col.InputType "datetime-local" }}
-                <input type="datetime-local" value="{{ $value }}" data-bulk-frontmatter-input data-field-name="{{ $col.Name }}" data-default-value="{{ $col.Default }}" class="form-control form-control-sm dyno-bulk-input">
+                <input type="datetime-local" value="{{ $value }}" data-bulk-frontmatter-input data-field-name="{{ $col.Name }}" data-default-value="{{ $col.Default }}" class="input is-small dyno-bulk-input">
                 {{ else if eq $col.InputType "date" }}
-                <input type="date" value="{{ $value }}" data-bulk-frontmatter-input data-field-name="{{ $col.Name }}" data-default-value="{{ $col.Default }}" class="form-control form-control-sm dyno-bulk-input">
+                <input type="date" value="{{ $value }}" data-bulk-frontmatter-input data-field-name="{{ $col.Name }}" data-default-value="{{ $col.Default }}" class="input is-small dyno-bulk-input">
                 {{ else if eq $col.Type "select" }}
-                <select data-bulk-frontmatter-input data-field-name="{{ $col.Name }}" data-default-value="{{ $col.Default }}" class="form-select form-select-sm dyno-bulk-input">
+                <span class="select dyno-select is-small"><select data-bulk-frontmatter-input data-field-name="{{ $col.Name }}" data-default-value="{{ $col.Default }}" class="dyno-select-input dyno-bulk-input">
                   <option value=""></option>
                   {{ range $col.Options }}
                   <option value="{{ .Value }}" {{ if eq .Value $value }}selected{{ end }}>{{ .Value }}</option>
                   {{ end }}
-                </select>
+                </select></span>
                 {{ else if eq $col.InputType "number" }}
-                <input type="number" value="{{ $value }}" data-bulk-frontmatter-input data-field-name="{{ $col.Name }}" data-default-value="{{ $col.Default }}" class="form-control form-control-sm dyno-bulk-input">
+                <input type="number" value="{{ $value }}" data-bulk-frontmatter-input data-field-name="{{ $col.Name }}" data-default-value="{{ $col.Default }}" class="input is-small dyno-bulk-input">
                 {{ else }}
-                <textarea rows="2" data-bulk-frontmatter-input data-field-name="{{ $col.Name }}" data-default-value="{{ $col.Default }}" class="form-control form-control-sm dyno-bulk-input">{{ $value }}</textarea>
+                <textarea rows="2" data-bulk-frontmatter-input data-field-name="{{ $col.Name }}" data-default-value="{{ $col.Default }}" class="textarea is-small dyno-bulk-textarea">{{ $value }}</textarea>
                 {{ end }}
               </td>
               {{ end }}
@@ -55,18 +55,18 @@
         </table>
       </div>
       {{ if not .Rows }}
-      <div class="alert alert-secondary">No documents match the current filter.</div>
+      <div class="notification is-light">No documents match the current filter.</div>
       {{ end }}
     </div>
 
     <div class="card-footer dyno-dialog-footer">
       <div class="dyno-bulk-footer-status">
-        <button type="button" data-bulk-frontmatter-fill class="btn btn-outline-secondary">Fill defaults</button>
-        <p data-bulk-frontmatter-status class="text-secondary"></p>
+        <button type="button" data-bulk-frontmatter-fill class="button">Fill defaults</button>
+        <p data-bulk-frontmatter-status class="has-text-grey"></p>
       </div>
       <div class="dyno-bulk-footer-actions">
-        <button type="button" data-bulk-frontmatter-close class="btn btn-ghost-secondary">Cancel</button>
-        <button type="button" data-bulk-frontmatter-save class="btn btn-primary">Save all</button>
+        <button type="button" data-bulk-frontmatter-close class="button is-ghost">Cancel</button>
+        <button type="button" data-bulk-frontmatter-save class="button is-link">Save all</button>
       </div>
     </div>
   </div>
