@@ -195,6 +195,13 @@ html.dark .d2-dark  { display: inline-flex; justify-content: center; }
   height: auto;
 }
 
+/* Bulma's .label uses rem units. Mermaid labels must inherit the SVG font
+   used during layout, not grow independently when the page text is zoomed. */
+.mermaid .label {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
 /* Keep generated SVG diagrams flat, including renderer-supplied filters. */
 .mermaid svg, .mermaid svg *,
 .d2-diagram svg, .d2-diagram svg * {
