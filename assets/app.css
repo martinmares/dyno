@@ -104,6 +104,14 @@ html {
 .button:not(:focus-visible) { box-shadow: none; }
 .button.is-link:not(.is-outlined):not(.is-light) { color: var(--dyno-primary-fg); background: var(--dyno-primary); border-color: transparent; }
 .button.is-link:not(.is-outlined):not(.is-light):hover { background: var(--dyno-primary-hover); }
+[data-theme="dark"] .button.is-danger.is-light {
+  color: var(--dyno-danger-text);
+  background: var(--dyno-danger-bg);
+  border-color: var(--dyno-danger-border);
+}
+[data-theme="dark"] .button.is-danger.is-light:not(:disabled):hover {
+  background: color-mix(in srgb, var(--dyno-danger) 18%, var(--dyno-surface));
+}
 .button.is-ghost { color: var(--dyno-muted); text-decoration: none; }
 .button.is-ghost:hover { color: var(--dyno-primary); background: var(--dyno-primary-bg); text-decoration: none; }
 .button svg { width: 1.1em; height: 1.1em; flex: none; }
