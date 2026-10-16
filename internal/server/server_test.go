@@ -702,6 +702,38 @@ func TestBulmaUIAssetsAndTemplates(t *testing.T) {
 	}
 }
 
+func TestDocumentShellKeepsFooterOutsideHTMXTarget(t *testing.T) {
+	srv := newTestServer(t)
+	for _, partial := range []bool{false, true} {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		if partial {
+			req.Header.Set("HX-Request", "true")
+		}
+		rec := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("status = %d", rec.Code)
+		}
+		body := rec.Body.String()
+		document := strings.Index(body, `class="dyno-document"`)
+		footer := strings.Index(body, `<footer class="dyno-screen-only dyno-footer">`)
+		if partial {
+			if document >= 0 || footer >= 0 {
+				t.Fatal("HTMX navigation must replace content, not the document shell")
+			}
+			continue
+		}
+		page := strings.Index(body, `id="page-content"`)
+		mainEnd := strings.Index(body, "</main>")
+		if document < 0 || page <= document || footer <= page || mainEnd <= footer {
+			t.Fatal("document content and footer must share the main document surface")
+		}
+		if !strings.Contains(body[page:footer], "</div>") {
+			t.Fatal("footer must remain outside the HTMX content target")
+		}
+	}
+}
+
 func TestSidebarCollapseControlsOnDocumentsAndSearch(t *testing.T) {
 	srv := newTestServer(t)
 	for _, target := range []string{"/", "/_search?q=dyno"} {

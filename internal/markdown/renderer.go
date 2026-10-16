@@ -25,6 +25,7 @@ import (
 	"oss.terrastruct.com/d2/d2layouts/d2dagrelayout"
 	"oss.terrastruct.com/d2/d2lib"
 	"oss.terrastruct.com/d2/d2renderers/d2svg"
+	"oss.terrastruct.com/d2/d2target"
 	d2log "oss.terrastruct.com/d2/lib/log"
 	"oss.terrastruct.com/d2/lib/textmeasure"
 	"oss.terrastruct.com/util-go/go2"
@@ -416,6 +417,19 @@ func renderD2(src string) (string, error) {
 
 	renderSingle := func(themeID int64) (string, error) {
 		opts := &d2svg.RenderOpts{ThemeID: &themeID, Pad: &pad}
+		if themeID == 200 {
+			// Keep D2's dark layout defaults, but replace the mauve palette.
+			opts.ThemeOverrides = &d2target.ThemeOverrides{
+				N1: go2.Pointer("#E2EAF5"), N2: go2.Pointer("#A7B9D1"),
+				N3: go2.Pointer("#95AAC5"), N4: go2.Pointer("#496181"),
+				N5: go2.Pointer("#334661"), N6: go2.Pointer("#263750"), N7: go2.Pointer("#1B273B"),
+				B1: go2.Pointer("#8ABAFF"), B2: go2.Pointer("#8ABAFF"),
+				B3: go2.Pointer("#5D7BA1"), B4: go2.Pointer("#496181"),
+				B5: go2.Pointer("#334661"), B6: go2.Pointer("#263750"),
+				AA2: go2.Pointer("#F08E8E"), AA4: go2.Pointer("#334661"), AA5: go2.Pointer("#263750"),
+				AB4: go2.Pointer("#334661"), AB5: go2.Pointer("#263750"),
+			}
+		}
 		diagram, _, err := d2lib.Compile(ctx, src, compileOpts, opts)
 		if err != nil {
 			return "", err
@@ -428,7 +442,7 @@ func renderD2(src string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("d2 light render: %w", err)
 	}
-	darkSVG, err := renderSingle(200) // Dark Mauve
+	darkSVG, err := renderSingle(200) // Blue dark palette
 	if err != nil {
 		return "", fmt.Errorf("d2 dark render: %w", err)
 	}

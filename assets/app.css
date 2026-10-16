@@ -15,23 +15,23 @@ html {
   --dyno-font-sans: var(--bulma-family-primary);
   --dyno-font-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
   --dyno-page-bg: #fff;
-  --dyno-text: #253040;
+  --dyno-text: #28384d;
   --dyno-heading: var(--dyno-text);
-  --dyno-muted: #64748b;
-  --dyno-subtle: #788394;
-  --dyno-border: #e5e9ef;
+  --dyno-muted: #5d708b;
+  --dyno-subtle: #6b7e97;
+  --dyno-border: #dce4ef;
   --dyno-border-soft: color-mix(in srgb, var(--dyno-border) 65%, transparent);
   --dyno-border-width: 1px;
   --dyno-radius: 5px;
   --dyno-radius-sm: 3px;
   --dyno-radius-lg: 6px;
   --dyno-surface: var(--dyno-page-bg);
-  --dyno-surface-secondary: #f7f8fa;
-  --dyno-surface-tertiary: #f3f5f8;
-  --dyno-primary: #286cd5;
-  --dyno-primary-rgb: 40, 108, 213;
+  --dyno-surface-secondary: #f3f7fc;
+  --dyno-surface-tertiary: #eaf1fa;
+  --dyno-primary: #2866bd;
+  --dyno-primary-rgb: 40, 102, 189;
   --dyno-primary-fg: #fff;
-  --dyno-primary-hover: #1c55ac;
+  --dyno-primary-hover: #1c4f99;
   --dyno-primary-bg: color-mix(in srgb, var(--dyno-primary) 10%, var(--dyno-surface));
   --dyno-primary-border: color-mix(in srgb, var(--dyno-primary) 30%, var(--dyno-border));
   --dyno-primary-text: var(--dyno-primary);
@@ -56,8 +56,8 @@ html {
   --dyno-danger-border: color-mix(in srgb, var(--dyno-danger) 30%, var(--dyno-border));
   --dyno-danger-text: var(--dyno-danger);
   --dyno-important-bg: color-mix(in srgb, var(--dyno-important) 10%, var(--dyno-surface));
-  --dyno-shadow: 0 2px 8px #1020300a;
-  --dyno-shadow-lg: 0 12px 40px #10203020;
+  --dyno-shadow: none;
+  --dyno-shadow-lg: none;
   --dyno-code-bg: var(--dyno-surface-secondary);
   --dyno-code-surface: var(--dyno-surface-tertiary);
   --dyno-code-border: var(--dyno-border);
@@ -66,16 +66,17 @@ html {
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --dyno-page-bg: #161d28;
-  --dyno-text: #dce3ed;
-  --dyno-muted: #a2aec0;
-  --dyno-subtle: #8c9aaf;
-  --dyno-border: #2b3545;
-  --dyno-surface-secondary: #121923;
-  --dyno-surface-tertiary: #1d2634;
-  --dyno-primary: #80afff;
-  --dyno-primary-rgb: 128, 175, 255;
-  --dyno-primary-hover: #adcaff;
+  --dyno-page-bg: #1b273b;
+  --dyno-text: #e2eaf5;
+  --dyno-muted: #a7b9d1;
+  --dyno-subtle: #95aac5;
+  --dyno-border: #334661;
+  --dyno-surface-secondary: #162135;
+  --dyno-surface-tertiary: #263750;
+  --dyno-primary: #8abaff;
+  --dyno-primary-rgb: 138, 186, 255;
+  --dyno-primary-fg: #142540;
+  --dyno-primary-hover: #b0d0ff;
   --dyno-success: #76c69d;
   --dyno-success-rgb: 118, 198, 157;
   --dyno-warning: #d8ae6d;
@@ -83,12 +84,15 @@ html {
   --dyno-danger: #f08e8e;
   --dyno-danger-rgb: 240, 142, 142;
   --dyno-important: #ba9bf7;
-  --dyno-shadow-lg: 0 12px 40px #0005;
+  --dyno-shadow-lg: none;
 }
 
 /* Bulma component sizing for a compact documentation application. */
 .button { font-size: 0.875rem; gap: 0.4em; border-radius: var(--dyno-radius); }
 .button.is-small { font-size: 0.75rem; }
+.button:not(:focus-visible) { box-shadow: none; }
+.button.is-link:not(.is-outlined):not(.is-light) { color: var(--dyno-primary-fg); background: var(--dyno-primary); border-color: transparent; }
+.button.is-link:not(.is-outlined):not(.is-light):hover { background: var(--dyno-primary-hover); }
 .button.is-ghost { color: var(--dyno-muted); text-decoration: none; }
 .button.is-ghost:hover { color: var(--dyno-primary); background: var(--dyno-primary-bg); text-decoration: none; }
 .button svg { width: 1.1em; height: 1.1em; flex: none; }
@@ -172,6 +176,12 @@ html.dark .d2-dark  { display: inline-flex; justify-content: center; }
   height: auto;
 }
 
+/* Keep generated SVG diagrams flat, including renderer-supplied filters. */
+.mermaid svg, .mermaid svg *,
+.d2-diagram svg, .d2-diagram svg * {
+  filter: none !important;
+}
+
 /* Undo any code-block styles that leak onto mermaid <pre> elements */
 pre.mermaid,
 .dyno-prose pre.mermaid {
@@ -246,7 +256,7 @@ pre.mermaid::after,
 .dyno-prose h5,
 .dyno-prose h6 {
   color: var(--dyno-heading, var(--dyno-text));
-  scroll-margin-top: 5rem;
+  scroll-margin-top: 6rem;
 }
 
 .dyno-prose h1 {
@@ -1242,18 +1252,14 @@ pre.chroma:hover .copy-btn {
   max-height: 90vh;
   object-fit: contain;
   border-radius: 0.5rem;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+  box-shadow: none;
   cursor: default;
 }
 
-/* Prose images: subtle rounded style + pointer cursor set via JS */
+/* Prose images: flat surfaces + pointer cursor set via JS */
 .dyno-prose img {
   border-radius: 0.375rem;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
-  transition: box-shadow 0.15s;
-}
-.dyno-prose img:hover {
-  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  box-shadow: none;
 }
 
 /* ── Callouts ────────────────────────────────────────────────────────────────── */
@@ -1785,8 +1791,14 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 /* Bulma shell and document components. */
 :root {
   --dyno-navbar-bg: var(--dyno-surface);
-  --dyno-sidebar-bg: var(--dyno-surface-secondary);
-  --dyno-shell-bg: var(--dyno-page-bg);
+  --dyno-sidebar-bg: var(--dyno-surface);
+  --dyno-shell-bg: #edf2f9;
+  --dyno-shell-gap: 1rem;
+  --dyno-shell-radius: 0.625rem;
+}
+
+[data-theme="dark"] {
+  --dyno-shell-bg: #111c2e;
 }
 
 .dyno-body {
@@ -1795,16 +1807,29 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   color: var(--dyno-text);
 }
 
-.dyno-navbar {
+/* Hide scrolling content behind the floating header, including its outer gaps. */
+.dyno-body::before,
+.dyno-standalone-body::before {
+  content: '';
   position: fixed;
   inset: 0 0 auto;
+  height: calc(3.5rem + var(--dyno-shell-gap));
+  z-index: 45;
+  background: var(--dyno-shell-bg);
+  pointer-events: none;
+}
+
+.dyno-navbar {
+  position: fixed;
+  inset: var(--dyno-shell-gap) var(--dyno-shell-gap) auto;
   z-index: 50;
   display: flex;
   flex-wrap: nowrap;
   height: 3.5rem;
   padding: 0;
   background: var(--dyno-navbar-bg);
-  border-bottom: var(--dyno-border-width) solid var(--dyno-border);
+  border: var(--dyno-border-width) solid var(--dyno-border);
+  border-radius: var(--dyno-shell-radius);
 }
 
 .dyno-navbar-inner {
@@ -2109,8 +2134,8 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   border-right: var(--dyno-border-width) solid var(--dyno-border);
 }
 
-.dyno-body > .footer {
-  margin-left: 16rem;
+.dyno-footer {
+  margin-top: 3rem;
   border-top: var(--dyno-border-width) solid var(--dyno-border);
 }
 
@@ -2122,7 +2147,7 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   justify-content: space-between;
   gap: 1rem;
   margin: 0 auto;
-  padding: 1rem 1.5rem;
+  padding: 1.25rem 0 0;
   color: var(--dyno-muted);
   font-size: 0.75rem;
 }
@@ -2167,15 +2192,16 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 .dyno-shell {
   display: block;
   min-height: 100vh;
-  padding-top: 3.5rem;
+  padding-top: calc(3.5rem + 2 * var(--dyno-shell-gap));
 }
 
 .dyno-main {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  min-height: calc(100vh - 3.5rem);
-  margin-left: 16rem;
+  min-height: calc(100vh - 3.5rem - 3 * var(--dyno-shell-gap));
+  margin-left: calc(16rem + 2 * var(--dyno-shell-gap));
+  padding: 0 var(--dyno-shell-gap) var(--dyno-shell-gap) 0;
 }
 
 .dyno-content-grid {
@@ -2183,15 +2209,25 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   width: 100%;
   max-width: 1280px;
   flex: 1 1 auto;
-  gap: 3rem;
+  gap: 1.5rem;
   justify-content: center;
   margin-inline: auto;
-  padding: 2.25rem 3rem;
+  padding: 0;
+}
+
+.dyno-document {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 870px;
+  flex: 1 1 auto;
+  padding: 2rem 2.5rem;
+  background: var(--dyno-surface);
+  border-radius: var(--dyno-shell-radius);
 }
 
 .dyno-page-content {
   min-width: 0;
-  max-width: 790px;
   flex: 1 1 auto;
 }
 
@@ -2203,15 +2239,16 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   display: flex;
   flex-direction: column;
   position: fixed;
-  top: 3.5rem;
-  bottom: 0;
-  left: 0;
+  top: calc(3.5rem + 2 * var(--dyno-shell-gap));
+  bottom: var(--dyno-shell-gap);
+  left: var(--dyno-shell-gap);
   z-index: 40;
   width: 16rem;
   height: auto;
   overflow: hidden;
   background: var(--dyno-sidebar-bg);
-  border-right: var(--dyno-border-width) solid var(--dyno-border);
+  border: var(--dyno-border-width) solid var(--dyno-border);
+  border-radius: var(--dyno-shell-radius);
 }
 
 .dyno-sidebar-overlay {
@@ -2261,9 +2298,8 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
     transform: rotate(180deg);
   }
 
-  .dyno-sidebar-collapsed .dyno-main,
-  .dyno-sidebar-collapsed .dyno-body > .footer {
-    margin-left: 2rem;
+  .dyno-sidebar-collapsed .dyno-main {
+    margin-left: calc(2rem + 2 * var(--dyno-shell-gap));
   }
 }
 
@@ -2592,13 +2628,15 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   display: none;
   width: 12rem;
   flex: 0 0 12rem;
+  padding: 1.75rem 0.5rem 0 0;
 }
 
 .toc-scroll {
   position: sticky;
-  top: 5rem;
+  top: 6.5rem;
   height: auto;
-  max-height: calc(100vh - 6rem);
+  max-height: calc(100vh - 7.5rem);
+  overflow-y: auto;
 }
 
 .dyno-toc-heading {
@@ -2704,21 +2742,20 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 }
 
 @media (max-width: 1023px) {
-  .dyno-body > .footer {
-    margin-left: 0;
-  }
-
   .dyno-sidebar {
     position: fixed;
-    top: 3.5rem;
+    top: calc(3.5rem + 2 * var(--dyno-shell-gap));
     left: 0;
     z-index: 40;
+    bottom: 0;
+    border-radius: 0;
     transform: translateX(-100%);
     transition: transform 200ms ease;
   }
 
   .dyno-main {
     margin-left: 0;
+    padding-left: var(--dyno-shell-gap);
   }
 
   .dyno-sidebar.is-open {
@@ -2727,7 +2764,7 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 
   .dyno-sidebar-overlay {
     position: fixed;
-    inset: 3.5rem 0 0;
+    inset: 0;
     z-index: 30;
     background: rgba(0, 0, 0, 0.4);
   }
@@ -2738,8 +2775,37 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 }
 
 @media (max-width: 640px) {
-  .dyno-content-grid {
+  .dyno-body::before,
+  .dyno-standalone-body::before {
+    height: 3.5rem;
+  }
+
+  .dyno-sidebar {
+    top: 3.5rem;
+  }
+
+  .dyno-navbar {
+    inset: 0 0 auto;
+    border-radius: 0;
+    border-width: 0 0 1px;
+  }
+
+  .dyno-shell {
+    padding-top: 4.25rem;
+  }
+
+  .dyno-main {
+    padding: 0 0.5rem 0.5rem;
+    min-height: calc(100vh - 4.25rem);
+  }
+
+  .dyno-document {
     padding: 1.5rem 1rem;
+  }
+
+  .dyno-footer-inner {
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
 
   .dyno-page-navigation {
@@ -3188,11 +3254,18 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   margin: 0;
   overflow: hidden;
   color: var(--dyno-text);
-  background: var(--dyno-page-bg);
+  background: var(--dyno-shell-bg);
 }
 
 .dyno-edit-body #editor-root {
-  background: var(--dyno-page-bg);
+  --dyno-edit-content-padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: var(--dyno-shell-bg);
 }
 
 .dyno-edit-toolbar {
@@ -3203,7 +3276,8 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   gap: 0.75rem;
   padding: 0.75rem 1rem;
   background: var(--dyno-surface);
-  border-bottom: var(--dyno-border-width) solid var(--dyno-border);
+  border: var(--dyno-border-width) solid var(--dyno-border);
+  border-radius: var(--dyno-shell-radius);
 }
 
 .dyno-edit-back svg,
@@ -3266,10 +3340,18 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   display: flex;
   min-height: 0;
   flex: 1 1 auto;
+  gap: 0.75rem;
 }
 
 .dyno-edit-panes #editor-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   background: var(--dyno-surface);
+  border-radius: var(--dyno-shell-radius);
 }
 
 .dyno-edit-outline {
@@ -3278,7 +3360,8 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   overflow-y: auto;
   padding: 1rem 0.5rem;
   background: var(--dyno-surface);
-  border-right: var(--dyno-border-width) solid var(--dyno-border);
+  border: var(--dyno-border-width) solid var(--dyno-border);
+  border-radius: var(--dyno-shell-radius);
 }
 
 .dyno-edit-outline-heading {
@@ -3359,10 +3442,11 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 
 .dyno-edit-source-editor .CodeMirror {
   height: 100%;
+  padding: 0.75rem var(--dyno-edit-content-padding);
 }
 
 .dyno-visual-editor {
-  padding: 1.5rem;
+  padding: var(--dyno-edit-content-padding);
 }
 
 .dyno-visual-editor[hidden],
@@ -3375,11 +3459,12 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 }
 
 .dyno-edit-preview-pane {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-width: 0;
   overflow-y: auto;
   padding: 0;
-  background: var(--dyno-page-bg);
+  background: var(--dyno-surface);
+  border-radius: var(--dyno-shell-radius);
 }
 
 .dyno-edit-panes > #preview-pane[hidden],
@@ -3447,7 +3532,7 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 
 .dyno-edit-preview-content {
   width: 100%;
-  padding: 1.5rem;
+  padding: var(--dyno-edit-content-padding);
 }
 
 .dyno-edit-metadata-pane {
@@ -3457,8 +3542,8 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   width: min(100%, 24rem);
   overflow-y: auto;
   background: var(--dyno-surface);
-  border-left: var(--dyno-border-width) solid var(--dyno-border);
-  box-shadow: var(--dyno-shadow-lg);
+  border: var(--dyno-border-width) solid var(--dyno-border);
+  border-radius: var(--dyno-shell-radius);
 }
 
 .dyno-edit-metadata-header {
@@ -3559,23 +3644,29 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   color: var(--dyno-danger);
 }
 
-@media (min-width: 768px) {
+@media (min-width: 1280px) {
   .dyno-edit-metadata-pane {
     position: static;
-    width: 20rem;
-    flex: 0 0 20rem;
-    border-right: var(--dyno-border-width) solid var(--dyno-border);
-    border-left: 0;
-    box-shadow: none;
+    width: 18rem;
+    flex: 0 0 18rem;
   }
 }
 
 @media (max-width: 767px) {
+  .dyno-edit-body #editor-root {
+    --dyno-edit-content-padding: 1rem;
+    padding: 0.5rem;
+    gap: 0.5rem;
+  }
+
   .dyno-edit-mobile-tabs {
     display: flex;
+    flex: 0 0 auto;
     gap: 0.25rem;
     padding: 0.25rem 0.5rem;
-    border-bottom: var(--dyno-border-width) solid var(--dyno-border);
+    background: var(--dyno-surface);
+    border: var(--dyno-border-width) solid var(--dyno-border);
+    border-radius: var(--dyno-shell-radius);
   }
 
   .dyno-edit-panes > .dyno-edit-outline,
@@ -3597,11 +3688,13 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   }
 
   .dyno-edit-toolbar {
+    flex-wrap: wrap;
     gap: 0.375rem;
     padding-inline: 0.5rem;
   }
 
   .dyno-edit-toolbar > .dyno-edit-title,
+  .dyno-edit-save-status,
   .dyno-edit-git-status,
   .dyno-edit-toolbar .dyno-edit-back + .dyno-edit-divider {
     display: none;
@@ -3611,9 +3704,6 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
     display: none;
   }
 
-  .dyno-edit-preview-content {
-    padding: 1rem;
-  }
 }
 
 @media (max-width: 767px) {
@@ -3681,7 +3771,7 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   min-height: 100vh;
   margin: 0;
   color: var(--dyno-text);
-  background: var(--dyno-page-bg);
+  background: var(--dyno-shell-bg);
 }
 
 .dyno-standalone-body .dyno-brand {
@@ -3707,8 +3797,8 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 }
 
 .dyno-standalone-main {
-  min-height: calc(100vh - 3.5rem);
-  padding-top: 3.5rem;
+  min-height: calc(100vh - 5.5rem);
+  padding-top: 5.5rem;
 }
 
 .dyno-library-content {
@@ -4222,6 +4312,11 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 
 /* Print the document, not the surrounding application. */
 @media print {
+  .dyno-body::before,
+  .dyno-standalone-body::before {
+    display: none;
+  }
+
   @page { size: A4; margin: 18mm 17mm; background: #fff; }
 
   html, body {
@@ -4243,7 +4338,7 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
     display: none !important;
   }
 
-  .dyno-shell, .dyno-main, .dyno-content-grid, .dyno-page-content, .dyno-article {
+  .dyno-shell, .dyno-main, .dyno-content-grid, .dyno-document, .dyno-page-content, .dyno-article {
     display: block !important;
     position: static !important;
     width: 100% !important;
@@ -4325,4 +4420,27 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   .dyno-prose img { max-height: 240mm; object-fit: contain; }
   .dyno-prose .d2-dark { display: none !important; }
   .dyno-prose .d2-light { display: inline-flex !important; }
+
+  /* Mermaid uses one SVG for the current screen theme. Keep print shapes light
+     without waiting for an asynchronous re-render in the print event. */
+  .mermaid svg .node :is(rect, circle, ellipse, polygon, path),
+  .mermaid svg :is(.cluster rect, .actor, .labelBox, .note, .activation0, .activation1, .activation2) {
+    fill: #f3f7fc !important;
+    stroke: #2866bd !important;
+  }
+  .mermaid svg :is(text, tspan, .nodeLabel, .edgeLabel, .label, .messageText, .noteText) {
+    fill: #28384d !important;
+    color: #28384d !important;
+  }
+  .mermaid svg :is(.edgeLabel, .edgeLabel p, .labelBkg) {
+    background: #fff !important;
+  }
+  .mermaid svg .labelBkg { fill: #fff !important; }
+  .mermaid svg :is(.flowchart-link, .actor-line, .messageLine0, .messageLine1) {
+    stroke: #2866bd !important;
+  }
+  .mermaid svg marker path {
+    fill: #2866bd !important;
+    stroke: #2866bd !important;
+  }
 }

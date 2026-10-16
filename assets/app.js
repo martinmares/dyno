@@ -253,12 +253,12 @@ function dynoThemeColor(name) {
 function initMermaid() {
   if (typeof mermaid === 'undefined') return;
 
-  // Match the D2 themes used by renderD2: Neutral Default (0) and Dark Mauve (200).
+  // Match the light and blue-dark palettes used by renderD2.
   const dark = document.documentElement.classList.contains('dark');
   const colors = dark ? {
-    fill: '#313244', secondary: '#45475A', tertiary: '#585B70',
-    border: '#CBA6F7', text: '#CDD6F4', muted: '#BAC2DE',
-    pie: ['#45475A', '#585B70', '#6C7086', '#685A80', '#536A78', '#775E72'],
+    fill: '#263750', secondary: '#334661', tertiary: '#496181',
+    border: '#8ABAFF', text: '#E2EAF5', muted: '#A7B9D1',
+    pie: ['#334661', '#496181', '#5D7BA1', '#365577', '#3F6A8A', '#627D99'],
   } : {
     fill: '#F7F8FE', secondary: '#E3E9FD', tertiary: '#EDF0FD',
     border: '#0D32B2', text: '#0A0F25', muted: '#676C7E',

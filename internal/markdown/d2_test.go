@@ -77,6 +77,28 @@ func TestD2PageRenderUsesUniqueSVGIDs(t *testing.T) {
 	}
 }
 
+func TestD2DarkPaletteIsBlue(t *testing.T) {
+	result, err := markdown.RenderD2("Client -> API -> Database")
+	if err != nil {
+		t.Fatal(err)
+	}
+	light, dark, ok := strings.Cut(result, `<span class="d2-dark">`)
+	if !ok {
+		t.Fatal("missing dark diagram")
+	}
+	if !strings.Contains(strings.ToUpper(light), "#0D32B2") {
+		t.Fatal("light palette changed")
+	}
+	if !strings.Contains(strings.ToUpper(dark), "#8ABAFF") {
+		t.Fatal("missing blue dark accent")
+	}
+	for _, mauve := range []string{"#CBA6F7", "#313244", "#CDD6F4"} {
+		if strings.Contains(strings.ToUpper(dark), mauve) {
+			t.Fatalf("legacy mauve color %s remains", mauve)
+		}
+	}
+}
+
 func TestRendererAppliesUppercaseTemplateEnv(t *testing.T) {
 	r, err := markdown.NewRendererWithEnv(map[string]string{
 		"HTTP_SAMPLE_HOST":    "https://httpbin.org",

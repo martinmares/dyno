@@ -237,22 +237,22 @@
     <main id="main-content" class="dyno-main">
       <div class="dyno-content-grid">
         <!-- Page content -->
-        <div id="page-content" class="dyno-page-content">
-          {{ block "page-content" . }}{{ end }}
+        <div class="dyno-document">
+          <div id="page-content" class="dyno-page-content">
+            {{ block "page-content" . }}{{ end }}
+          </div>
+          <footer class="dyno-screen-only dyno-footer">
+            <div class="dyno-footer-inner">
+              <span>© {{ if and .Site .Site.Copyright }}{{ .Site.Copyright }}{{ else }}Dyno{{ end }}{{ if .BuildVersion }} · v{{ .BuildVersion }}{{ if and .BuildCommit (ne .BuildCommit "dev") (ne .BuildCommit "unknown") }}+{{ .BuildCommit }}{{ end }}{{ end }}</span>
+              <span>Built with <a href="https://github.com/martinmares/dyno">dyno</a></span>
+            </div>
+          </footer>
         </div>
 
         {{ template "toc-sidebar" . }}
       </div>
     </main>
   </div>
-
-  <!-- Footer -->
-  <footer class="footer  dyno-screen-only dyno-footer">
-    <div class="dyno-footer-inner">
-      <span>© {{ if and .Site .Site.Copyright }}{{ .Site.Copyright }}{{ else }}Dyno{{ end }}{{ if .BuildVersion }} · v{{ .BuildVersion }}{{ if and .BuildCommit (ne .BuildCommit "dev") (ne .BuildCommit "unknown") }}+{{ .BuildCommit }}{{ end }}{{ end }}</span>
-      <span>Built with <a href="https://github.com/martinmares/dyno">dyno</a></span>
-    </div>
-  </footer>
 
   {{ if .EasyMDEJSURL }}<script src="{{ .EasyMDEJSURL }}"></script>{{ end }}
   <script src="{{ .AppJSURL }}"></script>

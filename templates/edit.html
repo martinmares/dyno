@@ -39,11 +39,6 @@
 
   <style>
     html, body { height: 100%; overflow: hidden; }
-    #editor-root { display: flex; flex-direction: column; height: 100vh; }
-    #editor-toolbar { flex-shrink: 0; }
-    #editor-panes { flex: 1; display: flex; min-height: 0; }
-    #editor-pane { flex: 1; display: flex; flex-direction: column; min-width: 0; border-right: var(--dyno-border-width) solid var(--dyno-border); }
-    #preview-pane { flex: 1; overflow-y: auto; min-width: 0; background: var(--dyno-page-bg); }
     .CodeMirror { flex: 1; height: 100%; font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace; font-size: 0.875rem; line-height: 1.7; padding: 0 2rem; }
     .CodeMirror-scroll { height: 100%; }
     #editor-pane .CodeMirror-wrap { flex: 1; display: flex; flex-direction: column; }
