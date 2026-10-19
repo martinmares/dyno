@@ -4596,8 +4596,6 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   }
 
   @page { size: A4; margin: 18mm 17mm; background: #fff; }
-  @page dyno-source-diff { size: A4 landscape; }
-  .dyno-source-compare-body { page: dyno-source-diff; }
 
   html, body {
     font-size: 10.5pt !important;

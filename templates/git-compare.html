@@ -8,6 +8,7 @@
   <link rel="icon" href="{{ .FaviconURL }}">
   <link rel="stylesheet" href="{{ .BulmaCSSURL }}">
   <link rel="stylesheet" href="{{ .AppCSSURL }}">
+  {{ if eq .Mode "source" }}<style>@media print { @page { size: A4 landscape; } }</style>{{ end }}
   {{ if eq .Mode "report" }}<link rel="stylesheet" href="{{ .ReportCSSURL }}">{{ end }}
   <style>{{ .LightCSS }}</style>
   <style>{{ .DarkCSS }}</style>
@@ -22,7 +23,7 @@
     })();
   </script>
 </head>
-<body class="dyno-compare-body{{ if eq .Mode "report" }} dyno-change-report-body{{ else if eq .Mode "source" }} dyno-source-compare-body{{ end }}">
+<body class="dyno-compare-body{{ if eq .Mode "report" }} dyno-change-report-body{{ end }}">
   <main class="dyno-compare">
     <header class="dyno-compare-header">
       <div class="dyno-compare-toolbar">
@@ -55,7 +56,7 @@
           <a href="{{ .PreviewURL }}" class="{{ if eq .Mode "preview" }}is-active{{ end }}">Preview</a>
           <a href="{{ .ReportURL }}" class="{{ if eq .Mode "report" }}is-active{{ end }}">Change report</a>
         </div>
-        {{ if eq .Mode "report" }}<button type="button" class="button is-small is-link" data-print-page>Print / Save PDF</button>{{ end }}
+        {{ template "print-button" . }}
         {{ if eq .Mode "source" }}
         <label class="checkbox dyno-compare-checkbox">
           <input form="compare-form" type="checkbox" name="ignore_frontmatter" value="1" {{ if .IgnoreFrontmatter }}checked{{ end }} class="dyno-checkbox-input" onchange="this.form.submit()">
@@ -135,6 +136,10 @@
   </main>
   {{ if eq .Mode "report" }}<script src="{{ .SyntaxJSURL }}"></script><script src="{{ .MermaidURL }}"></script><script src="{{ .AppJSURL }}"></script>{{ end }}
   <script>
+    {{ if ne .Mode "report" }}
+    // Source and Preview do not load the reader's print handler.
+    document.querySelector('[data-print-page]').addEventListener('click', function () { window.print(); });
+    {{ end }}
     document.querySelectorAll('[data-revision-select]').forEach(function (select) {
       select.addEventListener('change', function () { select.form.submit(); });
     });

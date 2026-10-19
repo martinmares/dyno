@@ -70,7 +70,10 @@ func TestGitCompareHandlerAndRevisionValidation(t *testing.T) {
 		t.Fatalf("compare returned %d: %s", rec.Code, rec.Body.String())
 	}
 	body := rec.Body.String()
-	if !strings.Contains(body, `class="dyno-compare-body dyno-source-compare-body"`) {
+	if !strings.Contains(body, `data-print-page class="button dyno-icon-button is-ghost"`) {
+		t.Fatal("source comparison is missing the shared print icon")
+	}
+	if !strings.Contains(body, `@media print { @page { size: A4 landscape; } }`) {
 		t.Fatal("source comparison is missing its landscape print layout")
 	}
 	if !strings.Contains(body, `class="dyno-compare-print-info"`) || !strings.Contains(body, "Source file: site/guide.md") {
@@ -88,6 +91,17 @@ func TestGitCompareHandlerAndRevisionValidation(t *testing.T) {
 	for _, expected := range []string{"Compare versions", "Working tree", "Second version.", "Working version.", "Preview", "dyno-theme"} {
 		if !strings.Contains(body, expected) {
 			t.Errorf("compare page does not contain %q", expected)
+		}
+	}
+
+	for _, mode := range []string{"preview", "report"} {
+		rec = httptest.NewRecorder()
+		srv.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/_git/compare/guide?mode="+mode, nil))
+		if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), "A4 landscape") {
+			t.Fatalf("%s must retain the default portrait print layout", mode)
+		}
+		if !strings.Contains(rec.Body.String(), `data-print-page class="button dyno-icon-button is-ghost"`) {
+			t.Fatalf("%s is missing the shared print icon", mode)
 		}
 	}
 

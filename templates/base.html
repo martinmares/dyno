@@ -192,13 +192,7 @@
         {{ end }}
       </span>
       {{ end }}
-      <button type="button" data-print-page class="button dyno-icon-button is-ghost"
-              aria-label="Print / Save PDF" title="Print / Save PDF">
-        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
-          <path d="M6 14h12v7H6zM18 12h.01"/>
-        </svg>
-      </button>
+      {{ template "print-button" . }}
       <!-- Page text size -->
       <div class="dyno-font-size-controls" role="group" aria-label="Text size">
         <button id="font-size-decrease" type="button" class="button dyno-icon-button is-ghost dyno-font-size-button"
@@ -427,3 +421,13 @@
 {{ end }}
 
 {{/* dict helper used in nav-tree */}}
+
+{{ define "print-button" }}
+<button type="button" data-print-page class="button dyno-icon-button is-ghost"
+        aria-label="Print / Save PDF" title="Print / Save PDF">
+  <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+    <path d="M6 14h12v7H6zM18 12h.01"/>
+  </svg>
+</button>
+{{ end }}
