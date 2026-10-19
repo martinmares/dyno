@@ -70,6 +70,21 @@ func TestGitCompareHandlerAndRevisionValidation(t *testing.T) {
 		t.Fatalf("compare returned %d: %s", rec.Code, rec.Body.String())
 	}
 	body := rec.Body.String()
+	if !strings.Contains(body, `class="dyno-compare-body dyno-source-compare-body"`) {
+		t.Fatal("source comparison is missing its landscape print layout")
+	}
+	if !strings.Contains(body, `class="dyno-compare-print-info"`) || !strings.Contains(body, "Source file: site/guide.md") {
+		t.Fatal("comparison is missing printable document identification")
+	}
+	headerStart := strings.Index(body, "<thead>")
+	headerEnd := strings.Index(body, "</thead>")
+	if headerStart < 0 || headerEnd < headerStart {
+		t.Fatal("missing revision headings")
+	}
+	header := body[headerStart:headerEnd]
+	if !strings.Contains(header, ">Before: ") || !strings.Contains(header, ">After: Working tree") || strings.Contains(header, ">second version") {
+		t.Fatalf("revision headings should show compact identifiers: %s", header)
+	}
 	for _, expected := range []string{"Compare versions", "Working tree", "Second version.", "Working version.", "Preview", "dyno-theme"} {
 		if !strings.Contains(body, expected) {
 			t.Errorf("compare page does not contain %q", expected)
@@ -135,6 +150,7 @@ func TestStripYAMLFrontmatter(t *testing.T) {
 		{name: "LF", source: "---\ntitle: Old\n---\n# Body\n", want: "# Body\n"},
 		{name: "CRLF", source: "---\r\ntitle: Old\r\n---\r\n# Body\r\n", want: "# Body\r\n"},
 		{name: "absent", source: "# Body\n", want: "# Body\n"},
+		{name: "UTF8 BOM", source: "\xef\xbb\xbf---\nprivate: secret\n---\n# Body\n", want: "# Body\n"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if got := string(stripYAMLFrontmatter([]byte(test.source))); got != test.want {

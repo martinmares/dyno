@@ -36,7 +36,12 @@ func (s *Server) writeDocument(name string, data []byte, mode os.FileMode) error
 	if s.browse != nil {
 		return s.browse.WriteFile(name, data, mode)
 	}
-	return writeFileAtomic(name, data, mode)
+	err := writeFileAtomic(name, data, mode)
+	// Editor handlers hold s.mu across the write and cache invalidation.
+	if err == nil {
+		s.explorerCatalog = nil
+	}
+	return err
 }
 
 func (s *Server) rewriteBrowseLinks(fragment, document string) string {

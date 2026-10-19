@@ -1,0 +1,97 @@
+{{ define "explorer.html" }}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Explorer — {{ .Site.Title }}</title>
+  <script>try{const t=localStorage.getItem('dyno-theme');document.documentElement.setAttribute('data-theme',t||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'));}catch(_){}</script>
+  <link rel="icon" href="{{ .FaviconURL }}">
+  <link rel="stylesheet" href="{{ .BulmaCSSURL }}"><link rel="stylesheet" href="{{ .AppCSSURL }}"><link rel="stylesheet" href="{{ .ExplorerCSSURL }}">
+</head>
+<body class="dyno-explorer-body" data-explorer data-explorer-state="{{ .State }}">
+  <header class="dyno-explorer-header">
+    <a class="dyno-brand" href="{{ .BasePath }}/_explore">{{ if .Site.LogoURL }}<img src="{{ .Site.LogoURL }}" alt="">{{ else }}{{ template "dyno-logo" . }}{{ end }}<span>{{ .Site.Title }}</span></a>
+    <span class="dyno-explorer-label">Explorer</span>
+    <div class="dyno-explorer-header-actions"><a href="{{ .BasePath }}/" class="button is-small is-ghost">Reader</a></div>
+  </header>
+
+  <form method="get" action="{{ .BasePath }}/_explore" id="explorer-filters" class="dyno-explorer-search">
+    <input type="hidden" name="tab" value="{{ .Tab }}"><input type="hidden" name="folder" value="{{ .Folder }}"><input type="hidden" name="columns_set" value="1">
+    <div class="dyno-explorer-query"><label class="is-sr-only" for="explorer-query">Search documentation</label><input class="input" id="explorer-query" type="search" name="q" value="{{ .Query }}" placeholder='Find documents, "exact phrases", topics…' autocomplete="off"><span>Press / to search</span></div>
+    <label class="select is-small"><span class="is-sr-only">Search in</span><select name="scope"><option value="all" {{ if eq .Scope "all" }}selected{{ end }}>Everywhere</option><option value="title" {{ if eq .Scope "title" }}selected{{ end }}>Titles</option><option value="path" {{ if eq .Scope "path" }}selected{{ end }}>URL paths</option><option value="body" {{ if eq .Scope "body" }}selected{{ end }}>Content</option></select></label>
+    <label class="select is-small"><span class="is-sr-only">Match words</span><select name="match"><option value="all" {{ if eq .Match "all" }}selected{{ end }}>All words</option><option value="any" {{ if eq .Match "any" }}selected{{ end }}>Any word</option></select></label>
+    <button class="button is-link is-small" type="submit">Search / apply</button>
+    <a class="button is-small is-ghost" href="{{ .BasePath }}/_explore">Reset</a>
+  </form>
+
+  <div class="dyno-explorer-workspace">
+    <aside class="dyno-explorer-sidebar" data-explorer-scroll="sidebar" aria-label="Folders and filters">
+      <p class="dyno-eyebrow">Folders</p>
+      <a class="dyno-explorer-folder {{ if not .Folder }}is-active{{ end }}" href="{{ .AllURL }}">All documents <span>{{ .Eligible }}</span></a>
+      <nav class="dyno-explorer-folders" aria-label="Folder tree">{{ range .Folders }}{{ template "explorer-folder" . }}{{ end }}</nav>
+      {{ if .Facets }}<div class="dyno-explorer-filters"><p class="dyno-eyebrow">Metadata filters</p>
+      {{ range .Facets }}<details open><summary>{{ .Label }}</summary><div class="dyno-explorer-facet">{{ $name := .Name }}{{ range .Values }}<label><input form="explorer-filters" type="checkbox" name="meta.{{ $name }}" value="{{ .Value }}" {{ if .Selected }}checked{{ end }}><span>{{ .Value }}</span><small>{{ .Count }}</small></label>{{ end }}</div></details>{{ end }}
+      </div>{{ end }}
+      <div class="dyno-explorer-filters">
+        <details {{ if or .MissingField .DateField .OnlyOrphans }}open{{ end }}><summary>More filters</summary>
+        <label class="dyno-explorer-extra-label"><input form="explorer-filters" name="orphans" type="checkbox" value="1" {{ if .OnlyOrphans }}checked{{ end }}> No incoming links</label>
+        {{ if .AvailableColumns }}<label class="dyno-explorer-extra-label">Unfilled field<select form="explorer-filters" class="input is-small" name="missing"><option value="">Any</option>{{ range .AvailableColumns }}<option value="{{ .Name }}" {{ if eq $.MissingField .Name }}selected{{ end }}>{{ .Label }}</option>{{ end }}</select></label>{{ end }}
+        {{ if .DateFields }}<label class="dyno-explorer-extra-label">Date field<select form="explorer-filters" class="input is-small" name="date_field"><option value="">None</option>{{ range .DateFields }}<option value="{{ .Name }}" {{ if eq $.DateField .Name }}selected{{ end }}>{{ .Label }}</option>{{ end }}</select></label><label class="dyno-explorer-extra-label">From (inclusive)<input form="explorer-filters" class="input is-small" type="date" name="after" value="{{ .After }}"></label><label class="dyno-explorer-extra-label">To (inclusive)<input form="explorer-filters" class="input is-small" type="date" name="before" value="{{ .Before }}"></label>{{ end }}
+        </details><button type="submit" form="explorer-filters" class="button is-small">Apply filters</button>
+      </div>
+    </aside>
+
+    <main class="dyno-explorer-main">
+      <div class="dyno-explorer-toolbar">
+        <nav class="dyno-explorer-tabs" aria-label="Explorer views">{{ range .Tabs }}<a href="{{ .URL }}" {{ if eq .Label $.Tab }}aria-current="page"{{ end }}>{{ .Label }}</a>{{ end }}</nav>
+        <span class="dyno-explorer-count"><strong>{{ .Total }}</strong> / {{ .AllTotal }} documents</span>
+        {{ if .AvailableColumns }}<details class="dyno-explorer-columns"><summary>Columns</summary><div>{{ range .AvailableColumns }}<label><input form="explorer-filters" type="checkbox" name="columns" value="{{ .Name }}" {{ if .Selected }}checked{{ end }}> {{ .Label }}</label>{{ end }}<button form="explorer-filters" type="submit" class="button is-small">Apply columns</button></div></details>{{ end }}
+      </div>
+      <div class="dyno-explorer-sort">
+        <span>{{ if .Folder }}{{ .Folder }} /{{ else }}All folders{{ end }}</span>
+        <label class="select is-small"><span class="is-sr-only">Sort documents</span><select form="explorer-filters" name="sort"><option value="relevance" {{ if eq .Sort "relevance" }}selected{{ end }}>Relevance</option><option value="title" {{ if eq .Sort "title" }}selected{{ end }}>Title</option><option value="path" {{ if eq .Sort "path" }}selected{{ end }}>File path</option><option value="modified" {{ if eq .Sort "modified" }}selected{{ end }}>File modification time</option>{{ range .AvailableColumns }}<option value="field:{{ .Name }}" {{ if eq $.Sort (printf "field:%s" .Name) }}selected{{ end }}>{{ .Label }}</option>{{ end }}</select></label>
+        <label class="select is-small"><span class="is-sr-only">Sort direction</span><select form="explorer-filters" name="order"><option value="asc" {{ if eq .Order "asc" }}selected{{ end }}>Ascending</option><option value="desc" {{ if eq .Order "desc" }}selected{{ end }}>Descending</option></select></label>
+        <button type="submit" form="explorer-filters" class="button is-small is-ghost">Sort</button>
+      </div>
+      <div class="dyno-explorer-results" data-explorer-scroll="results">
+        {{ if eq .Tab "documents" }}
+        <table class="dyno-explorer-table"><thead><tr><th scope="col">Document</th>{{ range .Columns }}<th scope="col">{{ .Label }}</th>{{ end }}<th scope="col" title="Incoming / outgoing Markdown links">Links in / out</th></tr></thead><tbody>
+        {{ range .Rows }}<tr {{ if .Selected }}class="is-selected"{{ end }}><td><a href="{{ .URL }}" data-explorer-select {{ if .Selected }}aria-current="true"{{ end }}>{{ .Document.Title }}</a><small>{{ .Document.Path }}</small></td>{{ range .Values }}<td>{{ if . }}{{ . }}{{ else }}<span class="dyno-explorer-empty-value">—</span>{{ end }}</td>{{ end }}<td class="dyno-explorer-link-count">{{ len .Document.Incoming }} / {{ len .Document.Outgoing }}</td></tr>{{ else }}<tr><td colspan="{{ add (len .Columns) 2 }}"><div class="dyno-explorer-empty"><h2>No matching documents</h2><p>Try fewer filters, a different folder or “Any word”.</p></div></td></tr>{{ end }}
+        </tbody></table>
+        {{ else if eq .Tab "overview" }}
+        <div class="dyno-explorer-overview">
+          <div class="dyno-explorer-stats"><div><strong>{{ .Total }}</strong><span>Documents in selection</span></div><div><strong>{{ len .FolderCounts }}</strong><span>Containing folders</span></div><div><strong>{{ .Links }}</strong><span>Links within selection</span></div><div><strong>{{ .Orphans }}</strong><span>No incoming links site-wide</span></div></div>
+          <div class="dyno-explorer-overview-grid">
+            <section><h2>Where documents live</h2>{{ range .FolderCounts }}<a class="dyno-explorer-stat-row" href="{{ .URL }}"><span>{{ .Label }}</span><strong>{{ .Count }}</strong></a>{{ else }}<p>No matching documents.</p>{{ end }}</section>
+            <section><h2>Unfilled metadata</h2><p class="dyno-explorer-note">Configured fields only. Missing values are not necessarily errors.</p>{{ range .Missing }}<a href="{{ .URL }}" class="dyno-explorer-stat-row"><span>{{ .Label }}</span><strong>{{ .Count }}</strong></a>{{ else }}<p>No metadata fields configured.</p>{{ end }}</section>
+            <section><h2>Most referenced</h2>{{ range .Connected }}<a class="dyno-explorer-stat-row" href="{{ .URL }}"><span>{{ .Label }}</span><strong>{{ .Count }}</strong></a>{{ end }}</section>
+            <section><h2>Recently modified files</h2><p class="dyno-explorer-note">Filesystem modification times, not Git history or frontmatter dates.</p>{{ range .Recent }}<a class="dyno-explorer-stat-row" href="{{ .URL }}"><span>{{ .Label }}</span></a>{{ end }}</section>
+          </div>
+        </div>
+        {{ else }}
+        <div class="dyno-explorer-relations"><h2>Connections between top-level folders</h2><p class="dyno-explorer-note">Actual Markdown links within the current selection. Folder hierarchy is not treated as a document relationship.</p><div class="dyno-explorer-groups">{{ range .Groups }}<div><span>{{ .Label }}</span><strong>{{ .Count }}</strong></div>{{ else }}<p>No links connect documents in this selection.</p>{{ end }}</div></div>
+        <table class="dyno-explorer-table"><thead><tr><th>Links from</th><th>Links to</th></tr></thead><tbody>{{ range .Edges }}<tr><td><a href="{{ .FromURL }}">{{ .From.Title }}</a><small>{{ .From.Path }}</small></td><td><a href="{{ .ToURL }}">{{ .To.Title }}</a><small>{{ .To.Path }}</small></td></tr>{{ end }}</tbody></table>
+        {{ end }}
+      </div>
+      <footer class="dyno-explorer-pagination"><span>{{ if eq .Tab "relations" }}{{ .Links }} links{{ else }}{{ .Total }} documents{{ end }}</span><nav aria-label="Pagination">{{ if .PreviousURL }}<a class="button is-small" href="{{ .PreviousURL }}">Previous</a>{{ end }}<span>Page {{ .Page }} / {{ .Pages }}</span>{{ if .NextURL }}<a class="button is-small" href="{{ .NextURL }}">Next</a>{{ end }}</nav></footer>
+    </main>
+
+    <aside class="dyno-explorer-preview" data-explorer-scroll="preview" aria-label="Document preview">
+      {{ if .Selection }}
+      <p class="dyno-eyebrow">Document preview</p><h1>{{ .Selection.Title }}</h1><p class="dyno-explorer-path">{{ .Selection.Path }}</p><a href="{{ .SelectionURL }}" class="button is-link is-small">Open document</a>
+      {{ if .Selection.Summary }}<section><h2>Excerpt</h2><p>{{ .Selection.Summary }}</p></section>{{ end }}
+      {{ if .Selection.Headings }}<section><h2>First chapters</h2><ul>{{ range .Selection.Headings }}<li>{{ . }}</li>{{ end }}</ul></section>{{ end }}
+      {{ if .SelectionValues }}<section><h2>Metadata</h2><dl>{{ range .SelectionValues }}<dt>{{ .Label }}</dt><dd>{{ .Value }}</dd>{{ end }}</dl></section>{{ end }}
+      <section><h2>Incoming links <span>{{ len .Incoming }}</span></h2>{{ range .Incoming }}<a class="dyno-explorer-related" href="{{ .URL }}">{{ .Label }}</a>{{ else }}<p class="dyno-explorer-note">No incoming links.</p>{{ end }}</section>
+      <section><h2>Outgoing links <span>{{ len .Outgoing }}</span></h2>{{ range .Outgoing }}<a class="dyno-explorer-related" href="{{ .URL }}">{{ .Label }}</a>{{ else }}<p class="dyno-explorer-note">No outgoing links.</p>{{ end }}</section>
+      {{ else }}<div class="dyno-explorer-preview-placeholder"><svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.2" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h8l4 4v14H6zM14 3v5h5M9 12h6M9 16h6"/></svg><h2>Find your bearings.</h2><p>Select a document to see its excerpt, metadata and connections without leaving the results.</p><small>No AI. Just your documentation.</small></div>{{ end }}
+    </aside>
+  </div>
+  <script src="{{ .AppJSURL }}"></script><script src="{{ .ExplorerJSURL }}"></script>
+</body>
+</html>
+{{ end }}
+
+{{ define "explorer-folder" }}
+{{ if .Children }}<details {{ if .Open }}open{{ end }}><summary><a href="{{ .URL }}" class="dyno-explorer-folder {{ if .Selected }}is-active{{ end }}">{{ .Name }}<span>{{ .Count }}</span></a></summary><div>{{ range .Children }}{{ template "explorer-folder" . }}{{ end }}</div></details>{{ else }}<a href="{{ .URL }}" class="dyno-explorer-folder {{ if .Selected }}is-active{{ end }}">{{ .Name }}<span>{{ .Count }}</span></a>{{ end }}
+{{ end }}

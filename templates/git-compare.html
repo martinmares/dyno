@@ -8,6 +8,7 @@
   <link rel="icon" href="{{ .FaviconURL }}">
   <link rel="stylesheet" href="{{ .BulmaCSSURL }}">
   <link rel="stylesheet" href="{{ .AppCSSURL }}">
+  {{ if eq .Mode "report" }}<link rel="stylesheet" href="{{ .ReportCSSURL }}">{{ end }}
   <style>{{ .LightCSS }}</style>
   <style>{{ .DarkCSS }}</style>
   <script>
@@ -21,7 +22,7 @@
     })();
   </script>
 </head>
-<body class="dyno-compare-body">
+<body class="dyno-compare-body{{ if eq .Mode "report" }} dyno-change-report-body{{ else if eq .Mode "source" }} dyno-source-compare-body{{ end }}">
   <main class="dyno-compare">
     <header class="dyno-compare-header">
       <div class="dyno-compare-toolbar">
@@ -52,7 +53,9 @@
         <div class="dyno-compare-mode-tabs">
           <a href="{{ .SourceURL }}" class="{{ if eq .Mode "source" }}is-active{{ end }}">Source</a>
           <a href="{{ .PreviewURL }}" class="{{ if eq .Mode "preview" }}is-active{{ end }}">Preview</a>
+          <a href="{{ .ReportURL }}" class="{{ if eq .Mode "report" }}is-active{{ end }}">Change report</a>
         </div>
+        {{ if eq .Mode "report" }}<button type="button" class="button is-small is-link" data-print-page>Print / Save PDF</button>{{ end }}
         {{ if eq .Mode "source" }}
         <label class="checkbox dyno-compare-checkbox">
           <input form="compare-form" type="checkbox" name="ignore_frontmatter" value="1" {{ if .IgnoreFrontmatter }}checked{{ end }} class="dyno-checkbox-input" onchange="this.form.submit()">
@@ -71,7 +74,40 @@
       </div>
     </header>
 
-    {{ if eq .Mode "preview" }}
+    {{ if ne .Mode "report" }}
+    <section class="dyno-compare-print-info">
+      <h1>{{ .DocumentTitle }}</h1>
+      <p>Source file: {{ .SourceFile }}</p>
+      <p>Before: {{ if .Left.ShortHash }}{{ .Left.ShortHash }} · {{ .Left.Date }}{{ else }}{{ .Left.Label }}{{ end }}</p>
+      <p>After: {{ if .Right.ShortHash }}{{ .Right.ShortHash }} · {{ .Right.Date }}{{ else }}{{ .Right.Label }}{{ end }}</p>
+    </section>
+    {{ end }}
+    {{ if eq .Mode "report" }}
+    <div class="dyno-change-report-scroll" id="page-content">
+      <article class="dyno-article dyno-change-report">
+        <p class="dyno-change-report-eyebrow">Document change report</p>
+        <h1>{{ .DocumentTitle }}</h1>
+        <dl class="dyno-change-report-info">
+          <div><dt>Source file:</dt><dd>{{ .SourceFile }}</dd></div>
+          <div><dt>Before:</dt><dd>{{ if .Left.Date }}{{ .Left.Date }}{{ else }}{{ .Left.Label }}{{ end }} {{ if .Left.ShortHash }}({{ .Left.ShortHash }}){{ end }}</dd></div>
+          <div><dt>After:</dt><dd>{{ if .Right.Date }}{{ .Right.Date }}{{ else }}{{ .Right.Label }}{{ end }} {{ if .Right.ShortHash }}({{ .Right.ShortHash }}){{ end }}</dd></div>
+          <div><dt>Printed:</dt><dd><time data-report-time></time></dd></div>
+        </dl>
+        <div class="dyno-change-report-summary"><span><strong>{{ .Added }}</strong> added</span><span><strong>{{ .Deleted }}</strong> removed</span><span><strong>{{ .Changed }}</strong> changed blocks</span></div>
+        <p class="dyno-change-report-note">Only changed content blocks are shown. Frontmatter and unchanged blocks are excluded. This is a comparison of Markdown content, not an AI summary.</p>
+        {{ if .Changes }}
+        <nav class="dyno-change-report-toc" aria-label="Changed blocks"><h2>What changed</h2><ol>{{ range .Changes }}<li><a href="#{{ .ID }}">{{ .Section }} <span>{{ .Kind }} · {{ .BlockType }}</span></a></li>{{ end }}</ol></nav>
+        {{ range .Changes }}
+        <section class="dyno-change-report-block" id="{{ .ID }}">
+          <header><span class="dyno-change-report-kind">{{ .Kind }} · {{ .BlockType }}</span><h2>{{ .Section }}</h2></header>
+          {{ if .Before }}<div class="dyno-change-report-side dyno-change-report-before"><h3>{{ if .After }}Before{{ else }}Removed{{ end }}</h3><div class="dyno-prose">{{ .Before }}</div></div>{{ end }}
+          {{ if .After }}<div class="dyno-change-report-side dyno-change-report-after"><h3>{{ if .Before }}After{{ else }}Added{{ end }}</h3><div class="dyno-prose">{{ .After }}</div></div>{{ end }}
+        </section>
+        {{ end }}
+        {{ else }}<p class="dyno-change-report-no-changes">No content blocks changed between these revisions.</p>{{ end }}
+      </article>
+    </div>
+    {{ else if eq .Mode "preview" }}
     <div class="dyno-compare-preview">
       <article class="dyno-prose">{{ .LeftHTML }}</article>
       <article class="dyno-prose">{{ .RightHTML }}</article>
@@ -81,7 +117,7 @@
       <table class="table dyno-table-vcenter dyno-diff-table">
         <colgroup><col class="dyno-diff-line"><col><col class="dyno-diff-line"><col></colgroup>
         <thead>
-          <tr><th colspan="2">{{ .Left.Label }}</th><th colspan="2">{{ .Right.Label }}</th></tr>
+          <tr><th colspan="2" title="{{ .Left.Label }}">Before: {{ if .Left.ShortHash }}{{ .Left.ShortHash }} · {{ .Left.Date }}{{ else }}{{ .Left.Label }}{{ end }}</th><th colspan="2" title="{{ .Right.Label }}">After: {{ if .Right.ShortHash }}{{ .Right.ShortHash }} · {{ .Right.Date }}{{ else }}{{ .Right.Label }}{{ end }}</th></tr>
         </thead>
         <tbody>
           {{ range .Rows }}
@@ -97,6 +133,7 @@
     </div>
     {{ end }}
   </main>
+  {{ if eq .Mode "report" }}<script src="{{ .SyntaxJSURL }}"></script><script src="{{ .MermaidURL }}"></script><script src="{{ .AppJSURL }}"></script>{{ end }}
   <script>
     document.querySelectorAll('[data-revision-select]').forEach(function (select) {
       select.addEventListener('change', function () { select.form.submit(); });

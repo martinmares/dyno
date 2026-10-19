@@ -44,6 +44,13 @@ func TestIndexFiltersAndBuildsContextualFacets(t *testing.T) {
 			}
 		}
 	}
+	for _, facet := range idx.FacetsFiltered(filter, map[string]bool{"/three": true}) {
+		for _, value := range facet.Values {
+			if value.Count > 1 {
+				t.Fatalf("facet escaped full-text/folder scope: %+v", facet)
+			}
+		}
+	}
 }
 
 func writeMetadataFile(t *testing.T, path, content string) {

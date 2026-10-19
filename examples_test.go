@@ -8,7 +8,7 @@ import (
 )
 
 func TestExamplesCommand(t *testing.T) {
-	for _, topic := range []string{"", "browse", "serve", "edit", "library", "git", "comments", "config", "markdown", "mcp", "BROWSE"} {
+	for _, topic := range []string{"", "browse", "serve", "explore", "edit", "library", "git", "comments", "config", "markdown", "mcp", "BROWSE"} {
 		t.Run(topic, func(t *testing.T) {
 			cmd := newExamplesCommand()
 			var out bytes.Buffer

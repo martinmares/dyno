@@ -37,6 +37,8 @@ type Server struct {
 
 	libraryURL         string // non-empty when running as a book inside a LibraryServer
 	editMode           bool   // --edit / DYNO_EDIT=true: enables in-browser markdown editor
+	explore            bool
+	explorerCatalog    *explorerCatalog
 	siteCfg            *config.SiteConfig
 	version            string
 	commit             string
@@ -78,6 +80,7 @@ func (s *Server) Reload(nav *navigation.NavNode, idx *search.Index) {
 	defer s.mu.Unlock()
 	s.nav = nav
 	s.idx = idx
+	s.explorerCatalog = nil
 	s.metadata = metadataIndex
 	if s.browse == nil {
 		if taskIndex, err := tasks.BuildIndex("", s.siteCfg.Title, s.contentDir, nav); err == nil {
@@ -107,6 +110,12 @@ func (s *Server) getIdx() *search.Index {
 	return s.idx
 }
 
+func (s *Server) getBacklinks() navigation.BacklinkIndex {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.backlinks
+}
+
 func (s *Server) getMetadata() *metadata.Index {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -130,6 +139,7 @@ type Config struct {
 	Port               string
 	DevMode            bool
 	EditMode           bool // --edit / DYNO_EDIT=true
+	Explore            bool
 	SiteCfg            *config.SiteConfig
 	Version            string
 	Commit             string
@@ -203,6 +213,7 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 		basePath:           cfg.SiteCfg.GetBasePath(),
 		libraryURL:         cfg.LibraryURL,
 		editMode:           cfg.EditMode,
+		explore:            cfg.Explore,
 		siteCfg:            cfg.SiteCfg,
 		version:            cfg.Version,
 		commit:             cfg.Commit,
@@ -310,6 +321,9 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 		s.mux.HandleFunc("GET "+basePath+"/{path...}", s.pageHandler)
 	}
 	s.mux.HandleFunc("GET "+searchPath, s.searchHandler)
+	if cfg.Explore && cfg.Browse == nil {
+		s.mux.HandleFunc("GET "+basePath+"/_explore", s.explorerHandler)
+	}
 	if cfg.Browse == nil {
 		s.mux.HandleFunc("GET "+tasksPath, s.tasksHandler)
 		s.mux.HandleFunc("GET "+sectionTaskPath, s.sectionTasksHandler)

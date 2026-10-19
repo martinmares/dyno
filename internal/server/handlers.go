@@ -32,6 +32,7 @@ type PageData struct {
 	ContentHTML        template.HTML
 	Nav                *navigation.NavNode
 	CurrentPath        string
+	ExploreURL         string
 	TOC                []markdown.TOCEntry
 	ExternalRefs       []markdown.ExternalRef
 	Comments           []comments.Comment
@@ -189,6 +190,9 @@ func (s *Server) render(w http.ResponseWriter, name string, data any) error {
 	}
 	if page, ok := data.(PageData); ok {
 		page.EditMode = s.editMode
+		if s.explore && page.ExploreURL == "" {
+			page.ExploreURL = s.basePath + "/_explore"
+		}
 		if s.browse != nil {
 			page.BrowseMode = true
 			s.mu.RLock()
@@ -380,6 +384,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		CurrentPath:        node.FullPath,
 		TOC:                res.TOC,
 		PrintSourceFile:    printSourceFile,
+		ExploreURL:         s.explorerReturnURL(r.URL.Query().Get("explore")),
 		ExternalRefs:       res.Frontmatter.ExternalRefs,
 		Comments:           visibleComments,
 		Highlights:         highlights,
@@ -406,7 +411,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		GraphURL:           s.graphPath,
 		SectionTasksURL:    s.sectionTaskPath + "?path=" + node.FullPath,
 		HasTasksBlock:      s.taskIndex.HasTasksBlock(node.FullPath),
-		Backlinks:          s.backlinks[node.FullPath],
+		Backlinks:          s.getBacklinks()[node.FullPath],
 		EgoGraphURL:        s.graphPath + strings.TrimPrefix(node.FullPath, s.basePath) + view.Query,
 		LibraryURL:         s.libraryURL,
 		BuildVersion:       s.version,
@@ -764,7 +769,7 @@ func (s *Server) sectionTasksHandler(w http.ResponseWriter, r *http.Request) {
 
 // graphHandler renders a dependency table for the whole site.
 func (s *Server) graphHandler(w http.ResponseWriter, r *http.Request) {
-	contentHTML := template.HTML(buildDepsTable(s.getNav(), s.backlinks, s.graphPath))
+	contentHTML := template.HTML(buildDepsTable(s.getNav(), s.getBacklinks(), s.graphPath))
 	selfURL := s.graphPath
 	data := PageData{
 		Title:        "Page Dependencies",
@@ -824,8 +829,9 @@ func (s *Server) egoGraphHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build outgoing links: pages this page links to
+	backlinks := s.getBacklinks()
 	outgoing := map[string]navigation.Backlink{}
-	for target, sources := range s.backlinks {
+	for target, sources := range backlinks {
 		for _, src := range sources {
 			if strings.TrimRight(src.FullPath, "/") == pagePath {
 				outgoing[target] = navigation.Backlink{Title: src.Title, FullPath: target}
@@ -840,7 +846,7 @@ func (s *Server) egoGraphHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	})
 
-	incoming := s.backlinks[centerNode.FullPath]
+	incoming := backlinks[centerNode.FullPath]
 
 	// Build ±1 hop ego-graph
 	type egoNode struct{ url, title string }
@@ -957,14 +963,15 @@ func (s *Server) graphNeighboursHandler(w http.ResponseWriter, r *http.Request) 
 		seen[exclude] = true
 	}
 	var neighbours []nb
+	backlinks := s.getBacklinks()
 
-	for _, bl := range s.backlinks[pagePath] {
+	for _, bl := range backlinks[pagePath] {
 		if !seen[bl.FullPath] {
 			seen[bl.FullPath] = true
 			neighbours = append(neighbours, nb{bl.FullPath, bl.Title})
 		}
 	}
-	for target, sources := range s.backlinks {
+	for target, sources := range backlinks {
 		for _, src := range sources {
 			if src.FullPath == pagePath && !seen[target] {
 				seen[target] = true

@@ -3049,6 +3049,10 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   background: var(--dyno-page-bg);
 }
 
+.dyno-compare-print-info {
+  display: none;
+}
+
 .dyno-compare {
   display: flex;
   height: 100%;
@@ -4592,6 +4596,8 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   }
 
   @page { size: A4; margin: 18mm 17mm; background: #fff; }
+  @page dyno-source-diff { size: A4 landscape; }
+  .dyno-source-compare-body { page: dyno-source-diff; }
 
   html, body {
     font-size: 10.5pt !important;
@@ -4631,6 +4637,44 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   }
 
   .dyno-prose { font-size: 10.5pt !important; line-height: 1.5; }
+
+  /* Comparison panes scroll on screen, but must paginate normally on paper. */
+  .dyno-compare-body, .dyno-compare, .dyno-diff-scroll, .dyno-compare-preview {
+    display: block;
+    position: static;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+  }
+  .dyno-compare-header { display: none; }
+  .dyno-compare-print-info { display: block; margin-bottom: 5mm; break-inside: avoid; }
+  .dyno-compare-print-info h1 { font-size: 18pt; line-height: 1.25; margin-bottom: 3mm; }
+  .dyno-compare-print-info p { font-size: 8pt; margin: 1mm 0; overflow-wrap: anywhere; }
+  .dyno-diff-table {
+    min-width: 0;
+    width: 100%;
+    font-size: 7pt;
+    line-height: 1.4;
+    color: #202832;
+    background: #fff;
+    border-collapse: collapse;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  .dyno-diff-table .dyno-diff-line { width: 8mm; }
+  .dyno-diff-table thead { position: static; display: table-header-group; background: #eef1f4; }
+  .dyno-diff-table th { color: #202832; }
+  .dyno-diff-table td, .dyno-diff-table th { padding: 1mm; border-color: #ccd3da; }
+  .dyno-diff-table td { color: #202832; background: #fff; }
+  .dyno-diff-table tr { break-inside: avoid; }
+  .dyno-diff-table .dyno-diff-line-number { color: #52606d; }
+  .dyno-diff-table tr[data-diff-kind="add"] > td { color: #185b38; background: #e9f5ed; }
+  .dyno-diff-table tr[data-diff-kind="delete"] > td { color: #87343c; background: #fbecee; }
+  .dyno-diff-table tr[data-diff-kind="change"] > td { color: #795314; background: #fbf3df; }
+  .dyno-compare-preview article { padding: 0; }
+  .dyno-compare-preview article + article { border-left: 0; border-top: 1pt solid #8b98a5; margin-top: 6mm; padding-top: 6mm; }
+
   .dyno-prose p { margin: 0.65em 0; orphans: 3; widows: 3; }
   .dyno-prose h1 { font-size: 23pt; margin: 0 0 4mm; line-height: 1.2; }
   .dyno-prose h2 { font-size: 15pt; margin: 7mm 0 3mm; }

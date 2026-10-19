@@ -1,6 +1,9 @@
 package navigation
 
 import (
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/text"
 	"net/url"
 	"os"
 	"path"
@@ -18,7 +21,6 @@ type Backlink struct {
 // BacklinkIndex maps page URL → pages that link to it.
 type BacklinkIndex map[string][]Backlink
 
-var markdownLinkRe = regexp.MustCompile(`\[([^\]]*)\]\(<?(\.?\.?/[^)>]*\.md)[>]?>\)`)
 var wikiLinkRe = regexp.MustCompile(`\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]`)
 
 // BuildBacklinks walks the nav tree and builds an inverted link index.
@@ -28,12 +30,15 @@ func BuildBacklinks(root *NavNode, basePath string) BacklinkIndex {
 
 	// Collect all nodes with filesystem paths for fast lookup by slug path.
 	allNodes := make(map[string]*NavNode) // FullPath → node
+	files := make(map[string]*NavNode)
 	WalkNodes(root, func(n *NavNode) {
 		if n.FSPath != "" {
 			allNodes[n.FullPath] = n
+			files[filepath.Clean(n.FSPath)] = n
 		}
 	})
 
+	parser := goldmark.New().Parser()
 	WalkNodes(root, func(src *NavNode) {
 		if src.FSPath == "" {
 			return
@@ -42,9 +47,41 @@ func BuildBacklinks(root *NavNode, basePath string) BacklinkIndex {
 		if err != nil {
 			return
 		}
-		srcDir := path.Dir(src.FullPath)
-
-		targets := extractLinkTargets(string(data), srcDir, allNodes)
+		data = frontmatterRe.ReplaceAll(data, nil)
+		var targets []string
+		doc := parser.Parse(text.NewReader(data))
+		_ = ast.Walk(doc, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+			if !entering {
+				return ast.WalkContinue, nil
+			}
+			switch node := node.(type) {
+			case *ast.Link:
+				if target := resolveBacklink(string(node.Destination), src, basePath, allNodes, files); target != "" {
+					targets = append(targets, target)
+				}
+			case *ast.Text:
+				if node.Parent().Kind() == ast.KindCodeSpan {
+					break
+				}
+				for _, m := range wikiLinkRe.FindAllStringSubmatch(string(node.Segment.Value(data)), -1) {
+					slug := SlugFromName(strings.TrimSpace(m[1]))
+					target := ""
+					for pageURL := range allNodes {
+						if path.Base(pageURL) == slug {
+							if target != "" {
+								target = ""
+								break
+							}
+							target = pageURL
+						}
+					}
+					if target != "" {
+						targets = append(targets, target)
+					}
+				}
+			}
+			return ast.WalkContinue, nil
+		})
 		for _, target := range targets {
 			if target == src.FullPath {
 				continue // no self-links
@@ -93,47 +130,42 @@ func FindNodeByFSPath(root *NavNode, fsPath string) *NavNode {
 	return found
 }
 
-// extractLinkTargets returns resolved page URLs linked from src markdown content.
-func extractLinkTargets(src, srcDir string, allNodes map[string]*NavNode) []string {
-	var targets []string
-
-	// Standard markdown links: [text](<./foo.md>) or [text](./foo.md)
-	for _, m := range markdownLinkRe.FindAllStringSubmatch(src, -1) {
-		href := m[2]
-		decoded, err := url.PathUnescape(href)
-		if err != nil {
-			decoded = href
-		}
-		decoded = strings.TrimSuffix(decoded, ".md")
-		var resolved string
-		if strings.HasPrefix(decoded, "/") {
-			resolved = decoded
-		} else {
-			resolved = path.Join(srcDir, decoded)
-		}
-		resolved = slugNormalizePath(resolved)
-		if _, ok := allNodes[resolved]; ok {
-			targets = append(targets, resolved)
+func resolveBacklink(href string, source *NavNode, basePath string, nodes, files map[string]*NavNode) string {
+	u, err := url.Parse(href)
+	if err != nil || u.IsAbs() || u.Host != "" || u.Path == "" {
+		return ""
+	}
+	if !strings.HasPrefix(u.Path, "/") {
+		if target := files[filepath.Clean(filepath.Join(filepath.Dir(source.FSPath), filepath.FromSlash(u.Path)))]; target != nil {
+			return target.FullPath
 		}
 	}
-
-	// Obsidian wiki-links: [[Page Name]] or [[Page Name|alias]]
-	for _, m := range wikiLinkRe.FindAllStringSubmatch(src, -1) {
-		name := strings.TrimSpace(m[1])
-		if name == "" {
-			continue
+	resolved := u.Path
+	if !strings.HasPrefix(resolved, "/") {
+		dir := path.Dir(source.FullPath)
+		if source.IsDir {
+			dir = source.FullPath
 		}
-		// Try to find the page by slug anywhere in the tree
-		slug := SlugFromName(name)
-		for pageURL := range allNodes {
-			if path.Base(pageURL) == slug {
-				targets = append(targets, pageURL)
-				break
-			}
+		resolved = path.Join(dir, resolved)
+	} else if basePath != "" && resolved != basePath && !strings.HasPrefix(resolved, basePath+"/") {
+		resolved = basePath + resolved
+	}
+	for _, candidate := range []string{resolved, strings.TrimRight(resolved, "/") + "/"} {
+		if target := nodes[candidate]; target != nil {
+			return target.FullPath
 		}
 	}
-
-	return targets
+	ext := path.Ext(resolved)
+	if !strings.EqualFold(ext, ".md") && !strings.EqualFold(ext, ".markdown") {
+		return ""
+	}
+	resolved = slugNormalizePath(strings.TrimSuffix(resolved, ext))
+	for _, candidate := range []string{resolved, resolved + "/", strings.TrimSuffix(resolved, "/index") + "/", strings.TrimSuffix(resolved, "/readme") + "/"} {
+		if target := nodes[candidate]; target != nil {
+			return target.FullPath
+		}
+	}
+	return ""
 }
 
 // slugNormalizePath applies SlugFromName to each non-empty path segment.

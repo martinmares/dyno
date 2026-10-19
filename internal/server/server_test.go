@@ -20,7 +20,7 @@ import (
 	"github.com/mares/dyno/internal/search"
 )
 
-func newTestServer(t *testing.T) *Server {
+func newTestServer(t *testing.T, options ...func(*Config)) *Server {
 	t.Helper()
 
 	siteRoot := t.TempDir()
@@ -53,12 +53,16 @@ func newTestServer(t *testing.T) *Server {
 		t.Fatal(err)
 	}
 	staticFS := os.DirFS(repoRoot)
-	srv, err := New(Config{
+	serverConfig := Config{
 		SiteRoot:   siteRoot,
 		ContentDir: contentDir,
 		DevMode:    true,
 		SiteCfg:    cfg,
-	}, staticFS, nav, idx, renderer)
+	}
+	for _, option := range options {
+		option(&serverConfig)
+	}
+	srv, err := New(serverConfig, staticFS, nav, idx, renderer)
 	if err != nil {
 		t.Fatal(err)
 	}

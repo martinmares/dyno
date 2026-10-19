@@ -50,6 +50,7 @@ func main() {
 		port               string
 		dev                bool
 		edit               bool
+		explore            bool
 		watch              bool
 		enableComments     bool
 		interactiveTables  bool
@@ -73,7 +74,7 @@ func main() {
 					return fmt.Errorf("--library cannot be combined with --git-repo-site; add the repository to dyno-library.yaml instead")
 				}
 			}
-			return run(sites, gitRepos, workDir, libraryFile, port, dev, edit, watch, enableComments, interactiveTables, commentsFile, commentsManagement, logFormat)
+			return run(sites, gitRepos, workDir, libraryFile, port, dev, edit, watch, enableComments, interactiveTables, commentsFile, commentsManagement, logFormat, explore)
 		},
 	}
 
@@ -84,6 +85,7 @@ func main() {
 	root.Flags().StringVarP(&port, "port", "p", "3000", "Port to listen on")
 	root.Flags().BoolVar(&dev, "dev", false, "Dev mode: reload templates and assets from disk on every request")
 	root.Flags().BoolVar(&edit, "edit", false, "Enable in-browser markdown editor (local use only)")
+	root.Flags().BoolVar(&explore, "explore", false, "Enable a document explorer with search, filters, previews and repository overview (single-site)")
 	root.Flags().BoolVar(&watch, "watch", false, "Watch site for changes and reload navigation/search (single-site only)")
 	root.Flags().BoolVar(&enableComments, "enable-comments", false, "Enable page comments")
 	root.Flags().BoolVar(&interactiveTables, "interactive-tables", false, "Force sorting and filtering for all Markdown tables, overriding front matter")
@@ -98,7 +100,7 @@ func main() {
 	}
 }
 
-func run(sites, gitRepos []string, workDir, libraryFile, port string, dev, edit, watch, enableComments, interactiveTables bool, commentsFile, commentsManagement, logFormat string) error {
+func run(sites, gitRepos []string, workDir, libraryFile, port string, dev, edit, watch, enableComments, interactiveTables bool, commentsFile, commentsManagement, logFormat string, explore bool) error {
 	setupLogger(logFormat)
 	commentsManagement = strings.ToLower(strings.TrimSpace(commentsManagement))
 	if commentsManagement != "disabled" && commentsManagement != "author" && commentsManagement != "all" {
@@ -246,17 +248,20 @@ func run(sites, gitRepos []string, workDir, libraryFile, port string, dev, edit,
 	staticFS := resolveStaticFS(dev, firstSiteRoot)
 
 	forceLibraryMode := libraryFile != ""
+	if explore && (len(absSites) != 1 || forceLibraryMode) {
+		return fmt.Errorf("--explore currently requires a single --site or --git-repo-site (not --library)")
+	}
 	if len(absSites) == 1 && !forceLibraryMode {
-		return runSingleWithGit(absSites[0], port, dev, edit, watch, enableComments, commentsFile, commentsManagement, renderer, staticFS, gitConfigs[absSites[0]], cfgOverrides[absSites[0]])
+		return runSingleWithGit(absSites[0], port, dev, edit, watch, enableComments, commentsFile, commentsManagement, renderer, staticFS, gitConfigs[absSites[0]], cfgOverrides[absSites[0]], explore)
 	}
 	return runLibraryWithGit(absSites, port, dev, enableComments, commentsFile, commentsManagement, renderer, staticFS, gitConfigs, cfgOverrides)
 }
 
 func runSingle(siteDir, port string, dev, watch bool, renderer *markdown.Renderer, staticFS fs.FS) error {
-	return runSingleWithGit(siteDir, port, dev, false, watch, false, "", "disabled", renderer, staticFS, gitrepo.Config{}, nil)
+	return runSingleWithGit(siteDir, port, dev, false, watch, false, "", "disabled", renderer, staticFS, gitrepo.Config{}, nil, false)
 }
 
-func runSingleWithGit(siteDir, port string, dev, edit, watch, enableComments bool, commentsFile, commentsManagement string, renderer *markdown.Renderer, staticFS fs.FS, gitCfg gitrepo.Config, cfgOverride *config.SiteConfig) error {
+func runSingleWithGit(siteDir, port string, dev, edit, watch, enableComments bool, commentsFile, commentsManagement string, renderer *markdown.Renderer, staticFS fs.FS, gitCfg gitrepo.Config, cfgOverride *config.SiteConfig, explore bool) error {
 	paths, err := sitepath.Resolve(siteDir)
 	if err != nil {
 		return err
@@ -316,6 +321,7 @@ func runSingleWithGit(siteDir, port string, dev, edit, watch, enableComments boo
 		Port:               port,
 		DevMode:            dev,
 		EditMode:           edit,
+		Explore:            explore,
 		SiteCfg:            siteCfg,
 		Version:            version,
 		Commit:             buildCommit,

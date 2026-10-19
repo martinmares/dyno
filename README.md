@@ -7,6 +7,7 @@ A self-hosted documentation server — think GitBook or Notion, but as a single 
 - **Markdown rendering** — GFM, footnotes, definition lists, syntax highlighting (200+ languages via Chroma)
 - **Mermaid diagrams** — flowcharts, sequence diagrams, pie charts, and more
 - **Full-text search** — built-in in-memory search with highlighted snippets
+- **Repository Explorer** — opt-in `--explore` workspace with folders, advanced search, metadata filters, configurable columns, previews, overview and Markdown relationships; no AI or external search service
 - **Auto-generated sidebar** — navigation tree built from the filesystem, no config needed
 - **Light / dark mode** — persisted to localStorage
 - **Table of contents** — per-page TOC with scroll spy
@@ -22,6 +23,7 @@ A self-hosted documentation server — think GitBook or Notion, but as a single 
 - **Local Markdown browser** — `dyno browse` opens selected files and recursive directories with a filesystem sidebar and search
 - **Git-backed sites** — `--git-repo-site <url>` clones a repo and serves it; auto-pulls on a configurable interval
 - **Document version compare** — compare any two Git revisions, the staged file, or the working tree in source and rendered views
+- **Printable change report** — compare document revisions as added, removed and changed content blocks with before/after rendering, chapter context and a print/PDF view; frontmatter is always excluded
 - **Library config file** — `--library dyno-library.yaml` describes multiple sites (local or git) with metadata overrides
 - **Backlinks** — every page shows which other pages link to it
 - **Ego-graph** — D2 dependency graph (±1 hop) for each page, accessible via the graph icon in the navbar
@@ -310,6 +312,7 @@ Flags:
       --comments-management string  Comment management: disabled, author, or all (default "disabled")
       --dev                     Dev mode: reload templates and assets from disk on every request
       --watch                   Watch site for changes and reload navigation/search (single-site only)
+      --explore                 Open Repository Explorer (single-site, opt-in)
       --log-format string       Log format: text or json (default "text")
       --version                 Print version and exit
 ```
@@ -329,6 +332,50 @@ This flag overrides document settings, even `dyno.tables.sortable: false` or `dy
 `--library` is exclusive with `--site` and `--git-repo-site`: when you use a library file, define all books inside `dyno-library.yaml`. `--work-dir` may still be used to override the library file's `work_dir` for git-backed entries.
 
 If a section directory has no `index.md`, dyno serves a synthetic landing page with links to child pages.
+
+### Repository Explorer
+
+```sh
+dyno --site ./site --explore --watch
+```
+
+Explorer is available through the **Explorer** toolbar link or `/_explore`
+(under `base_path` when configured). The home page and all document URLs remain
+in the reader. Explorer currently supports a single site, not
+library mode or `dyno browse`. Editing still requires the separate `--edit` flag.
+
+Use accent-insensitive words or quoted phrases, all/any matching and title,
+URL-path or content scope. Combine search with the folder tree and fields marked
+`filterable` in `dyno.yaml`. Results have 50 rows per page; columns and metadata
+sorting come from configured frontmatter fields. **More filters** supports missing
+values, no incoming Markdown links and inclusive date ranges for configured
+`date`/`datetime` fields. Selected documents show an excerpt, the first chapters,
+configured metadata and site-wide incoming/outgoing links. Open document includes
+an Explorer return link; filters, columns, sorting, pagination and selection live
+in the URL. Pane scroll is restored locally in the browser session.
+
+**Overview** counts the same filtered selection. File modification times are
+filesystem times, not Git commits or frontmatter dates; unfilled metadata and
+unreferenced documents are signals, not automatic errors. **Relations** lists
+actual Markdown links within the selection and aggregates them by top-level
+folder, without inferring arbitrary frontmatter relationships. Only published
+navigation entries are included. Use `--watch` for external changes; editor saves
+invalidate the Explorer snapshot. No file contents are modified by Explorer.
+
+### Change Reports
+
+Open **Compare versions**, select two revisions of the document, and choose
+**Change report**. The report shows counts and a linked list of changed blocks,
+with chapter context and rendered before/after content. Unchanged blocks and
+frontmatter are excluded. It works with the same validated document history,
+including renamed files, staged content and the working tree. Use
+**Print / Save PDF** or Ctrl+P to share a reader-oriented report.
+
+The comparison is deterministic, not AI-generated: paragraphs, lists, tables,
+callouts and fenced code are compared as Markdown blocks. Formatting-only edits
+may therefore appear as changes; moved blocks may appear as removal/addition.
+Linked assets are loaded from the current site, not archived with each revision.
+Reports do not require `--explore` or `--edit`; Git history must be available.
 
 ### Examples
 

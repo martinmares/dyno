@@ -1,0 +1,51 @@
+.dyno-change-report-scroll { flex: 1; min-height: 0; overflow: auto; padding: 2rem; background: var(--dyno-shell-bg); }
+.dyno-change-report { max-width: 60rem; margin: 0 auto; padding: 3rem; background: var(--dyno-surface); border-radius: var(--dyno-radius-lg); }
+.dyno-change-report > h1 { font-size: 1.8rem; line-height: 1.25; font-weight: 650; letter-spacing: -0.035em; margin: 0.5rem 0 1.5rem; }
+.dyno-change-report-eyebrow { color: var(--dyno-primary); font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.12em; }
+.dyno-change-report-info { display: grid; gap: 0.5rem; font-size: 0.8125rem; }
+.dyno-change-report-info > div { display: flex; gap: 0.5rem; }
+.dyno-change-report-info dt { flex-shrink: 0; color: var(--dyno-muted); }
+.dyno-change-report-info dd { margin: 0; overflow-wrap: anywhere; }
+.dyno-change-report-summary { display: flex; flex-wrap: wrap; gap: 1.5rem; margin: 1.5rem 0 0.75rem; padding: 1rem 0; border-block: 1px solid var(--dyno-border); font-size: 0.875rem; }
+.dyno-change-report-summary strong { color: var(--dyno-primary); }
+.dyno-change-report-note { font-size: 0.75rem; color: var(--dyno-muted); line-height: 1.6; }
+.dyno-change-report-toc { margin: 2rem 0; }
+.dyno-change-report-toc h2 { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem; }
+.dyno-change-report-toc ol { padding-left: 1.25rem; }
+.dyno-change-report-toc li { font-size: 0.8125rem; margin: 0.4rem 0; }
+.dyno-change-report-toc a { color: var(--dyno-primary); }
+.dyno-change-report-toc span { margin-left: 0.5rem; color: var(--dyno-muted); font-size: 0.6875rem; }
+.dyno-change-report-block { margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--dyno-border); scroll-margin-top: 1rem; }
+.dyno-change-report-block > header { margin-bottom: 1.25rem; break-inside: avoid; break-after: avoid; }
+.dyno-change-report-kind { font-size: 0.6875rem; color: var(--dyno-muted); }
+.dyno-change-report-block > header h2 { font-size: 1rem; line-height: 1.5; font-weight: 600; margin-top: 0.25rem; }
+.dyno-change-report-side { border-left: 2px solid var(--dyno-primary); padding-left: 1rem; margin: 1.25rem 0; }
+.dyno-change-report-before { border-color: var(--dyno-danger); }
+.dyno-change-report-side > h3 { font-size: 0.6875rem; font-weight: 600; color: var(--dyno-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; break-after: avoid; }
+.dyno-change-report-side .dyno-prose { font-size: 0.9375rem; }
+.dyno-change-report-side .dyno-prose h1, .dyno-change-report-side .dyno-prose h2 { font-size: 1.125rem; margin: 0.5rem 0; }
+.dyno-change-report-side .dyno-prose h3 { font-size: 1rem; margin: 0.5rem 0; }
+.dyno-change-report .api-widget button, .dyno-change-report .api-panel, .dyno-change-report .heading-anchor { display: none; }
+.dyno-change-report-no-changes { padding: 2rem 0; color: var(--dyno-muted); }
+@media (max-width: 700px) { .dyno-change-report-scroll { padding: 0.75rem; } .dyno-change-report { padding: 1.25rem; } }
+@media print {
+  .dyno-change-report-body { height: auto; overflow: visible; background: #fff; }
+  .dyno-change-report-body .dyno-compare { height: auto; overflow: visible; display: block; }
+  .dyno-change-report-body .dyno-compare-header { display: none; }
+  .dyno-change-report-scroll { display: block; overflow: visible; padding: 0; background: #fff; }
+  .dyno-change-report .dyno-change-report-eyebrow { color: #174b78; font-size: 8pt; }
+  .dyno-change-report > h1 { font-size: 21pt; margin: 2mm 0 5mm; }
+  .dyno-change-report-info { font-size: 8.5pt; gap: 1.5mm; break-inside: avoid; }
+  .dyno-change-report-info dt, .dyno-change-report-note, .dyno-change-report-kind, .dyno-change-report-side > h3, .dyno-change-report-toc span { color: #52606d; }
+  .dyno-change-report-summary { font-size: 10pt; margin: 5mm 0 3mm; padding: 3mm 0; border-color: #ccd3da; break-inside: avoid; }
+  .dyno-change-report-summary strong, .dyno-change-report-toc a { color: #174b78; }
+  .dyno-change-report-note { font-size: 8pt; }
+  .dyno-change-report-block { margin-top: 6mm; padding-top: 4mm; border-color: #ccd3da; }
+  .dyno-change-report-block > header h2 { font-size: 12pt; }
+  .dyno-change-report-side { margin: 4mm 0; padding-left: 3mm; border-color: #174b78; break-inside: avoid; }
+  .dyno-change-report-before { border-color: #943c45; }
+  .dyno-change-report-side .dyno-prose h1, .dyno-change-report-side .dyno-prose h2, .dyno-change-report-side .dyno-prose h3 { font-size: 12pt; }
+  .dyno-change-report-toc { margin: 5mm 0; }
+  .dyno-change-report-toc h2 { font-size: 10pt; }
+  .dyno-change-report-toc li { font-size: 8.5pt; break-inside: avoid; }
+}

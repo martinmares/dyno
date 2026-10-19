@@ -3,10 +3,41 @@
 Practical commands and copyable file examples, bundled with the binary.
 No command below runs automatically. Replace example paths and URLs first.
 
-Topics: browse, serve, edit, library, git, comments, config, markdown, mcp.
+Topics: browse, serve, explore, edit, library, git, comments, config, markdown, mcp.
 Show one topic with `dyno examples TOPIC`. Read all flags with `dyno --help`,
 `dyno browse --help`, or `dyno-mcp serve --help`.
 Save this guide with `dyno examples --markdown > dyno-examples.md`.
+
+## explore
+
+Browse a large documentation repository without AI or external services.
+
+### Start the opt-in Explorer
+
+```sh
+dyno --site ./site --explore --watch
+```
+
+Open Explorer using the toolbar link or /_explore (under base_path when configured).
+The home page remains the original document. Reader returns to it from Explorer.
+Explorer currently supports a single site, not library mode or dyno browse.
+Add --edit only when you also want the existing local Markdown editor.
+
+### Find and inspect documents
+
+Search with or without accents, use "exact phrases", select all/any words,
+and restrict searching to titles, URL paths or content. Combine search with
+a folder and configured metadata filters. Results are paginated in groups of 50.
+Select columns from dyno.yaml frontmatter.fields, choose sorting, and click
+a document for its excerpt, first chapters, metadata and Markdown links.
+The selection is encoded in the URL; Open document includes a return link.
+
+More filters supports missing configured fields, no incoming links, and
+inclusive date bounds for configured date/datetime fields. Overview shows
+counts for the same selection, missing metadata and recently modified files
+(filesystem times, not Git history). Relations shows real Markdown links and
+their aggregation between top-level folders; it does not infer relationships
+from arbitrary frontmatter fields. Use --watch for external filesystem changes.
 
 ## browse
 
@@ -172,6 +203,11 @@ Use git_pull_interval: "false" to disable pulls. Configure credentials through
 your Git/SSH environment, not passwords embedded in URLs.
 Git history and version comparison are available for documents in Git repositories;
 compare revisions, staged content and working-tree changes from the web UI.
+
+Choose Change report for a reader-oriented summary of changed Markdown blocks,
+with chapter context and before/after rendering. Frontmatter and unchanged
+blocks are excluded. Print / Save PDF exports the report through browser print;
+no AI, --explore or --edit is required. Linked assets use the current site.
 
 ## comments
 

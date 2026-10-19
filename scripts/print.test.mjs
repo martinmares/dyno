@@ -89,3 +89,14 @@ test('documents without a title place print information at the beginning of the 
   assert.equal(prepended, true);
   context.restorePagePrint();
 });
+
+test('change report timestamps are refreshed by the same print handler', () => {
+  const time = {};
+  const article = { querySelector: () => null, querySelectorAll: selector => selector === '[data-report-time]' ? [time] : [] };
+  const context = vm.createContext({ window: { addEventListener() {} }, document: { querySelector: () => article, addEventListener() {} } });
+  vm.runInContext(printSource, context);
+  context.preparePagePrint();
+  assert.ok(time.textContent);
+  assert.ok(Math.abs(Date.now() - Date.parse(time.dateTime)) < 5000);
+  context.restorePagePrint();
+});

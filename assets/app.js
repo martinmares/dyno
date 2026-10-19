@@ -485,9 +485,38 @@ function initCopyButtons() {
   });
 }
 
+// Keep the Explorer selection when following HTMX links inside the reader.
+document.addEventListener('htmx:configRequest', function (event) {
+  if (!document.querySelector('[data-explorer-return]')) return;
+  if (event.detail.verb !== 'get' || event.detail.target?.id !== 'page-content') return;
+  const state = new URLSearchParams(window.location.search).get('explore');
+  if (state) event.detail.parameters.explore = state;
+});
+
+function restoreExplorerReturnLink() {
+  const link = document.querySelector('[data-explorer-return]');
+  const state = new URLSearchParams(window.location.search).get('explore');
+  if (!link || !state) return;
+  const url = new URL(link.href);
+  url.search = state;
+  link.href = url.href;
+}
+document.addEventListener('DOMContentLoaded', restoreExplorerReturnLink);
+document.addEventListener('htmx:afterSettle', restoreExplorerReturnLink);
+
 // ─── Document printing ────────────────────────────────────────────────────────
 
 let printPageState = null;
+
+function setPrintTimestamp(time) {
+  const now = new Date();
+  time.dateTime = now.toISOString();
+  time.textContent = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'long' }).format(now);
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('[data-report-time]').forEach(setPrintTimestamp);
+});
 
 function preparePagePrint() {
   if (printPageState) return;
@@ -497,13 +526,12 @@ function preparePagePrint() {
     details: Array.from(article.querySelectorAll('details:not([open])')),
     rows: Array.from(article.querySelectorAll('.dyno-table-widget tbody tr[hidden]'))
   };
+  article.querySelectorAll('[data-report-time]').forEach(setPrintTimestamp);
   const summary = article.querySelector('[data-print-summary]');
   if (summary) {
     printPageState.summary = { element: summary, parent: summary.parentNode, next: summary.nextSibling };
-    const now = new Date();
     const time = summary.querySelector('[data-print-time]');
-    time.dateTime = now.toISOString();
-    time.textContent = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'long' }).format(now);
+    setPrintTimestamp(time);
     const prose = article.querySelector('.dyno-prose');
     const title = prose && prose.querySelector('h1');
     if (title) title.after(summary);

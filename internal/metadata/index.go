@@ -144,13 +144,21 @@ func (idx *Index) Count(filter Filter) int {
 }
 
 func (idx *Index) Facets(filter Filter) []Facet {
+	return idx.FacetsFiltered(filter, nil)
+}
+
+// FacetsFiltered counts metadata within a full-text/folder selection.
+func (idx *Index) FacetsFiltered(filter Filter, allowed map[string]bool) []Facet {
 	if idx == nil {
 		return nil
 	}
 	facets := make([]Facet, 0, len(idx.fields))
 	for _, field := range idx.fields {
 		counts := make(map[string]int)
-		for _, document := range idx.documents {
+		for path, document := range idx.documents {
+			if allowed != nil && !allowed[path] {
+				continue
+			}
 			if !matches(document, filter, field.Name) {
 				continue
 			}

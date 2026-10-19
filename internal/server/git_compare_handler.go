@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
 	"html/template"
 	"log/slog"
@@ -44,29 +45,34 @@ type gitCompareRow struct {
 }
 
 type gitCompareData struct {
-	Title             string
-	DocumentTitle     string
-	PageURL           string
-	CompareURL        string
-	Revisions         []gitFileRevision
-	Left              gitFileRevision
-	Right             gitFileRevision
-	SourceURL         string
-	PreviewURL        string
-	SwapURL           string
-	Rows              []gitCompareRow
-	LeftHTML          template.HTML
-	RightHTML         template.HTML
-	Mode              string
-	IgnoreFrontmatter bool
-	Added             int
-	Deleted           int
-	Changed           int
-	BulmaCSSURL       string
-	AppCSSURL         string
-	FaviconURL        string
-	LightCSS          template.CSS
-	DarkCSS           template.CSS
+	Title                             string
+	DocumentTitle                     string
+	PageURL                           string
+	CompareURL                        string
+	Revisions                         []gitFileRevision
+	Left                              gitFileRevision
+	Right                             gitFileRevision
+	SourceURL                         string
+	PreviewURL                        string
+	SwapURL                           string
+	Rows                              []gitCompareRow
+	LeftHTML                          template.HTML
+	RightHTML                         template.HTML
+	Mode                              string
+	ReportURL                         string
+	SourceFile                        string
+	Changes                           []documentChange
+	AppJSURL, SyntaxJSURL, MermaidURL string
+	ReportCSSURL                      string
+	IgnoreFrontmatter                 bool
+	Added                             int
+	Deleted                           int
+	Changed                           int
+	BulmaCSSURL                       string
+	AppCSSURL                         string
+	FaviconURL                        string
+	LightCSS                          template.CSS
+	DarkCSS                           template.CSS
 }
 
 func (s *Server) gitCompareURLFor(pageFullPath string) string {
@@ -140,7 +146,7 @@ func (s *Server) gitCompareHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	mode := r.URL.Query().Get("mode")
-	if mode != "preview" {
+	if mode != "preview" && mode != "report" {
 		mode = "source"
 	}
 	data := gitCompareData{
@@ -152,6 +158,11 @@ func (s *Server) gitCompareHandler(w http.ResponseWriter, r *http.Request) {
 		Left:              left,
 		Right:             right,
 		Mode:              mode,
+		SourceFile:        relPath,
+		AppJSURL:          s.assetURL("app.js"),
+		SyntaxJSURL:       s.assetURL("syntax.min.js"),
+		MermaidURL:        s.assetURL("mermaid.min.js"),
+		ReportCSSURL:      s.assetURL("change-report.css"),
 		IgnoreFrontmatter: r.URL.Query().Get("ignore_frontmatter") == "1",
 		BulmaCSSURL:       s.assetURL("bulma.min.css"),
 		AppCSSURL:         s.assetURL("app.css"),
@@ -161,8 +172,16 @@ func (s *Server) gitCompareHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	data.SourceURL = compareModeURL(data.CompareURL, left.ID, right.ID, "source", data.IgnoreFrontmatter)
 	data.PreviewURL = compareModeURL(data.CompareURL, left.ID, right.ID, "preview", data.IgnoreFrontmatter)
+	data.ReportURL = compareModeURL(data.CompareURL, left.ID, right.ID, "report", true)
 	data.SwapURL = compareModeURL(data.CompareURL, right.ID, left.ID, mode, data.IgnoreFrontmatter)
-	if mode == "preview" {
+	if mode == "report" {
+		data.IgnoreFrontmatter = true
+		data.Changes, data.Added, data.Deleted, data.Changed, err = s.buildChangeReport(leftSource, rightSource, node.FSPath)
+		if err != nil {
+			s.internalError(w, r, err)
+			return
+		}
+	} else if mode == "preview" {
 		data.LeftHTML, data.RightHTML, err = s.renderComparedMarkdown(leftSource, rightSource)
 		if err != nil {
 			s.internalError(w, r, err)
@@ -544,6 +563,7 @@ func splitDiffLines(value string) []string {
 var yamlFrontmatterPattern = regexp.MustCompile(`(?s)^---\r?\n.*?\r?\n---(?:\r?\n)?`)
 
 func stripYAMLFrontmatter(source []byte) []byte {
+	source = bytes.TrimPrefix(source, []byte("\xef\xbb\xbf"))
 	return yamlFrontmatterPattern.ReplaceAll(source, nil)
 }
 

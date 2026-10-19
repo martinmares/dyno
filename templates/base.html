@@ -94,6 +94,7 @@
       <div id="search-results-container" class="dyno-search-results-container hidden"></div>
     </div>
 
+    {{ if .ExploreURL }}<a href="{{ .ExploreURL }}" data-explorer-return class="button is-small is-ghost">Explorer</a>{{ end }}
     {{ if .SectionTasksURL }}
     <a href="{{ .SectionTasksURL }}"
        hx-get="{{ .SectionTasksURL }}"

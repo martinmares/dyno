@@ -16,6 +16,7 @@ Samostatně hostovaný dokumentační server — něco jako GitBook nebo Notion,
 - **Renderování Markdownu** — GFM, poznámky pod čarou, definiční seznamy, zvýrazňování syntaxe (200+ jazyků přes Chroma)
 - **Mermaid diagramy** — vývojové diagramy, sekvenční diagramy, koláčové grafy a další
 - **Fulltextové vyhledávání** — vestavěný in-memory index se zvýrazněnými úryvky
+- **Repository Explorer** — volitelný `--explore`: složky, pokročilé hledání, metadata filtry, volitelné sloupce, náhled, přehled a Markdown vazby. Bez AI a externí vyhledávací služby.
 - **Automatický sidebar** — navigace se generuje z adresářové struktury, žádná konfigurace není potřeba
 - **Světlý / tmavý režim** — uložen v localStorage
 - **Obsah stránky** — TOC s automatickým sledováním pozice při scrollování
@@ -317,6 +318,7 @@ Příznaky:
       --comments-management string  Správa komentářů: disabled, author nebo all (výchozí "disabled")
       --dev                     Dev režim: načítá šablony a assety z disku při každém požadavku
       --watch                   Sleduje web a přenačítá navigaci a vyhledávání (pouze single-site)
+      --explore                 Otevře Repository Explorer (volitelné, jeden web)
       --log-format string       Formát logů: text nebo json (výchozí "text")
       --version                 Vypíše verzi a skončí
 ```
@@ -336,6 +338,45 @@ Přepínač má přednost před nastavením dokumentu, i před `dyno.tables.sort
 `--library` se nesmí kombinovat s `--site` ani `--git-repo-site`: při použití souboru knihovny definuj všechny knihy uvnitř `dyno-library.yaml`. `--work-dir` lze dál použít k přepsání `work_dir` pro git-backed záznamy z knihovního souboru.
 
 Pokud adresář sekce nemá `index.md`, dyno zobrazí syntetickou úvodní stránku s odkazy na podstránky.
+
+### Explorer repozitáře
+
+```sh
+dyno --site ./site --explore --watch
+```
+
+Explorer zpřístupní složky, hledání bez diakritiky i s přesnými frázemi,
+všechna/některá slova a rozsah hledání (názvy, URL cesty, obsah). Metadata filtry
+a sloupce vycházejí z `dyno.yaml`, výsledky se stránkují po 50. Další filtry
+umožňují najít prázdná pole, dokumenty bez příchozích odkazů a rozsahy dat pro
+nakonfigurovaná pole typu `date`/`datetime`. Kliknutí otevře náhled s úryvkem,
+prvními kapitolami, metadaty a odkazy. Výběr je v URL a čtečka nabízí návrat
+do Exploreru. Pozice panelů se pamatuje lokálně v relaci prohlížeče.
+
+Přehled i vazby pracují nad stejným výběrem. Chybějící metadata nejsou automaticky
+chyby a nedávné změny znamenají časy souborů, nikoli Git historii nebo frontmatter.
+Vazby jsou skutečné Markdown odkazy mezi publikovanými dokumenty, ne automaticky
+odvozené vztahy z libovolných polí. Obsah souborů se nemění. Pro externí změny
+použijte `--watch`; uložení v editoru zneplatní snapshot Exploreru.
+
+Přepínač `--explore` přidá tlačítko Explorer a adresu `/_explore` (pod `base_path`,
+pokud je nastaven). Domovská stránka i ostatní URL článků zůstávají ve čtečce.
+Zatím je podporován jeden web, nikoli library režim nebo `dyno browse`.
+Editace nadále vyžaduje samostatný přepínač `--edit`. Žádná AI ani externí index.
+
+### Report změn do PDF
+
+V **Compare versions** vyberte dvě revize a přepněte na **Change report**.
+Report obsahuje přehled přidaných, odebraných a změněných bloků, kontext kapitol
+a původní/nové znění. Frontmatter a nezměněné bloky jsou vždy vynechány.
+Tisk přes **Print / Save PDF** nebo Ctrl+P vytvoří přehled pro čtenáře místo
+technického Git diffu. Výběr revizí používá stejnou historii dokumentu včetně
+přejmenování, staged verze a pracovního stromu.
+
+Jde o deterministické porovnání Markdown bloků, ne AI souhrn. Změny formátování
+se mohou objevit jako změny a přesunutí jako odebrání/přidání. Odkazované obrázky
+a jiné soubory se načítají z aktuálního webu, nikoli z archivované revize.
+Není nutný `--explore` ani `--edit`, pouze dostupná Git historie.
 
 ### Příklady
 
