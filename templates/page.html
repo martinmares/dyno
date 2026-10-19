@@ -65,7 +65,7 @@
   </div>
 
   {{ if .FrontmatterEditURL }}
-  <dialog data-frontmatter-dialog class="dyno-dialog dyno-dialog-lg">
+  <dialog data-frontmatter-dialog class="dyno-dialog dyno-frontmatter-dialog" aria-label="Edit frontmatter" tabindex="-1">
     <form method="post" action="{{ .FrontmatterEditURL }}" data-frontmatter-form class="card">
       <input type="hidden" name="page_path" value="{{ .CurrentPath }}">
       <input type="hidden" name="revision" value="{{ .FrontmatterRevision }}">
@@ -73,55 +73,27 @@
       <div class="card-header">
         <div>
           <h3 class="dyno-card-title">Edit frontmatter</h3>
-          <p class="has-text-grey is-size-7 mb-0 mt-1">Quickly edit the page header as key/value rows.</p>
+          <p class="has-text-grey is-size-7 mb-0 mt-1">Click a cell to edit. Enter to finish, Shift+Enter for a new line, Esc to undo the cell edit.</p>
         </div>
         <button type="button" data-frontmatter-cancel class="delete ml-auto" aria-label="Close"></button>
       </div>
       <div class="card-content dyno-dialog-scroll">
-        <table class="table dyno-table-vcenter dyno-frontmatter-table">
-          <thead>
-            <tr>
-              <th class="dyno-frontmatter-key">Key</th>
-              <th>Value</th>
-              <th class="dyno-frontmatter-action"></th>
-            </tr>
-          </thead>
+        <table class="dyno-frontmatter-table" aria-label="Frontmatter properties">
+          <thead><tr><th scope="col">Key</th><th scope="col">Value <span class="dyno-frontmatter-hint">YAML</span></th><th scope="col"><span class="is-sr-only">Actions</span></th></tr></thead>
           <tbody data-frontmatter-rows>
-            {{ if .FrontmatterEntries }}
-              {{ range .FrontmatterEntries }}
-              <tr data-frontmatter-row>
-                <td>
-                  <input type="text" value="{{ .Key }}" class="input" data-frontmatter-key>
-                </td>
-                <td>
-                  <textarea rows="2" class="textarea is-family-monospace" data-frontmatter-value>{{ .Value }}</textarea>
-                </td>
-                <td class="has-text-right">
-                  <button type="button" data-frontmatter-remove class="button is-small is-danger is-light">Remove</button>
-                </td>
-              </tr>
-              {{ end }}
+            {{ range .FrontmatterEntries }}
+              {{ template "frontmatter-row" . }}
             {{ end }}
           </tbody>
         </table>
         <template data-frontmatter-row-template>
-          <tr data-frontmatter-row>
-            <td>
-              <input type="text" class="input" data-frontmatter-key placeholder="key">
-            </td>
-            <td>
-              <textarea rows="2" class="textarea is-family-monospace" data-frontmatter-value placeholder="value"></textarea>
-            </td>
-            <td class="has-text-right">
-              <button type="button" data-frontmatter-remove class="button is-small is-danger is-light">Remove</button>
-            </td>
-          </tr>
+          {{ template "frontmatter-row" }}
         </template>
       </div>
       <div class="card-footer dyno-dialog-footer">
         <div>
           <button type="button" data-frontmatter-add class="button">Add field</button>
-          <p data-frontmatter-status class="is-size-7 has-text-grey mb-0 mt-1"></p>
+          <p data-frontmatter-status role="status" aria-live="polite" class="is-size-7 has-text-grey mb-0 mt-1"></p>
         </div>
         <div class="buttons">
           <button type="button" data-frontmatter-cancel class="button is-ghost">Cancel</button>
@@ -443,4 +415,17 @@
   {{ end }}
 </span>
 {{ end }}
+{{ end }}
+
+{{ define "frontmatter-row" }}
+<tr data-frontmatter-row>
+  <td><input type="text" value="{{ .Key }}" class="input" data-frontmatter-key aria-label="Key" placeholder="key" spellcheck="false"></td>
+  <td class="dyno-frontmatter-value-cell">
+    <textarea rows="1" class="textarea is-family-monospace" data-frontmatter-value aria-label="Value" placeholder="Empty" spellcheck="false">{{ .Value }}</textarea>
+    <span data-frontmatter-lines class="dyno-frontmatter-lines" hidden></span>
+  </td>
+  <td><button type="button" data-frontmatter-remove class="button is-small is-ghost" aria-label="Remove field" title="Remove field">
+    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6m4-6v6"/></svg>
+  </button></td>
+</tr>
 {{ end }}

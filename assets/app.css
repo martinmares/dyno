@@ -4302,21 +4302,145 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   gap: 0.75rem;
 }
 
-.dyno-frontmatter-table {
-  table-layout: fixed;
-  margin-bottom: 0;
+.dyno-frontmatter-dialog {
+  max-width: 58rem;
 }
 
-.dyno-frontmatter-key {
+.dyno-frontmatter-dialog > form.card {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--dyno-radius);
+}
+
+.dyno-frontmatter-dialog .card-header,
+.dyno-frontmatter-dialog .card-footer {
+  flex-shrink: 0;
+  padding: 1rem 1.5rem;
+}
+
+.dyno-frontmatter-dialog .dyno-dialog-scroll {
+  min-height: 0;
+  max-height: none;
+  padding: 0 1.5rem;
+  overscroll-behavior: contain;
+}
+
+.dyno-frontmatter-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.dyno-frontmatter-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.65rem 0.75rem;
+  background: var(--dyno-surface);
+  color: var(--dyno-muted);
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.dyno-frontmatter-table th:first-child {
   width: 32%;
 }
 
-.dyno-frontmatter-action {
-  width: 6rem;
+.dyno-frontmatter-table th:last-child {
+  width: 2.75rem;
 }
 
 .dyno-frontmatter-table td {
+  position: relative;
+  padding: 0.2rem;
+  border-top: 1px solid var(--dyno-border);
   vertical-align: top;
+}
+
+.dyno-frontmatter-table tbody tr:hover {
+  background: var(--dyno-surface-secondary);
+}
+
+.dyno-frontmatter-table .input,
+.dyno-frontmatter-table .textarea {
+  height: 2rem;
+  min-height: 2rem;
+  padding: 0.3rem 0.5rem;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  font-size: inherit;
+  line-height: 1.5;
+}
+
+.dyno-frontmatter-table .textarea {
+  max-height: 16rem;
+  overflow: hidden;
+  white-space: pre;
+  text-overflow: ellipsis;
+  resize: none;
+}
+
+.dyno-frontmatter-table .input:focus,
+.dyno-frontmatter-table .textarea:focus {
+  border-color: var(--dyno-primary);
+  background: var(--dyno-surface);
+}
+
+.dyno-frontmatter-table .textarea:focus {
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.dyno-frontmatter-hint,
+.dyno-frontmatter-lines {
+  color: var(--dyno-muted);
+  font-size: 0.625rem;
+}
+
+.dyno-frontmatter-hint {
+  margin-left: 0.4rem;
+}
+
+.dyno-frontmatter-lines {
+  position: absolute;
+  right: 0.65rem;
+  top: 0.6rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: var(--dyno-radius-sm);
+  background: var(--dyno-surface-secondary);
+}
+
+.dyno-frontmatter-value-cell[data-multiline] .textarea:not(:focus) {
+  padding-right: 4rem;
+}
+
+.dyno-frontmatter-value-cell:focus-within .dyno-frontmatter-lines {
+  display: none;
+}
+
+.dyno-frontmatter-table [data-frontmatter-remove] {
+  width: 2rem;
+  height: 2rem;
+  color: var(--dyno-muted);
+  opacity: 0.5;
+}
+
+.dyno-frontmatter-table tr:hover [data-frontmatter-remove],
+.dyno-frontmatter-table tr:focus-within [data-frontmatter-remove] {
+  opacity: 1;
+}
+
+.dyno-frontmatter-table [data-frontmatter-remove]:hover {
+  color: var(--dyno-danger-text);
+  background: var(--dyno-danger-bg);
+}
+
+.dyno-frontmatter-dialog .buttons {
+  flex-wrap: nowrap;
+  margin: 0;
 }
 
 .dyno-comments {
@@ -4419,12 +4543,15 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 }
 
 @media (max-width: 640px) {
-  .dyno-frontmatter-key {
+  .dyno-frontmatter-table th:first-child {
     width: 38%;
   }
 
-  .dyno-frontmatter-action {
-    width: 4.5rem;
+  .dyno-frontmatter-dialog .card-header,
+  .dyno-frontmatter-dialog .card-footer,
+  .dyno-frontmatter-dialog .dyno-dialog-scroll {
+    padding-left: 1rem;
+    padding-right: 1rem;
   }
 
   .dyno-dialog-footer,

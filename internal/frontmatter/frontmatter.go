@@ -96,7 +96,7 @@ func Apply(source []byte, updates map[string]any) ([]byte, error) {
 			return nil, err
 		}
 		start := keyNode.Line - 1
-		end := nodeEndLine(valueNode) - 1
+		end := fieldEndLine(mapping, keyNode, lines)
 		if start < 0 || end < start || end >= len(lines) {
 			return nil, fmt.Errorf("%w: invalid source positions for %q", ErrInvalid, name)
 		}
@@ -107,14 +107,7 @@ func Apply(source []byte, updates map[string]any) ([]byte, error) {
 		})
 	}
 
-	sort.Slice(replacements, func(i, j int) bool { return replacements[i].start > replacements[j].start })
-	for _, replacement := range replacements {
-		updated := make([]string, 0, len(lines)-(replacement.end-replacement.start)+len(replacement.lines))
-		updated = append(updated, lines[:replacement.start]...)
-		updated = append(updated, replacement.lines...)
-		updated = append(updated, lines[replacement.end+1:]...)
-		lines = updated
-	}
+	lines = replaceLines(lines, replacements)
 	for _, name := range missing {
 		block, err := marshalField(name, updates[name], nil, nil)
 		if err != nil {
@@ -123,15 +116,7 @@ func Apply(source []byte, updates map[string]any) ([]byte, error) {
 		lines = append(lines, strings.Split(strings.TrimSuffix(block, "\n"), "\n")...)
 	}
 
-	patched := strings.Join(lines, part.newline)
-	if patched != "" {
-		patched += part.newline
-	}
-	out := make([]byte, 0, len(source)+len(patched)-len(content))
-	out = append(out, source[:part.contentStart]...)
-	out = append(out, patched...)
-	out = append(out, source[part.contentEnd:]...)
-	return out, nil
+	return patchSection(source, part, lines), nil
 }
 
 // ReadEntries returns top-level frontmatter entries in document order.
@@ -168,7 +153,7 @@ func ReadEntries(source []byte) ([]Entry, error) {
 
 // ApplyEntries replaces the top-level frontmatter entries with the supplied
 // key/value rows. Missing frontmatter is created automatically and omitted
-// rows are removed.
+// rows are removed. Unchanged values retain their original YAML source.
 func ApplyEntries(source []byte, entries []Entry) ([]byte, error) {
 	part, ok := findSection(source)
 	if !ok {
@@ -208,26 +193,39 @@ func ApplyEntries(source []byte, entries []Entry) ([]byte, error) {
 		order = append(order, name)
 	}
 
-	lines := make([]string, 0, len(entries)*2)
+	lines := strings.Split(strings.TrimSuffix(string(content), part.newline), part.newline)
+	if len(content) == 0 {
+		lines = nil
+	}
+	var replacements []lineReplacement
 	for i := 0; i+1 < len(mapping.Content); i += 2 {
 		keyNode := mapping.Content[i]
 		valueNode := mapping.Content[i+1]
 		entry, ok := wanted[keyNode.Value]
-		if !ok {
-			continue
+		var replacement []string
+		if ok {
+			delete(wanted, keyNode.Value)
+			parsed, err := parseEntryValue(entry.Value)
+			if err != nil {
+				return nil, fmt.Errorf("%w: invalid value for %q: %v", ErrInvalid, entry.Key, err)
+			}
+			if nodeValueEqual(valueNode, parsed) {
+				continue
+			}
+			block, err := marshalField(keyNode.Value, parsed, keyNode, valueNode)
+			if err != nil {
+				return nil, err
+			}
+			replacement = strings.Split(strings.TrimSuffix(block, "\n"), "\n")
 		}
-		parsed, err := parseEntryValue(entry.Value)
-		if err != nil {
-			return nil, fmt.Errorf("%w: invalid value for %q: %v", ErrInvalid, entry.Key, err)
+		start, end := keyNode.Line-1, fieldEndLine(mapping, keyNode, lines)
+		if start < 0 || end < start || end >= len(lines) {
+			return nil, fmt.Errorf("%w: invalid source positions for %q", ErrInvalid, keyNode.Value)
 		}
-		block, err := marshalField(keyNode.Value, parsed, keyNode, valueNode)
-		if err != nil {
-			return nil, err
-		}
-		lines = append(lines, strings.Split(strings.TrimSuffix(block, "\n"), "\n")...)
-		delete(wanted, keyNode.Value)
+		replacements = append(replacements, lineReplacement{start: start, end: end, lines: replacement})
 	}
 
+	lines = replaceLines(lines, replacements)
 	for _, name := range order {
 		entry, ok := wanted[name]
 		if !ok {
@@ -244,15 +242,31 @@ func ApplyEntries(source []byte, entries []Entry) ([]byte, error) {
 		lines = append(lines, strings.Split(strings.TrimSuffix(block, "\n"), "\n")...)
 	}
 
+	return patchSection(source, part, lines), nil
+}
+
+func replaceLines(lines []string, replacements []lineReplacement) []string {
+	sort.Slice(replacements, func(i, j int) bool { return replacements[i].start > replacements[j].start })
+	for _, replacement := range replacements {
+		updated := make([]string, 0, len(lines)-(replacement.end-replacement.start+1)+len(replacement.lines))
+		updated = append(updated, lines[:replacement.start]...)
+		updated = append(updated, replacement.lines...)
+		updated = append(updated, lines[replacement.end+1:]...)
+		lines = updated
+	}
+	return lines
+}
+
+func patchSection(source []byte, part section, lines []string) []byte {
 	patched := strings.Join(lines, part.newline)
 	if patched != "" {
 		patched += part.newline
 	}
-	out := make([]byte, 0, len(source)+len(patched)-len(content))
+	out := make([]byte, 0, len(source)+len(patched)-(part.contentEnd-part.contentStart))
 	out = append(out, source[:part.contentStart]...)
 	out = append(out, patched...)
 	out = append(out, source[part.contentEnd:]...)
-	return out, nil
+	return out
 }
 
 func findSection(source []byte) (section, bool) {
@@ -364,7 +378,6 @@ func marshalField(name string, value any, oldKey, oldValue *yaml.Node) (string, 
 	}
 	if oldValue != nil {
 		valueNode.LineComment = oldValue.LineComment
-		valueNode.FootComment = oldValue.FootComment
 	}
 	mapping := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map", Content: []*yaml.Node{key, &valueNode}}
 	doc := &yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{mapping}}
@@ -401,12 +414,27 @@ func parseEntryValue(text string) (any, error) {
 	return value, nil
 }
 
-func nodeEndLine(node *yaml.Node) int {
-	end := node.Line + strings.Count(node.Value, "\n")
-	for _, child := range node.Content {
-		if childEnd := nodeEndLine(child); childEnd > end {
-			end = childEnd
+// YAML node positions mark starts, not ends. The next top-level key bounds
+// multiline scalars and collections without relying on their decoded values.
+func fieldEndLine(mapping, key *yaml.Node, lines []string) int {
+	if mapping.Style&yaml.FlowStyle != 0 {
+		return -1
+	}
+	end := len(lines) - 1
+	for i := 0; i+2 < len(mapping.Content); i += 2 {
+		if mapping.Content[i] == key {
+			end = mapping.Content[i+2].Line - 2
+			break
 		}
+	}
+	// Inter-field whitespace and top-level comments stay in the original source.
+	for end > key.Line-1 {
+		line := lines[end]
+		trimmed := strings.TrimLeft(line, " ")
+		if strings.TrimSpace(line) != "" && !(strings.HasPrefix(trimmed, "#") && len(line)-len(trimmed) < key.Column) {
+			break
+		}
+		end--
 	}
 	return end
 }

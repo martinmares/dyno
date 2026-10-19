@@ -1,16 +1,20 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/mares/dyno/internal/config"
+	"github.com/mares/dyno/internal/frontmatter"
 )
 
 func TestBuildMetadataFieldsUsesConfiguredOrderAndTypes(t *testing.T) {
@@ -154,6 +158,77 @@ tags:
 		if strings.Contains(text, want) {
 			t.Fatalf("did not expect %q in:\n%s", want, text)
 		}
+	}
+}
+
+func TestEditFrontmatterHandlerAcceptsBrowserForm(t *testing.T) {
+	srv := newTestServer(t)
+	path := filepath.Join(srv.contentDir, "index.md")
+	original := "---\ndocument-status: NEW\nhld-deadline: 2026-10-16\n# Preserve this comment.\ncomponents:\n  - Operations-Infra\n  - TSM-Core\nexternal_refs:\n  - id: REQ0124563\n    label: 'Clooney: REQ0124563'\n    url: https://example.test/REQ0124563\n    type: clooney_requirement\n---\n# Page\n\nUnchanged body.\n"
+	writeTestFile(t, path, original)
+	entries, err := frontmatter.ReadEntries([]byte(original))
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := make([]frontmatterEntryPayload, 0, len(entries))
+	for _, entry := range entries {
+		if entry.Key == "document-status" {
+			entry.Value = "REVISION"
+		}
+		payload = append(payload, frontmatterEntryPayload{Key: entry.Key, Value: entry.Value})
+	}
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	for name, value := range map[string]string{
+		"page_path": "/", "revision": contentRevision([]byte(original)), "entries": string(encoded),
+	} {
+		if err := writer.WriteField(name, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/_edit/frontmatter", &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	rec := httptest.NewRecorder()
+	srv.editFrontmatterHandler(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	updated, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantSource := strings.Replace(original, "document-status: NEW", "document-status: REVISION", 1)
+	if string(updated) != wantSource {
+		t.Fatalf("status edit changed unrelated source:\n%s", updated)
+	}
+	before, err := frontmatter.Read([]byte(original))
+	if err != nil {
+		t.Fatal(err)
+	}
+	after, err := frontmatter.Read(updated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before["document-status"] = "REVISION"
+	if !reflect.DeepEqual(before, after) || !strings.HasSuffix(string(updated), "# Page\n\nUnchanged body.\n") {
+		t.Fatalf("unexpected document after status change:\n%s", updated)
+	}
+	// A second save from the stale dialog must not overwrite newer changes.
+	stale := httptest.NewRequest(http.MethodPost, "/_edit/frontmatter", strings.NewReader(url.Values{
+		"page_path": {"/"}, "revision": {contentRevision([]byte(original))}, "entries": {string(encoded)},
+	}.Encode()))
+	stale.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	rec = httptest.NewRecorder()
+	srv.editFrontmatterHandler(rec, stale)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("expected conflict, got %d: %s", rec.Code, rec.Body.String())
 	}
 }
 

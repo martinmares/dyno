@@ -1414,6 +1414,18 @@ function initFrontmatterEditor() {
 
     if (!form || !rows || !template || !entriesInput) return;
 
+    const originalEntries = Array.from(rows.querySelectorAll('[data-frontmatter-row]')).map(function (row) {
+      return { key: row.querySelector('[data-frontmatter-key]').value, value: row.querySelector('[data-frontmatter-value]').value };
+    });
+    let rowsWidth = 0;
+    const resizeObserver = new ResizeObserver(function (entries) {
+      const width = entries[0].contentRect.width;
+      if (width === rowsWidth) return;
+      rowsWidth = width;
+      rows.querySelectorAll('[data-frontmatter-value]').forEach(resizeValue);
+    });
+    dialog.addEventListener('close', function () { resizeObserver.disconnect(); });
+
     function setStatus(message, kind) {
       if (!status) return;
       status.textContent = message || '';
@@ -1436,6 +1448,32 @@ function initFrontmatterEditor() {
     }
 
     function bindRow(row) {
+      row.querySelectorAll('[data-frontmatter-key], [data-frontmatter-value]').forEach(function (input) {
+        let beforeEdit = input.value;
+        input.addEventListener('focus', function () {
+          beforeEdit = input.value;
+          if (input.matches('[data-frontmatter-value]')) resizeValue(input);
+        });
+        input.addEventListener('input', function () {
+          updateSummary(row);
+          if (input.matches('[data-frontmatter-value]')) resizeValue(input);
+        });
+        input.addEventListener('blur', function () {
+          updateSummary(row);
+          if (input.matches('[data-frontmatter-value]')) resizeValue(input);
+        });
+        input.addEventListener('keydown', function (event) {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            event.stopPropagation();
+            input.value = beforeEdit;
+            input.blur();
+          } else if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+            event.preventDefault();
+            input.blur();
+          }
+        });
+      });
       row.querySelectorAll('[data-frontmatter-remove]').forEach(function (btn) {
         btn.addEventListener('click', function () {
           row.remove();
@@ -1443,6 +1481,25 @@ function initFrontmatterEditor() {
         });
       });
       return row;
+    }
+
+    function resizeValue(input) {
+      if (document.activeElement !== input) {
+        input.style.height = '';
+        return;
+      }
+      input.style.height = 'auto';
+      input.style.height = (input.scrollHeight + 2) + 'px';
+    }
+
+    function updateSummary(row) {
+      const input = row.querySelector('[data-frontmatter-value]');
+      const summary = row.querySelector('[data-frontmatter-lines]');
+      const count = input.value.split('\n').length;
+      summary.hidden = count < 2;
+      summary.textContent = count + ' lines';
+      input.title = input.value;
+      input.parentElement.toggleAttribute('data-multiline', count > 1);
     }
 
     function addRow(key, value) {
@@ -1453,6 +1510,8 @@ function initFrontmatterEditor() {
       if (keyInput) keyInput.value = key || '';
       if (valueInput) valueInput.value = value || '';
       rows.appendChild(row);
+      updateSummary(row);
+      if (dialog.open && valueInput) resizeValue(valueInput);
       return row;
     }
 
@@ -1475,10 +1534,14 @@ function initFrontmatterEditor() {
     }
 
     function open() {
-      if (!dialog.open) dialog.showModal();
+      if (dialog.open) return;
+      rows.replaceChildren();
+      originalEntries.forEach(function (entry) { addRow(entry.key, entry.value); });
       if (!rows.querySelector('[data-frontmatter-row]')) addRow();
-      const firstKey = dialog.querySelector('[data-frontmatter-key]');
-      if (firstKey) firstKey.focus();
+      setStatus('');
+      dialog.showModal();
+      dialog.focus();
+      resizeObserver.observe(rows);
     }
 
     function close() {
@@ -1501,13 +1564,9 @@ function initFrontmatterEditor() {
     dialog.addEventListener('click', function (event) {
       if (event.target === dialog) close();
     });
-    if (!rows.querySelector('[data-frontmatter-row]')) {
-      addRow();
-    }
-    rows.querySelectorAll('[data-frontmatter-row]').forEach(bindRow);
-
     form.addEventListener('submit', function (event) {
       event.preventDefault();
+      if (saveBtn && saveBtn.disabled) return;
       const result = collectEntries();
       if (result.error) {
         setStatus(result.error, 'error');

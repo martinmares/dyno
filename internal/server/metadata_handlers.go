@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -189,9 +190,12 @@ func (s *Server) editMetadataHandler(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) editFrontmatterHandler(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 12<<20)
-	if err := r.ParseForm(); err != nil {
+	if err := r.ParseMultipartForm(1 << 20); err != nil && !errors.Is(err, http.ErrNotMultipart) {
 		writeMetadataResponse(w, http.StatusBadRequest, metadataApplyResponse{Error: "invalid form", Code: "invalid_request"})
 		return
+	}
+	if r.MultipartForm != nil {
+		defer r.MultipartForm.RemoveAll()
 	}
 	pagePath := strings.TrimSpace(r.FormValue("page_path"))
 	expectedRevision := strings.TrimSpace(r.FormValue("revision"))
