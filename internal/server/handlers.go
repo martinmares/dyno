@@ -81,6 +81,7 @@ type PageData struct {
 	FiltersActive       bool
 	MetadataFilterURL   string
 	FrontmatterEntries  []FrontmatterEntryData
+	PrintSourceFile     string
 	FrontmatterEditURL  string
 	FrontmatterRevision string
 	BulkFrontmatterURL  string
@@ -344,6 +345,10 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Warn("failed to load frontmatter entries", "path", node.FullPath, "err", err)
 	}
+	printSourceFile := filepath.Base(fsPath)
+	if rel, err := filepath.Rel(s.contentDir, fsPath); err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		printSourceFile = filepath.ToSlash(rel)
+	}
 
 	editURL := ""
 	if s.siteCfg.GitHubURL != "" && node.FSPath != "" {
@@ -374,6 +379,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		Nav:                view.Nav,
 		CurrentPath:        node.FullPath,
 		TOC:                res.TOC,
+		PrintSourceFile:    printSourceFile,
 		ExternalRefs:       res.Frontmatter.ExternalRefs,
 		Comments:           visibleComments,
 		Highlights:         highlights,

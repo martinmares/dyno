@@ -283,6 +283,39 @@ func TestMetadataFilterSurvivesHTMXGraphAndBacklinkNavigation(t *testing.T) {
 	}
 }
 
+func TestPrintInformationIncludesSourceFileAndHeadingLinks(t *testing.T) {
+	srv := newTestServer(t)
+	writeTestFile(t, filepath.Join(srv.contentDir, "index.md"), "---\nrefid: REQ123\ndocument-status: REVISION\ndocument-owner: owner@example.test\nsecret: do-not-print\n---\n# Example\n\n## Introduction\n\n### Details\n\nContent.\n")
+	for _, partial := range []bool{false, true} {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		if partial {
+			req.Header.Set("HX-Request", "true")
+		}
+		rec := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+		}
+		body := rec.Body.String()
+		for _, want := range []string{`data-print-summary`, `data-print-time`, `Printed:`, `Source file:`, `index.md`, `Printed table of contents`, `href="#introduction"`, `dyno-print-toc-nested`} {
+			if !strings.Contains(body, want) {
+				t.Fatalf("missing %q in print information (partial=%v)", want, partial)
+			}
+		}
+		for _, unwanted := range []string{"REQ123", "REVISION", "owner@example.test", "do-not-print", srv.contentDir, "dyno-print-site"} {
+			if strings.Contains(body, unwanted) {
+				t.Fatalf("print information must not include %q", unwanted)
+			}
+		}
+	}
+	// Real file names, rather than URL slugs or absolute filesystem paths.
+	rec := httptest.NewRecorder()
+	srv.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/guides/api-widget", nil))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "guides/api-widget.md") {
+		t.Fatalf("missing nested relative source path: %d, %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestEditLinkPreservesMetadataQuery(t *testing.T) {
 	srv := newTestServer(t)
 	srv.editMode = true

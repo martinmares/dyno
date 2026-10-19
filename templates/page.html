@@ -59,6 +59,25 @@
   </section>
   {{ end }}
 
+  <section class="dyno-print-summary" data-print-summary aria-label="Print information">
+    <dl class="dyno-print-metadata">
+      <div><dt>Printed:</dt><dd><time data-print-time></time></dd></div>
+      {{ if .PrintSourceFile }}
+      <div><dt>Source file:</dt><dd>{{ .PrintSourceFile }}</dd></div>
+      {{ end }}
+    </dl>
+    {{ if .TOC }}
+    <nav class="dyno-print-toc" aria-label="Printed table of contents">
+      <h2 class="dyno-print-toc-title">Contents</h2>
+      <ul>
+        {{ range .TOC }}
+        <li class="{{ if eq .Level 3 }}dyno-print-toc-nested{{ end }}"><a href="#{{ .ID }}">{{ .Text }}</a></li>
+        {{ end }}
+      </ul>
+    </nav>
+    {{ end }}
+  </section>
+
   {{/* Content */}}
   <div class="dyno-prose">
     {{ .ContentHTML }}

@@ -497,6 +497,18 @@ function preparePagePrint() {
     details: Array.from(article.querySelectorAll('details:not([open])')),
     rows: Array.from(article.querySelectorAll('.dyno-table-widget tbody tr[hidden]'))
   };
+  const summary = article.querySelector('[data-print-summary]');
+  if (summary) {
+    printPageState.summary = { element: summary, parent: summary.parentNode, next: summary.nextSibling };
+    const now = new Date();
+    const time = summary.querySelector('[data-print-time]');
+    time.dateTime = now.toISOString();
+    time.textContent = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'long' }).format(now);
+    const prose = article.querySelector('.dyno-prose');
+    const title = prose && prose.querySelector('h1');
+    if (title) title.after(summary);
+    else if (prose) prose.prepend(summary);
+  }
   printPageState.details.forEach(function (details) { details.open = true; });
   printPageState.rows.forEach(function (row) { row.hidden = false; });
 }
@@ -505,6 +517,13 @@ function restorePagePrint() {
   if (!printPageState) return;
   printPageState.details.forEach(function (details) { details.open = false; });
   printPageState.rows.forEach(function (row) { row.hidden = true; });
+  if (printPageState.summary) {
+    const saved = printPageState.summary;
+    saved.parent.insertBefore(saved.element, saved.next);
+    const time = saved.element.querySelector('[data-print-time]');
+    time.textContent = '';
+    time.removeAttribute('datetime');
+  }
   printPageState = null;
 }
 

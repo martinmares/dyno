@@ -336,7 +336,10 @@ Use the **Print / Save PDF** toolbar button or your browser's print shortcut to
 print a clean A4 document without navigation, comments or table controls.
 Printing uses a light palette even in dark mode, includes all filtered table
 rows and expands collapsed sections; the original reading state is restored
-after closing the print dialog. For a clean PDF, disable the browser's own
+after closing the print dialog. The printout includes a local print timestamp,
+the relative Markdown source file path, and a linked table of contents. It does
+not depend on frontmatter field names. Page numbering
+is left to the browser. For a clean PDF, disable the browser's own
 headers and footers in its print settings.
 
 Run `dyno examples` for a built-in cookbook with commands, YAML configuration,

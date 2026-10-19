@@ -4568,6 +4568,10 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   }
 }
 
+.dyno-print-summary {
+  display: none;
+}
+
 /* Print the document, not the surrounding application. */
 @media print {
   .dyno-reading-expanded { overflow: visible !important; }
@@ -4628,7 +4632,7 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 
   .dyno-prose { font-size: 10.5pt !important; line-height: 1.5; }
   .dyno-prose p { margin: 0.65em 0; orphans: 3; widows: 3; }
-  .dyno-prose h1 { font-size: 23pt; margin: 0 0 8mm; line-height: 1.2; }
+  .dyno-prose h1 { font-size: 23pt; margin: 0 0 4mm; line-height: 1.2; }
   .dyno-prose h2 { font-size: 15pt; margin: 7mm 0 3mm; }
   .dyno-prose h3 { font-size: 12pt; margin: 5mm 0 2mm; }
   .dyno-prose h4, .dyno-prose h5, .dyno-prose h6 { font-size: 10.5pt; margin: 4mm 0 2mm; }
@@ -4639,6 +4643,41 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   .dyno-prose li { margin: 0.25em 0; }
   .dyno-prose li > p { margin: 0.25em 0; }
   .dyno-prose a { color: #174b78 !important; overflow-wrap: anywhere; }
+
+  .dyno-print-summary {
+    display: block;
+    margin: 0 0 7mm;
+    font-size: 8.5pt;
+    line-height: 1.4;
+  }
+  .dyno-print-summary .dyno-print-metadata {
+    display: grid;
+    gap: 1mm;
+    margin: 0;
+    break-inside: avoid;
+  }
+  .dyno-print-metadata > div { display: flex; gap: 1.5mm; min-width: 0; }
+  .dyno-print-metadata dt { flex-shrink: 0; margin: 0; color: #52606d; font-weight: 500; }
+  .dyno-print-metadata dd { margin: 0; padding: 0; overflow-wrap: anywhere; }
+  .dyno-print-toc {
+    margin-top: 4mm;
+    padding-top: 3mm;
+    border-top: 0.5pt solid #ccd3da;
+  }
+  .dyno-print-toc .dyno-print-toc-title {
+    margin: 0 0 2mm;
+    font-size: 10pt;
+  }
+  .dyno-print-toc ul {
+    columns: 2;
+    column-gap: 8mm;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .dyno-print-toc li { margin: 0 0 1mm; break-inside: avoid; }
+  .dyno-print-toc .dyno-print-toc-nested { padding-left: 3mm; }
+  .dyno-print-toc a { text-decoration: none; }
 
   .dyno-external-refs { border: 0; box-shadow: none; margin: 0 0 5mm; }
   .dyno-external-refs-body { padding: 0; }
