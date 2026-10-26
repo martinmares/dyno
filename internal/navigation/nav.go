@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 	"unicode"
 
 	"golang.org/x/text/unicode/norm"
@@ -25,6 +26,8 @@ type NavNode struct {
 	Navigable  bool // directories with an explicit generated overview
 	Children   []*NavNode
 	Depth      int
+	CreatedAt  time.Time // Filesystem birth time, when available in browse mode.
+	ModifiedAt time.Time
 }
 
 // Filter limits which markdown files are exposed in navigation and search.

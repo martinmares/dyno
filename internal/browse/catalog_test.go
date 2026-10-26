@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mares/dyno/internal/navigation"
 )
@@ -27,6 +28,35 @@ func tempDir(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return name
+}
+
+func TestBrowseFileTimesForDirectoryAndFileSelections(t *testing.T) {
+	base := tempDir(t)
+	file := filepath.Join(base, "guide.md")
+	put(t, file, "# Guide\n")
+	modified := time.Date(2026, 10, 20, 13, 45, 0, 0, time.UTC)
+	if err := os.Chtimes(file, modified, modified); err != nil {
+		t.Fatal(err)
+	}
+	info, err := os.Stat(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, selection := range []string{base, file} {
+		catalog, err := New([]string{selection}, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer catalog.Close()
+		nav, _, err := catalog.Build()
+		if err != nil {
+			t.Fatal(err)
+		}
+		pages := navigation.FlatPages(nav)
+		if len(pages) != 1 || !pages[0].ModifiedAt.Equal(modified) || !pages[0].CreatedAt.Equal(birthTime(info)) {
+			t.Fatalf("filesystem times were lost: %+v", pages)
+		}
+	}
 }
 
 func TestFilesystemNavigationAndOverlappingSources(t *testing.T) {

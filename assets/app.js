@@ -304,7 +304,117 @@ function setNavSectionExpanded(section, expanded) {
   if (chevron) chevron.classList.toggle('is-expanded', expanded);
 }
 
+// Browse file timestamps and sorting are local UI preferences, not site metadata.
+function formatBrowseFileTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = number => String(number).padStart(2, '0');
+  return pad(date.getDate()) + '.' + pad(date.getMonth() + 1) + '.' + String(date.getFullYear()).slice(-2)
+    + ' ' + pad(date.getHours()) + ':' + pad(date.getMinutes());
+}
+
+function compareBrowseFiles(a, b, field, direction) {
+  const directoryA = a.hasAttribute('data-nav-section');
+  const directoryB = b.hasAttribute('data-nav-section');
+  if (directoryA !== directoryB) return directoryA ? -1 : 1;
+  const name = (a.dataset.fileName || a.dataset.navTitle || '').localeCompare(
+    b.dataset.fileName || b.dataset.navTitle || '', undefined, { numeric: true, sensitivity: 'base' });
+  if (directoryA) return name;
+  if (field === 'name') return direction === 'desc' ? -name : name;
+  const key = field === 'created' ? 'fileCreated' : 'fileModified';
+  const valueA = a.dataset[key], valueB = b.dataset[key];
+  if (!valueA || !valueB) return valueA ? -1 : valueB ? 1 : name;
+  const difference = Number(valueA) - Number(valueB);
+  return (direction === 'desc' ? -difference : difference) || name;
+}
+
+function browseFileMatches(name, query) {
+  const fold = value => value.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  return fold(name).includes(fold(query.trim()));
+}
+
+function initBrowseFileFilter(sidebar) {
+  const input = sidebar.querySelector('[data-browse-file-filter]');
+  if (!input) return;
+  const tree = sidebar.querySelector('.dyno-nav-tree');
+  const key = 'dyno-browse-filter:' + Array.from(tree.children).map(node => node.dataset.navPath || node.dataset.path).sort().join('|');
+  try { input.value = sessionStorage.getItem(key) || ''; } catch (_) {}
+  function apply() {
+    const query = input.value.trim();
+    let matches = 0;
+    tree.querySelectorAll('[data-file-name]').forEach(function (file) {
+      file.hidden = !browseFileMatches(file.dataset.fileName, query);
+      if (!file.hidden) matches++;
+    });
+    const collapsed = readCollapsedNavPaths(sidebar);
+    tree.querySelectorAll('[data-nav-section]').forEach(function (section) {
+      const hasMatch = !!section.querySelector('[data-file-name]:not([hidden])');
+      section.hidden = !!query && !hasMatch;
+      const active = !!section.querySelector('.dyno-nav-link[data-active="true"]');
+      setNavSectionExpanded(section, query ? hasMatch : active || !collapsed.has(section.dataset.navPath));
+    });
+    sidebar.querySelector('[data-browse-file-empty]').hidden = matches > 0;
+    try { sessionStorage.setItem(key, input.value); } catch (_) {}
+  }
+  input.oninput = apply;
+  input.onkeydown = function (event) {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    input.value = '';
+    apply();
+  };
+  apply();
+}
+
+function initBrowseFiles() {
+  const controls = document.querySelector('[data-browse-sort]');
+  if (!controls) return;
+  const sidebar = controls.closest('#sidebar');
+  const field = controls.querySelector('[data-browse-sort-field]');
+  const direction = controls.querySelector('[data-browse-sort-direction]');
+  const key = 'dyno-browse-sort';
+  let state = { field: 'name', direction: 'asc' };
+  try {
+    const saved = JSON.parse(localStorage.getItem(key));
+    if (saved && ['name', 'created', 'modified'].includes(saved.field) && ['asc', 'desc'].includes(saved.direction)) state = saved;
+  } catch (_) {}
+  sidebar.querySelectorAll('.dyno-browse-file-times time').forEach(function (time) {
+    const date = new Date(time.dateTime);
+    if (!Number.isNaN(date.getTime())) {
+      time.textContent = formatBrowseFileTime(time.dateTime);
+      time.title = date.toLocaleString();
+    }
+  });
+  function apply() {
+    field.value = state.field;
+    const label = state.direction === 'asc' ? 'Ascending' : 'Descending';
+    direction.setAttribute('aria-label', label);
+    direction.title = label;
+    direction.dataset.direction = state.direction;
+    sidebar.querySelectorAll('.dyno-nav-tree, [data-nav-children]').forEach(function (container) {
+      Array.from(container.children).sort(function (a, b) {
+        return compareBrowseFiles(a, b, state.field, state.direction);
+      }).forEach(function (child) { container.appendChild(child); });
+    });
+  }
+  function save() {
+    try { localStorage.setItem(key, JSON.stringify(state)); } catch (_) {}
+    apply();
+  }
+  field.onchange = function () {
+    state.field = field.value;
+    state.direction = state.field === 'name' ? 'asc' : 'desc';
+    save();
+  };
+  direction.onclick = function () {
+    state.direction = state.direction === 'asc' ? 'desc' : 'asc';
+    save();
+  };
+  apply();
+}
+
 function initNavTree() {
+  initBrowseFiles();
   const sidebar = document.getElementById('sidebar');
   if (!sidebar) return;
   const collapsed = readCollapsedNavPaths(sidebar);
@@ -312,6 +422,7 @@ function initNavTree() {
     const containsActivePage = !!section.querySelector('.dyno-nav-link[data-active="true"]');
     setNavSectionExpanded(section, containsActivePage || !collapsed.has(section.dataset.navPath));
   });
+  initBrowseFileFilter(sidebar);
 }
 
 document.addEventListener('click', function (event) {
@@ -564,6 +675,8 @@ document.addEventListener('click', function (event) {
 // ─── TOC scroll spy ───────────────────────────────────────────────────────────
 
 function initTOCScrollSpy() {
+  if (initTOCScrollSpy.cleanup) initTOCScrollSpy.cleanup();
+  initTOCScrollSpy.cleanup = null;
   const tocLinks = document.querySelectorAll('.toc-link');
   if (!tocLinks.length) return;
 
@@ -572,21 +685,37 @@ function initTOCScrollSpy() {
     return document.getElementById(id);
   }).filter(Boolean);
 
+  let previousActiveLink = null;
+
   function onScroll() {
     let active = headings[0];
     headings.forEach(function (h) {
       if (h.getBoundingClientRect().top <= 96) active = h;
     });
     if (!active) return;
+    let activeLink = null;
     tocLinks.forEach(function (link) {
       const isActive = link.getAttribute('href') === '#' + active.id;
       link.classList.toggle('active', isActive);
-      if (isActive) link.setAttribute('aria-current', 'location');
+      if (isActive) {
+        link.setAttribute('aria-current', 'location');
+        activeLink = link;
+      }
       else link.removeAttribute('aria-current');
     });
+    if (!activeLink || activeLink === previousActiveLink) return;
+    previousActiveLink = activeLink;
+    const panel = activeLink.closest('.toc-scroll');
+    if (!panel || !panel.clientHeight) return;
+    const bounds = panel.getBoundingClientRect();
+    const linkBounds = activeLink.getBoundingClientRect();
+    // Move only the TOC pane, never the article or other scroll ancestors.
+    if (linkBounds.top < bounds.top + 8) panel.scrollTop += linkBounds.top - bounds.top - 8;
+    else if (linkBounds.bottom > bounds.bottom - 8) panel.scrollTop += linkBounds.bottom - bounds.bottom + 8;
   }
 
   window.addEventListener('scroll', onScroll, { passive: true });
+  initTOCScrollSpy.cleanup = function () { window.removeEventListener('scroll', onScroll); };
   onScroll();
 }
 

@@ -19,7 +19,7 @@ Samostatně hostovaný dokumentační server — něco jako GitBook nebo Notion,
 - **Repository Explorer** — volitelný `--explore`: složky, pokročilé hledání, metadata filtry, volitelné sloupce, náhled, přehled a Markdown vazby. Bez AI a externí vyhledávací služby.
 - **Automatický sidebar** — navigace se generuje z adresářové struktury, žádná konfigurace není potřeba
 - **Světlý / tmavý režim** — uložen v localStorage
-- **Obsah stránky** — TOC s automatickým sledováním pozice při scrollování
+- **Obsah stránky** — TOC s automatickým sledováním pozice; dlouhý seznam posouvá aktivní kapitolu do viditelné části svého panelu bez pohybu článku
 - **Předchozí / Další stránka** — automaticky podle pořadí v sidebaru
 - **Odkaz na GitHub** — tlačítko „Upravit tuto stránku" s odkazem na repozitář
 - **Bloky kódu podle motivu** — světlé a tmavé zvýraznění syntaxe, s volitelným záhlavím ve stylu macOS terminálu
@@ -201,6 +201,22 @@ go run ./cmd/dyno-mcp serve --transport stdio --site ./site
 Editor se otevře s panely **Contents | Visual editor | Live Preview**. Kliknutím na API blok ve Visual otevřete dialog **Form / Source** pro úpravu metody, URL, hlaviček a pokročilých voleb. Placeholdery zůstávají doslovné; bloky s obsahem, který formulář nepodporuje, se otevřou v Source, aby se jejich obsah zachoval. **Apply** upraví blok; **Save** uloží dokument. Pro front matter a další vlastní bloky přepněte hlavní editor do **Source**; při úpravách okolního textu je vizuální editor zachová. Assety vizuálního editoru jsou verzované a embedované v Go binárce. Po změně jejich zdrojových souborů je znovu sestavte pomocí `just editor-assets` (vyžaduje Node.js a npm).
 
 ### Lokální prohlížeč Markdownu
+
+Panel Files je pouze v browse režimu širší a pod názvem zobrazuje drobným písmem
+filesystemové časy ve dvou nenápadných badge: `c: 04.09.26 14:00` a `m: 05.10.26 15:25`. Zkratky vysvětlují
+tooltipy; v úzkém nebo hluboce zanořeném seznamu se údaje mohou zalomit.
+Řadit lze podle Name, Created nebo Modified, vzestupně i sestupně; složky
+zůstávají nahoře a řazení probíhá uvnitř každé složky. Prohlížeč si volbu pamatuje
+i při přechodu mezi dokumenty a obnovení přes watch. Časy jsou v lokální zóně
+prohlížeče. Datum vytvoření se načítá na macOS a Windows, pokud je dostupné;
+jinde se zobrazí pomlčka, nikoli náhradní čas změny metadat. Jde o časy souboru
+na disku, ne Git ani frontmatter: kopírování, klonování nebo atomické uložení
+editorem může založit nový soubor s novým datem vytvoření.
+
+Pole **Filter filenames** filtruje seznam při psaní bez ohledu na velikost písmen
+a diakritiku. Hledá jen v názvech souborů, ne v obsahu ani názvech složek.
+Složky s výsledky se dočasně rozbalí; vymazání pole nebo Escape obnoví strom.
+Filtr zůstane zachován při navigaci a obnovení stránky v dané kartě prohlížeče.
 
 Příkaz `browse` lze použít bez konfigurace dokumentačního webu:
 

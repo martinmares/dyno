@@ -10,7 +10,7 @@ A self-hosted documentation server — think GitBook or Notion, but as a single 
 - **Repository Explorer** — opt-in `--explore` workspace with folders, advanced search, metadata filters, configurable columns, previews, overview and Markdown relationships; no AI or external search service
 - **Auto-generated sidebar** — navigation tree built from the filesystem, no config needed
 - **Light / dark mode** — persisted to localStorage
-- **Table of contents** — per-page TOC with scroll spy
+- **Table of contents** — per-page TOC with scroll spy; long lists follow the active heading inside their own pane without moving the article
 - **Prev / Next navigation** — automatic based on sidebar order
 - **GitHub edit links** — "Edit this page" links pointing to your repo
 - **Code blocks that follow the theme** — light and dark syntax highlighting, with optional macOS-style terminal chrome
@@ -193,6 +193,22 @@ go run ./cmd/dyno-mcp serve --transport stdio --site ./site
 The editor opens with **Contents | Visual editor | Live Preview**. Click an API block in Visual to edit its method, URL, headers, and advanced options in a **Form / Source** dialog. Placeholders stay literal, and blocks with unsupported form content open in Source so their content is preserved. **Apply** updates the block; **Save** saves the document. Switch to the main **Source** editor for front matter and other custom blocks; the visual editor preserves these blocks when editing surrounding text. The visual editor assets are committed and embedded in the Go binary. When changing their source files, rebuild them with `just editor-assets` (requires Node.js and npm).
 
 ### Local Markdown browser
+
+The wider browse-only Files sidebar shows compact filesystem timestamps below
+each filename in two subtle badges: `c: 04.09.26 14:00` and `m: 05.10.26 15:25`. Tooltips explain the
+abbreviations; the timestamps can wrap in narrow or deeply nested lists.
+Sort by Name, Created or Modified and toggle ascending/descending order; folders
+stay first and sorting applies within each folder. The browser remembers the
+choice, including after document navigation and watch refreshes. Dates use the
+browser's local timezone. Creation time is read on macOS and Windows when
+available; elsewhere it is shown as unavailable, never replaced by change time.
+These are disk timestamps, not Git history or frontmatter dates: copying,
+cloning or atomic editor saves can create a new file with a new birth time.
+
+Use **Filter filenames** to narrow the sidebar as you type, ignoring case and
+diacritics. Only filenames are matched, not document contents or folder names.
+Matching folders expand temporarily; clearing the input (or Escape) restores
+the tree. The filter survives navigation and reloads within the browser tab.
 
 Use `browse` without configuring a documentation site:
 

@@ -249,6 +249,7 @@ func (c *Catalog) Build() (*navigation.NavNode, string, error) {
 		if s.file {
 			if info, err := safeFile(s, filepath.Base(s.path)); err == nil {
 				mount.FSPath = s.path
+				mount.CreatedAt, mount.ModifiedAt = birthTime(info), info.ModTime()
 				mount.FullPath += url.PathEscape(filepath.Base(s.path))
 				root.Children = append(root.Children, mount)
 				fmt.Fprintf(hash, "%s:%d:%d;", s.path, info.ModTime().UnixNano(), info.Size())
@@ -293,6 +294,7 @@ func (c *Catalog) Build() (*navigation.NavNode, string, error) {
 					return nil
 				}
 				node.FSPath = filepath.Join(s.dir, filepath.FromSlash(rel))
+				node.CreatedAt, node.ModifiedAt = birthTime(info), info.ModTime()
 			}
 			parent.Children = append(parent.Children, node)
 			return nil

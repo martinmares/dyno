@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mares/dyno/internal/browse"
 	"github.com/mares/dyno/internal/config"
@@ -54,6 +55,32 @@ func browseRequest(t *testing.T, s *Server, target string, status int) string {
 		t.Fatalf("%s: got %d, want %d: %s", target, rec.Code, status, rec.Body.String())
 	}
 	return rec.Body.String()
+}
+
+func TestBrowseSidebarTimesAndSortAreBrowseOnly(t *testing.T) {
+	doc := filepath.Join(t.TempDir(), "guide.md")
+	writeTestFile(t, doc, "# Guide\n")
+	srv := newBrowseTestServer(t, doc)
+	node := srv.getNav().Children[0]
+	node.CreatedAt = time.Time{}
+	for _, htmx := range []bool{false, true} {
+		req := httptest.NewRequest(http.MethodGet, node.FullPath, nil)
+		if htmx {
+			req.Header.Set("HX-Request", "true")
+		}
+		rec := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(rec, req)
+		for _, want := range []string{`data-browse-sort-field`, `data-browse-file-filter`, `data-browse-file-empty`, `data-file-name="guide.md"`, `data-file-created=""`, `data-file-modified="`, `Creation time is unavailable`, `<time datetime="`, `class="dyno-browse-time-badge" title="Created (filesystem)"`, `class="dyno-browse-time-badge" title="Modified (filesystem)"`} {
+			if rec.Code != 200 || !strings.Contains(rec.Body.String(), want) {
+				t.Fatalf("browse sidebar (HTMX=%v) missing %q: %d", htmx, want, rec.Code)
+			}
+		}
+	}
+	rec := httptest.NewRecorder()
+	newTestServer(t).Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	if strings.Contains(rec.Body.String(), "data-browse-sort-field") || strings.Contains(rec.Body.String(), "dyno-browse-file-times") {
+		t.Fatal("filesystem controls must not appear in normal site navigation")
+	}
 }
 
 func TestBrowseSingleFileOnlyServesSelectedDocumentAndReferencedImages(t *testing.T) {

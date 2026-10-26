@@ -321,9 +321,18 @@
        class="dyno-nav-link nav-page-link"
        data-path="{{ .FullPath }}"
        data-nav-depth="{{ $depth }}"
+       {{ if not .ModifiedAt.IsZero }}data-file-name="{{ .Title }}" data-file-modified="{{ .ModifiedAt.UnixMilli }}" data-file-created="{{ if not .CreatedAt.IsZero }}{{ .CreatedAt.UnixMilli }}{{ end }}"{{ end }}
        data-active="{{ if eq .FullPath $current }}true{{ else }}false{{ end }}">
       <span class="nav-dot"></span>
+      {{ if not .ModifiedAt.IsZero }}<span class="dyno-browse-file">{{ end }}
       <span class="dyno-truncate" title="{{ .Title }}">{{ .Title }}</span>
+      {{ if not .ModifiedAt.IsZero }}
+        <span class="dyno-browse-file-times">
+          <span class="dyno-browse-time-badge" title="Created (filesystem)">c: {{ if not .CreatedAt.IsZero }}<time datetime="{{ .CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}">{{ .CreatedAt.Format "02.01.06 15:04" }}</time>{{ else }}<span title="Creation time is unavailable on this filesystem">&mdash;</span>{{ end }}</span>
+          <span class="dyno-browse-time-badge" title="Modified (filesystem)">m: <time datetime="{{ .ModifiedAt.Format "2006-01-02T15:04:05Z07:00" }}">{{ .ModifiedAt.Format "02.01.06 15:04" }}</time></span>
+        </span>
+      </span>
+      {{ end }}
       {{ if isAgentsDoc .FSPath }}
       <span class="nav-badge-agent">AGENT</span>
       {{ end }}
@@ -390,6 +399,20 @@
         Expand all
       </button>
     </div>
+    {{ if .BrowseMode }}
+    <label for="browse-file-filter" class="is-sr-only">Filter filenames</label>
+    <input id="browse-file-filter" data-browse-file-filter type="search" class="input is-small dyno-browse-file-filter" placeholder="Filter filenames..." autocomplete="off">
+    <p data-browse-file-empty class="dyno-browse-file-empty" role="status" hidden>No matching files.</p>
+    <div class="dyno-browse-sort" data-browse-sort>
+      <label for="browse-sort" class="is-sr-only">Sort files</label>
+      <span class="select is-small"><select id="browse-sort" data-browse-sort-field aria-label="Sort files">
+        <option value="name">Name</option><option value="created">Created</option><option value="modified">Modified</option>
+      </select></span>
+      <button type="button" data-browse-sort-direction class="button dyno-icon-button is-ghost" aria-label="Ascending" title="Ascending">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5m-5 5 5-5 5 5"/></svg>
+      </button>
+    </div>
+    {{ end }}
     <div class="dyno-nav-tree">
     {{ template "nav-tree" (dict "node" .Nav "current" .CurrentPath "depth" 0 "filterQuery" .FilterQuery) }}
     </div>
