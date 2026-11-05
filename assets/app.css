@@ -233,6 +233,7 @@ pre.mermaid::after,
 }
 
 /* Inline code pill */
+.dyno-prose > code,
 .dyno-prose :not(pre) > code {
   background-color: var(--dyno-surface-secondary);
   color: var(--dyno-code-text, var(--dyno-text));
@@ -3094,6 +3095,7 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 .dyno-compare-toolbar {
   min-width: 0;
   gap: 0.75rem;
+  margin-bottom: 0.75rem;
 }
 
 .dyno-compare-back svg {
@@ -3111,21 +3113,21 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 .dyno-compare-title {
   min-width: 0;
   flex: 1 1 auto;
-  overflow: hidden;
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .dyno-compare-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 2.25rem minmax(0, 1fr);
   min-width: 0;
-  flex: 0 1 auto;
   gap: 0.5rem;
 }
 
 .dyno-compare-select {
-  width: min(18rem, 30vw);
+  width: 100%;
 }
 
 .dyno-compare-controls {
@@ -3135,28 +3137,26 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 }
 
 .dyno-compare-mode-tabs {
-  display: inline-flex;
-  gap: 0.125rem;
-  padding: 0.125rem;
-  background: var(--dyno-surface-secondary);
-  border-radius: var(--dyno-radius);
+  margin: 0;
+  min-width: 0;
 }
 
-.dyno-compare-mode-tabs a {
-  padding: 0.3rem 0.75rem;
+.dyno-compare-mode-tabs ul { border-bottom-color: var(--dyno-border); }
+.dyno-compare-mode-tabs li a {
+  padding: 0.5rem 0.875rem;
   color: var(--dyno-muted);
-  border-radius: var(--dyno-radius-sm);
-  font-size: 0.75rem;
+  border-bottom: 3px solid transparent;
+  font-size: 0.8125rem;
   font-weight: 500;
   text-decoration: none;
 }
 
-.dyno-compare-mode-tabs a:hover,
-.dyno-compare-mode-tabs a.is-active {
+.dyno-compare-mode-tabs li a:hover {
   color: var(--dyno-text);
-  background: var(--dyno-surface);
-  box-shadow: var(--dyno-shadow);
+  border-bottom-color: var(--dyno-border);
+  background: var(--dyno-surface-secondary);
 }
+.dyno-compare-mode-tabs li.is-active a { color: var(--dyno-primary); border-bottom-color: var(--dyno-primary); font-weight: 600; }
 
 .dyno-compare-checkbox {
   gap: 0.5rem;
@@ -3286,6 +3286,10 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   color: var(--dyno-warning-text);
   background: rgba(var(--dyno-warning-rgb), 0.1);
 }
+
+.dyno-diff-word { border-radius: 0.15rem; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.dyno-diff-word-removed { color: var(--dyno-danger-text) !important; background: rgba(var(--dyno-danger-rgb), 0.23) !important; text-decoration: line-through; text-decoration-thickness: 1px; }
+.dyno-diff-word-added { color: var(--dyno-success-text) !important; background: rgba(var(--dyno-success-rgb), 0.23) !important; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 0.15em; }
 
 /* Bulk frontmatter editor. */
 .dyno-dialog-xl {
@@ -3855,23 +3859,6 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 }
 
 @media (max-width: 767px) {
-  .dyno-compare-toolbar {
-    flex-wrap: wrap;
-  }
-
-  .dyno-compare-title {
-    order: 3;
-    flex-basis: 100%;
-  }
-
-  .dyno-compare-form {
-    flex: 1 1 auto;
-  }
-
-  .dyno-compare-select {
-    width: 100%;
-  }
-
   .dyno-compare-preview {
     grid-template-columns: 1fr;
   }
@@ -4683,6 +4670,8 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   .dyno-diff-table tr[data-diff-kind="add"] > td { color: #185b38; background: #e9f5ed; }
   .dyno-diff-table tr[data-diff-kind="delete"] > td { color: #87343c; background: #fbecee; }
   .dyno-diff-table tr[data-diff-kind="change"] > td { color: #795314; background: #fbf3df; }
+  .dyno-compare .dyno-diff-word-removed { color: #87343c !important; background: #f6d4d9 !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .dyno-compare .dyno-diff-word-added { color: #185b38 !important; background: #d0ebd9 !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .dyno-compare-preview article { padding: 0; }
   .dyno-compare-preview article + article { border-left: 0; border-top: 1pt solid #8b98a5; margin-top: 6mm; padding-top: 6mm; }
 
@@ -4772,6 +4761,7 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
     color: #202832 !important; background: transparent !important;
     white-space: pre-wrap !important; overflow-wrap: anywhere;
   }
+  .dyno-prose > code,
   .dyno-prose :not(pre) > code {
     color: #202832 !important; background: #eef1f4 !important;
     font-size: 0.9em; white-space: normal; overflow-wrap: anywhere;

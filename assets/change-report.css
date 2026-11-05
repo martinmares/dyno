@@ -27,8 +27,41 @@
 .dyno-change-report-side .dyno-prose h3 { font-size: 1rem; margin: 0.5rem 0; }
 .dyno-change-report .api-widget button, .dyno-change-report .api-panel, .dyno-change-report .heading-anchor { display: none; }
 .dyno-change-report-no-changes { padding: 2rem 0; color: var(--dyno-muted); }
+.dyno-change-report pre { white-space: pre-wrap !important; overflow-wrap: anywhere; overflow-x: hidden; max-width: 100%; }
+.dyno-change-report pre code, .dyno-change-report pre code span { white-space: pre-wrap !important; overflow-wrap: anywhere; }
+.dyno-change-report-code-hunk { margin-top: 1rem; }
+.dyno-change-report-code-full { margin-top: 1rem; }
+.dyno-change-report-code-full > summary { color: var(--dyno-primary); font-size: 0.8125rem; cursor: pointer; }
+.dyno-change-report-section { margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--dyno-border); scroll-margin-top: 1rem; }
+.dyno-change-report-section > header { break-inside: avoid; break-after: avoid; }
+.dyno-change-report-section > header h2 { font-size: 1.125rem; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.dyno-change-report-set { margin-top: 1.5rem; }
+.dyno-change-report-set-title { font-size: 0.8125rem; font-weight: 600; color: var(--dyno-muted); break-after: avoid; }
+.dyno-change-report-set-title span { margin-left: 0.5rem; font-weight: 400; }
+.dyno-change-report-set .dyno-change-report-block { margin-top: 1rem; padding-top: 1rem; }
+.dyno-change-report-set .dyno-change-report-block > header { margin-bottom: 0.5rem; }
+.dyno-change-report-table-context { margin: 1.25rem 0; padding: 1rem; border: 1px solid var(--dyno-border); border-radius: 0.375rem; background: var(--dyno-surface-secondary); }
+.dyno-change-report-table-context > h4 { font-size: 0.875rem; font-weight: 600; break-after: avoid; }
+.dyno-change-report-table-context > p { margin: 0.5rem 0; overflow-wrap: anywhere; }
+.dyno-change-report-context-heading { font-size: 0.6875rem; color: var(--dyno-muted); margin: 0.75rem 0 0.25rem; }
+.dyno-change-report-context-rows { list-style: none; margin: 0; padding: 0; }
+.dyno-change-report-context-row { display: grid; grid-template-columns: 1.75rem minmax(0, 1fr) minmax(5rem, 35%); gap: 0.5rem; padding: 0.5rem 0; border-top: 1px solid var(--dyno-border); font-size: 0.8125rem; overflow-wrap: anywhere; break-inside: avoid; }
+.dyno-change-report-context-row a { color: var(--dyno-primary); }
+.dyno-change-report-context-number, .dyno-change-report-context-status, .dyno-change-report-context-gap { color: var(--dyno-muted); font-size: 0.6875rem; }
+.dyno-change-report-context-gap { padding: 0.375rem 0; }
+.dyno-change-report-context-row[data-change-kind="Added"] .dyno-change-report-context-status { color: var(--dyno-success-text); }
+.dyno-change-report-context-row[data-change-kind="Removed"] .dyno-change-report-context-status { color: var(--dyno-danger-text); }
+.dyno-change-report-context-row[data-change-kind="Unchanged"] { opacity: 0.7; }
+.dyno-change-report-table-row { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--dyno-border); overflow-wrap: anywhere; }
+.dyno-change-report-table-row > header { break-inside: avoid; break-after: avoid; }
+.dyno-change-report-table-row > header h3 { margin: 0.25rem 0 1rem; font-size: 1rem; font-weight: 600; line-height: 1.5; }
+.dyno-change-report-cell { margin: 1rem 0; }
+.dyno-change-report-cell > h4 { font-size: 0.8125rem; font-weight: 600; color: var(--dyno-muted); break-after: avoid; }
+.dyno-change-report-cell > .dyno-prose { margin-top: 0.5rem; font-size: 0.9375rem; }
 @media (max-width: 700px) { .dyno-change-report-scroll { padding: 0.75rem; } .dyno-change-report { padding: 1.25rem; } }
+@media (max-width: 500px) { .dyno-change-report-context-row { grid-template-columns: 1.5rem minmax(0, 1fr); } .dyno-change-report-context-status { grid-column: 2; } }
 @media print {
+  .dyno-change-report-code-full { display: none !important; }
   .dyno-change-report-body { height: auto; overflow: visible; background: #fff; }
   .dyno-change-report-body .dyno-compare { height: auto; overflow: visible; display: block; }
   .dyno-change-report-body .dyno-compare-header { display: none; }
@@ -48,4 +81,18 @@
   .dyno-change-report-toc { margin: 5mm 0; }
   .dyno-change-report-toc h2 { font-size: 10pt; }
   .dyno-change-report-toc li { font-size: 8.5pt; break-inside: avoid; }
+  .dyno-change-report-table-row { margin-top: 5mm; padding-top: 4mm; border-color: #ccd3da; }
+  .dyno-change-report-table-row > header h3 { font-size: 12pt; margin-bottom: 3mm; }
+  .dyno-change-report-cell { margin: 4mm 0; }
+  .dyno-change-report-cell > h4 { color: #52606d; font-size: 10pt; }
+  .dyno-change-report-section { margin-top: 7mm; padding-top: 4mm; border-color: #ccd3da; }
+  .dyno-change-report-section > header h2 { font-size: 13pt; }
+  .dyno-change-report-set-title { color: #52606d; font-size: 10pt; }
+  .dyno-change-report-table-context { background: #f5f7f9; border-color: #ccd3da; border-radius: 1mm; padding: 3mm; margin: 4mm 0; }
+  .dyno-change-report-context-row { font-size: 9pt; border-color: #ccd3da; }
+  .dyno-change-report-context-number, .dyno-change-report-context-status, .dyno-change-report-context-heading, .dyno-change-report-context-gap { color: #52606d; font-size: 8pt; }
+  .dyno-change-report-context-row a { color: #174b78; }
+  .dyno-change-report-context-row[data-change-kind="Unchanged"] { opacity: 1; }
+  .dyno-change-report-context-row[data-change-kind="Added"] .dyno-change-report-context-status { color: #185b38; }
+  .dyno-change-report-context-row[data-change-kind="Removed"] .dyno-change-report-context-status { color: #87343c; }
 }

@@ -36,12 +36,13 @@ type gitFileRevision struct {
 }
 
 type gitCompareRow struct {
-	LeftLine  int
-	LeftText  string
-	RightLine int
-	RightText string
-	Kind      string
-	Changed   bool
+	LeftHTML, RightHTML template.HTML
+	LeftLine            int
+	LeftText            string
+	RightLine           int
+	RightText           string
+	Kind                string
+	Changed             bool
 }
 
 type gitCompareData struct {
@@ -197,6 +198,7 @@ func (s *Server) gitCompareHandler(w http.ResponseWriter, r *http.Request) {
 			slog.Warn("git diff failed, using built-in diff", "err", err)
 			data.Rows, data.Added, data.Deleted, data.Changed = buildSideBySideDiff(string(leftSource), string(rightSource))
 		}
+		highlightSourceRows(data.Rows)
 	}
 	if err := s.render(w, "git-compare.html", data); err != nil {
 		slog.Error("template error", "template", "git-compare.html", "err", err)

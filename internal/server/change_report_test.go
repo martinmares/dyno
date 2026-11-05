@@ -1,12 +1,22 @@
 package server
 
 import (
+	"html/template"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"testing"
 )
+
+func diffVisibleText(t *testing.T, value string) string {
+	t.Helper()
+	_, text, _, err := reportFragment(template.HTML(value))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return text
+}
 
 func TestChangeReportExcludesFrontmatterAndUnchangedContent(t *testing.T) {
 	s := newTestServer(t)
@@ -27,7 +37,7 @@ func TestChangeReportExcludesFrontmatterAndUnchangedContent(t *testing.T) {
 			}
 		}
 	}
-	if changes[0].Section != "Permissions" || !strings.Contains(string(changes[0].Before), "Old permission rule") || !strings.Contains(string(changes[0].After), "New permission rule") {
+	if changes[0].Section != "Permissions" || !strings.Contains(diffVisibleText(t, string(changes[0].Before)), "Old permission rule") || !strings.Contains(diffVisibleText(t, string(changes[0].After)), "New permission rule") {
 		t.Fatalf("missing change context: %+v", changes[0])
 	}
 	changes, _, _, _, err = s.buildChangeReport(left, []byte(strings.Replace(string(left), "old-secret", "new-secret", 1)), filepath.Join(s.contentDir, "index.md"))
@@ -36,10 +46,10 @@ func TestChangeReportExcludesFrontmatterAndUnchangedContent(t *testing.T) {
 	}
 }
 
-func TestChangeReportKeepsFencesTablesAndListsWhole(t *testing.T) {
+func TestChangeReportKeepsFencesTablesAndListItemsWhole(t *testing.T) {
 	source := "# Guide\n\n## SQL\n\n```sql\nSELECT 1;\n\n# Not a heading\nSELECT 2;\n```\n\n## Rows\n\n| Name | Value |\n| --- | --- |\n| A | 1 |\n\n- First\n\n  More detail.\n\n- Second\n\nFinal paragraph.\n"
 	blocks := changeReportBlocks([]byte(source))
-	foundCode, foundTable, foundList := false, false, false
+	foundCode, foundTable, listItems := false, false, 0
 	for _, block := range blocks {
 		switch block.Kind {
 		case "Code block":
@@ -53,13 +63,13 @@ func TestChangeReportKeepsFencesTablesAndListsWhole(t *testing.T) {
 				t.Fatal("table split")
 			}
 		case "List":
-			foundList = true
-			if !strings.Contains(block.Source, "More detail.") || !strings.Contains(block.Source, "- Second") {
-				t.Fatalf("loose list split: %+v", block)
+			listItems++
+			if strings.Contains(block.Source, "- First") && (!strings.Contains(block.Source, "More detail.") || strings.Contains(block.Source, "- Second")) {
+				t.Fatalf("list item paragraphs lost or neighboring items included: %+v", block)
 			}
 		}
 	}
-	if !foundCode || !foundTable || !foundList {
+	if !foundCode || !foundTable || listItems != 2 {
 		t.Fatalf("missing block types: %+v", blocks)
 	}
 	s := newTestServer(t)
@@ -118,7 +128,7 @@ func TestGitChangeReportUsesSelectedDocumentRevisions(t *testing.T) {
 	}
 	body := rec.Body.String()
 	for _, want := range []string{"Change report", "First public version.", "Second public version.", "Print / Save PDF", "data-report-time", "Before:", "After:"} {
-		if !strings.Contains(body, want) {
+		if !strings.Contains(body, want) && !strings.Contains(diffVisibleText(t, body), want) {
 			t.Fatalf("report missing %q", want)
 		}
 	}

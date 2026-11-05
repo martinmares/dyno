@@ -70,6 +70,9 @@ func TestGitCompareHandlerAndRevisionValidation(t *testing.T) {
 		t.Fatalf("compare returned %d: %s", rec.Code, rec.Body.String())
 	}
 	body := rec.Body.String()
+	if !strings.Contains(body, `class="tabs dyno-compare-mode-tabs"`) || !strings.Contains(body, `aria-label="Comparison views"`) || strings.Count(body, `aria-current="page"`) != 1 {
+		t.Fatal("comparison views must expose one active navigation tab")
+	}
 	if !strings.Contains(body, `data-print-page class="button dyno-icon-button is-ghost"`) {
 		t.Fatal("source comparison is missing the shared print icon")
 	}
@@ -89,7 +92,7 @@ func TestGitCompareHandlerAndRevisionValidation(t *testing.T) {
 		t.Fatalf("revision headings should show compact identifiers: %s", header)
 	}
 	for _, expected := range []string{"Compare versions", "Working tree", "Second version.", "Working version.", "Preview", "dyno-theme"} {
-		if !strings.Contains(body, expected) {
+		if !strings.Contains(body, expected) && !strings.Contains(diffVisibleText(t, body), expected) {
 			t.Errorf("compare page does not contain %q", expected)
 		}
 	}
@@ -99,6 +102,9 @@ func TestGitCompareHandlerAndRevisionValidation(t *testing.T) {
 		srv.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/_git/compare/guide?mode="+mode, nil))
 		if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), "A4 landscape") {
 			t.Fatalf("%s must retain the default portrait print layout", mode)
+		}
+		if strings.Count(rec.Body.String(), `aria-current="page"`) != 1 {
+			t.Fatalf("%s must have one active navigation tab", mode)
 		}
 		if !strings.Contains(rec.Body.String(), `data-print-page class="button dyno-icon-button is-ghost"`) {
 			t.Fatalf("%s is missing the shared print icon", mode)

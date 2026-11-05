@@ -389,6 +389,38 @@ Tisk přes **Print / Save PDF** nebo Ctrl+P vytvoří přehled pro čtenáře m�
 technického Git diffu. Výběr revizí používá stejnou historii dokumentu včetně
 přejmenování, staged verze a pracovního stromu.
 
+Source i Change report zvýrazňují jednotlivá změněná slova uvnitř odpovídajících
+řádků nebo bloků: odebraná jsou přeškrtnutá, přidaná podtržená. Zvýraznění zůstává
+i v PDF. Položky seznamu se porovnávají samostatně, vnořené seznamy a odstavce
+zůstávají jako kontext položky. Odkazy, zvýraznění a kód si zachovávají formátování;
+změny bez rozdílu viditelného textu mají vysvětlující poznámku. Velmi rozsáhlé
+textové změny použijí hrubší zvýraznění kvůli omezení paměti porovnání.
+
+Změněné položky seznamu se párují podle podobnosti viditelných slov v rámci
+kapitoly, nikoli pouze podle pořadí. Nesouvisející položky jsou odebrané/přidané;
+původní odrážky a číslování zůstávají viditelné i při změně samotného formátu.
+
+Report seskupuje změny pod jeden nadpis kapitoly a odděluje změněné, odebrané
+a přidané části. U tabulek přidává kompaktní kontext Before/After s identifikátory
+prvního sloupce, názvy změněných sloupců a sousedním řádkem na každé straně.
+Odkazy vedou na detaily řádků; čísla označují pozici v příslušné verzi tabulky,
+nikoli řádek zdrojového souboru. Kontext má nejvýše dvanáct řádků na verzi
+s vyznačením vynechaných míst; detaily všech změn zůstávají dostupné.
+
+Dlouhé změněné bloky kódu zobrazují změněné řádky a dva okolní řádky; překrývající
+se úseky se sloučí. U výřezu je uveden rozsah řádků v bloku kódu. Volba
+**Show complete code block** rozbalí celé znění před/po. Dlouhé řádky se zalamují
+se zachováním odsazení. PDF tiskne jen výřezy i při rozbaleném celém bloku v UI;
+přidané/odebrané bloky a krátké změny zůstávají celé.
+
+Markdown tabulky se v reportu neopakují celé: zobrazují se změněné řádky a buňky
+s identifikací řádku, názvem sloupce a hodnotou před/po. Nezměněné buňky se
+vynechají; přidané/odebrané řádky vypíší všechny hodnoty. Párování používá
+jednoznačnou hodnotu prvního sloupce; nejednoznačné nebo přejmenované identifikátory
+se raději zobrazí jako přidání/odebrání. Změna hlaviček zobrazí odebrané/přidané
+řádky v plném rozsahu. Stejné rozložení se tiskne na A4 na výšku. Složité ruční
+HTML tabulky si ponechají původní tabulkové zobrazení.
+
 Jde o deterministické porovnání Markdown bloků, ne AI souhrn. Změny formátování
 se mohou objevit jako změny a přesunutí jako odebrání/přidání. Odkazované obrázky
 a jiné soubory se načítají z aktuálního webu, nikoli z archivované revize.

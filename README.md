@@ -387,6 +387,38 @@ frontmatter are excluded. It works with the same validated document history,
 including renamed files, staged content and the working tree. Use
 **Print / Save PDF** or Ctrl+P to share a reader-oriented report.
 
+Source and Change report highlight the changed words inside matching lines or
+blocks: removed words are struck through, added words underlined. The same
+highlighting is included in PDF. Top-level list items are compared individually,
+retaining nested lists and paragraphs as context. Links, emphasis and code stay
+rendered normally; markup-only changes have an explicit note. Very large text
+changes fall back to coarser highlighting to bound comparison memory.
+
+Changed list items are aligned by visible-word similarity within a chapter,
+not merely their position. Unrelated items are reported as removed/added;
+original bullets and numbering remain visible, including formatting-only edits.
+
+The report groups changes under one heading per chapter, separating changed,
+removed and added parts. Table details include a compact Before/After context
+showing first-column identifiers, changed columns and one neighboring row on
+each side. Context links jump to row details; row numbers refer to the selected
+table version, not source lines. Context is capped at twelve rows per version
+with explicit omissions; all changed-row details remain available.
+
+Long changed code blocks show changed lines plus two surrounding lines, merging
+overlapping excerpts. Code-block line ranges identify each excerpt. Expand
+**Show complete code block** to inspect the full before/after code. Long lines
+wrap without losing indentation. PDF uses the excerpts only, even if the full
+block is expanded on screen; added/removed blocks and short changes stay whole.
+
+Markdown tables are summarized as changed rows and cells, not repeated in full:
+each entry identifies its row and column and shows the before/after value.
+Unchanged cells are omitted. Added/removed rows list all their values. Rows are
+matched by a unique first-column value; ambiguous or renamed identifiers are
+shown as additions/removals rather than guessed matches. Column-heading changes
+show removed/added rows in full. The same layout prints on portrait A4; complex
+hand-written HTML tables retain the ordinary table fallback.
+
 The comparison is deterministic, not AI-generated: paragraphs, lists, tables,
 callouts and fenced code are compared as Markdown blocks. Formatting-only edits
 may therefore appear as changes; moved blocks may appear as removal/addition.

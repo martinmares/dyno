@@ -7,12 +7,19 @@ import (
 	"html/template"
 	"regexp"
 	"strings"
+
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/text"
 )
 
 type markdownReportBlock struct{ Source, Section, Kind string }
 type documentChange struct {
 	ID, Kind, Section, BlockType string
 	Before, After                template.HTML
+	MarkupOnly                   bool
+	Table                        *reportTableDiff
+	Code                         *reportCodeDiff
 }
 
 var reportHeading = regexp.MustCompile(`^ {0,3}(#{1,6})[ \t]+(.+?)\s*$`)
@@ -67,6 +74,9 @@ func changeReportBlocks(source []byte) []markdownReportBlock {
 			width := 0
 			for i < len(lines) {
 				trimmed := strings.TrimSpace(lines[i])
+				if fence == 0 && reportList.MatchString(lines[i]) {
+					grouped = true
+				}
 				if len(trimmed) >= 3 && (trimmed[0] == '`' || trimmed[0] == '~') {
 					count := 0
 					for count < len(trimmed) && trimmed[count] == trimmed[0] {
@@ -121,7 +131,60 @@ func changeReportBlocks(source []byte) []markdownReportBlock {
 		}
 		blocks = append(blocks, markdownReportBlock{Source: text, Section: section, Kind: kind})
 	}
-	return blocks
+	return splitReportLists(blocks)
+}
+
+// Markdown permits a list immediately after a paragraph without a blank line.
+// Split these paragraphs and top-level items, retaining nested item content.
+func splitReportLists(blocks []markdownReportBlock) []markdownReportBlock {
+	var result []markdownReportBlock
+	for _, block := range blocks {
+		if block.Kind != "List" && block.Kind != "Text" {
+			result = append(result, block)
+			continue
+		}
+		source := []byte(block.Source)
+		doc := goldmark.DefaultParser().Parse(text.NewReader(source))
+		type unit struct {
+			start int
+			kind  string
+		}
+		var units []unit
+		valid, hasList := true, false
+		add := func(node ast.Node, kind string) {
+			if node == nil || node.Lines().Len() == 0 {
+				valid = false
+				return
+			}
+			start := node.Lines().At(0).Start
+			for start > 0 && source[start-1] != '\n' {
+				start--
+			}
+			units = append(units, unit{start, kind})
+		}
+		for node := doc.FirstChild(); node != nil; node = node.NextSibling() {
+			switch node.(type) {
+			case *ast.List:
+				hasList = true
+				for item := node.FirstChild(); item != nil; item = item.NextSibling() {
+					add(item.FirstChild(), "List")
+				}
+			case *ast.Paragraph, *ast.TextBlock:
+				add(node, "Text")
+			default:
+				valid = false
+			}
+		}
+		if !valid || !hasList || len(units) < 2 || units[0].start != 0 {
+			result = append(result, block)
+			continue
+		}
+		units = append(units, unit{start: len(source)})
+		for i := 0; i < len(units)-1; i++ {
+			result = append(result, markdownReportBlock{Source: strings.TrimRight(string(source[units[i].start:units[i+1].start]), "\n"), Section: block.Section, Kind: units[i].kind})
+		}
+	}
+	return result
 }
 
 func (s *Server) buildChangeReport(left, right []byte, sourcePath string) ([]documentChange, int, int, int, error) {
@@ -134,6 +197,10 @@ func (s *Server) buildChangeReport(left, right []byte, sourcePath string) ([]doc
 		return strings.Join(lines, "\n")
 	}
 	rows, _, _, _ := buildSideBySideDiff(hashes(before), hashes(after))
+	rows, err := alignReportLists(rows, before, after, s.renderer.ToPlainText)
+	if err != nil {
+		return nil, 0, 0, 0, err
+	}
 	references := func(blocks []markdownReportBlock) string {
 		var definitions []string
 		for _, block := range blocks {
@@ -178,6 +245,14 @@ func (s *Server) buildChangeReport(left, right []byte, sourcePath string) ([]doc
 			}
 			change.After = content
 		}
+		table, err := buildTableReport(change.Before, change.After)
+		if err != nil {
+			return err
+		}
+		change.Table = table
+		if table != nil {
+			change.BlockType = "Table"
+		}
 		if old == nil {
 			change.Kind = "Added"
 			added++
@@ -186,7 +261,21 @@ func (s *Server) buildChangeReport(left, right []byte, sourcePath string) ([]doc
 			removed++
 		} else {
 			change.Kind = "Changed"
+			if table == nil {
+				before, after, err := highlightReportPair(change.Before, change.After)
+				if err != nil {
+					return err
+				}
+				change.MarkupOnly = !strings.Contains(string(before)+string(after), `class="dyno-diff-word `)
+				change.Before, change.After = before, after
+			}
 			changed++
+		}
+		if old != nil && new != nil && old.Kind == "Code block" && new.Kind == "Code block" {
+			change.Code, err = buildCodeReport(change.Before, change.After)
+			if err != nil {
+				return err
+			}
 		}
 		changes = append(changes, change)
 		return nil

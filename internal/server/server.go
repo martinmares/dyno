@@ -153,8 +153,9 @@ type Config struct {
 
 func newFuncMap() template.FuncMap {
 	return template.FuncMap{
-		"safeHTML": func(s string) template.HTML { return template.HTML(s) },
-		"add":      func(a, b int) int { return a + b },
+		"reportGroups": groupReportChanges,
+		"safeHTML":     func(s string) template.HTML { return template.HTML(s) },
+		"add":          func(a, b int) int { return a + b },
 		"isAgentsDoc": func(path string) bool {
 			return filepath.Base(path) == "AGENTS.md"
 		},

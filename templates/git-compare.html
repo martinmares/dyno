@@ -33,6 +33,7 @@
         </a>
         <span class="dyno-compare-divider" aria-hidden="true"></span>
         <div class="dyno-compare-title" title="{{ .DocumentTitle }}">{{ .DocumentTitle }}</div>
+      </div>
         <form id="compare-form" action="{{ .CompareURL }}" method="get" class="dyno-compare-form" data-compare-form>
           <input type="hidden" name="mode" value="{{ .Mode }}">
           {{ if and (eq .Mode "preview") .IgnoreFrontmatter }}<input type="hidden" name="ignore_frontmatter" value="1">{{ end }}
@@ -48,14 +49,15 @@
             {{ range .Revisions }}<option value="{{ .ID }}" {{ if eq .ID $.Right.ID }}selected{{ end }}>{{ .Label }}</option>{{ end }}
           </select></span>
         </form>
-      </div>
 
       <div class="dyno-compare-controls">
-        <div class="dyno-compare-mode-tabs">
-          <a href="{{ .SourceURL }}" class="{{ if eq .Mode "source" }}is-active{{ end }}">Source</a>
-          <a href="{{ .PreviewURL }}" class="{{ if eq .Mode "preview" }}is-active{{ end }}">Preview</a>
-          <a href="{{ .ReportURL }}" class="{{ if eq .Mode "report" }}is-active{{ end }}">Change report</a>
-        </div>
+        <nav class="tabs dyno-compare-mode-tabs" aria-label="Comparison views">
+          <ul>
+            <li class="{{ if eq .Mode "source" }}is-active{{ end }}"><a href="{{ .SourceURL }}" {{ if eq .Mode "source" }}aria-current="page"{{ end }}>Source</a></li>
+            <li class="{{ if eq .Mode "preview" }}is-active{{ end }}"><a href="{{ .PreviewURL }}" {{ if eq .Mode "preview" }}aria-current="page"{{ end }}>Preview</a></li>
+            <li class="{{ if eq .Mode "report" }}is-active{{ end }}"><a href="{{ .ReportURL }}" {{ if eq .Mode "report" }}aria-current="page"{{ end }}>Change report</a></li>
+          </ul>
+        </nav>
         {{ template "print-button" . }}
         {{ if eq .Mode "source" }}
         <label class="checkbox dyno-compare-checkbox">
@@ -95,14 +97,68 @@
           <div><dt>Printed:</dt><dd><time data-report-time></time></dd></div>
         </dl>
         <div class="dyno-change-report-summary"><span><strong>{{ .Added }}</strong> added</span><span><strong>{{ .Deleted }}</strong> removed</span><span><strong>{{ .Changed }}</strong> changed blocks</span></div>
-        <p class="dyno-change-report-note">Only changed content blocks are shown. Frontmatter and unchanged blocks are excluded. This is a comparison of Markdown content, not an AI summary.</p>
+        <p class="dyno-change-report-note">Only changed content blocks are shown. Frontmatter and unchanged blocks are excluded. Removed words are struck through; added words are underlined. This is a comparison of Markdown content, not an AI summary.</p>
         {{ if .Changes }}
-        <nav class="dyno-change-report-toc" aria-label="Changed blocks"><h2>What changed</h2><ol>{{ range .Changes }}<li><a href="#{{ .ID }}">{{ .Section }} <span>{{ .Kind }} · {{ .BlockType }}</span></a></li>{{ end }}</ol></nav>
-        {{ range .Changes }}
+        {{ $groups := reportGroups .Changes }}
+        <nav class="dyno-change-report-toc" aria-label="Changed sections"><h2>What changed</h2><ol>{{ range $groups }}<li><a href="#{{ .ID }}">{{ .Section }} <span>{{ .Changed }} changed · {{ .Removed }} removed · {{ .Added }} added</span></a></li>{{ end }}</ol></nav>
+        {{ range $groups }}
+        <section class="dyno-change-report-section" id="{{ .ID }}">
+          <header><h2>{{ .Section }}</h2></header>
+          {{ range .Sets }}{{ if .Changes }}
+          <section class="dyno-change-report-set">
+          <h3 class="dyno-change-report-set-title">{{ .Label }} <span>{{ len .Changes }}</span></h3>
+          {{ range .Changes }}
+          {{ $change := . }}
         <section class="dyno-change-report-block" id="{{ .ID }}">
-          <header><span class="dyno-change-report-kind">{{ .Kind }} · {{ .BlockType }}</span><h2>{{ .Section }}</h2></header>
-          {{ if .Before }}<div class="dyno-change-report-side dyno-change-report-before"><h3>{{ if .After }}Before{{ else }}Removed{{ end }}</h3><div class="dyno-prose">{{ .Before }}</div></div>{{ end }}
-          {{ if .After }}<div class="dyno-change-report-side dyno-change-report-after"><h3>{{ if .Before }}After{{ else }}Added{{ end }}</h3><div class="dyno-prose">{{ .After }}</div></div>{{ end }}
+          <header><span class="dyno-change-report-kind">{{ .Kind }} · {{ .BlockType }}</span></header>
+          {{ if .Table }}
+            {{ if .Table.Note }}<p class="dyno-change-report-note">{{ .Table.Note }}</p>{{ end }}
+            {{ range .Table.Context }}
+            <div class="dyno-change-report-table-context">
+              <h4>Table context · {{ .Side }}</h4>
+              <p class="dyno-change-report-note">Columns: {{ .Headers }}</p>
+              <div class="dyno-change-report-context-heading">Row · {{ .Column }}</div>
+              <ol class="dyno-change-report-context-rows">
+                {{ range .Rows }}
+                {{ if .Gap }}<li class="dyno-change-report-context-gap">… rows omitted …</li>{{ else }}
+                <li class="dyno-change-report-context-row" data-change-kind="{{ .Kind }}">
+                  <span class="dyno-change-report-context-number">{{ .Number }}</span>
+                  {{ if .Anchor }}<a href="#{{ $change.ID }}-{{ .Anchor }}">{{ .Identity }}</a>{{ else }}<span>{{ .Identity }}</span>{{ end }}
+                  <span class="dyno-change-report-context-status">{{ .Kind }}{{ if .Columns }} · {{ .Columns }}{{ end }}</span>
+                </li>
+                {{ end }}{{ end }}
+              </ol>
+            </div>
+            {{ end }}
+            {{ range .Table.Rows }}
+            {{ $row := . }}
+            <section class="dyno-change-report-table-row" id="{{ $change.ID }}-{{ .Anchor }}">
+              <header><span class="dyno-change-report-kind">{{ .Kind }} row</span><h3>{{ .Identity }}</h3></header>
+              {{ range .Cells }}
+              <div class="dyno-change-report-cell">
+                <h4>{{ .Column }}</h4>
+                {{ if eq $row.Kind "Changed" }}{{ template "report-values" . }}{{ else }}<div class="dyno-prose">{{ if .After }}{{ .After }}{{ else }}{{ .Before }}{{ end }}</div>{{ end }}
+              </div>
+              {{ end }}
+            </section>
+            {{ end }}
+          {{ else if .Code }}
+            <p class="dyno-change-report-note">Only changed lines and two surrounding lines are shown. Line numbers refer to the code block; unchanged sections are omitted.</p>
+            {{ range .Code.Hunks }}
+            <div class="dyno-change-report-code-hunk">
+              <p class="dyno-change-report-note">{{ .Location }}</p>
+              {{ template "report-values" . }}
+            </div>
+            {{ end }}
+            <details class="dyno-change-report-code-full" data-report-code-full>
+              <summary>Show complete code block</summary>
+              {{ template "report-values" . }}
+            </details>
+          {{ else }}{{ template "report-values" . }}{{ end }}
+        </section>
+          {{ end }}
+          </section>
+          {{ end }}{{ end }}
         </section>
         {{ end }}
         {{ else }}<p class="dyno-change-report-no-changes">No content blocks changed between these revisions.</p>{{ end }}
@@ -124,9 +180,9 @@
           {{ range .Rows }}
           <tr {{ if .Changed }}data-diff-change{{ end }} data-diff-kind="{{ .Kind }}">
             <td class="dyno-diff-line-number">{{ if .LeftLine }}{{ .LeftLine }}{{ end }}</td>
-            <td class="dyno-diff-text">{{ .LeftText }}</td>
+            <td class="dyno-diff-text">{{ .LeftHTML }}</td>
             <td class="dyno-diff-line-number">{{ if .RightLine }}{{ .RightLine }}{{ end }}</td>
-            <td class="dyno-diff-text">{{ .RightText }}</td>
+            <td class="dyno-diff-text">{{ .RightHTML }}</td>
           </tr>
           {{ end }}
         </tbody>
@@ -157,4 +213,10 @@
   </script>
 </body>
 </html>
+{{ end }}
+
+{{ define "report-values" }}
+{{ if .MarkupOnly }}<p class="dyno-change-report-note">Formatting, link target or non-text content changed.</p>{{ end }}
+{{ if .Before }}<div class="dyno-change-report-side dyno-change-report-before"><h3>{{ if .After }}Before{{ else }}Removed{{ end }}</h3><div class="dyno-prose">{{ .Before }}</div></div>{{ end }}
+{{ if .After }}<div class="dyno-change-report-side dyno-change-report-after"><h3>{{ if .Before }}After{{ else }}Added{{ end }}</h3><div class="dyno-prose">{{ .After }}</div></div>{{ end }}
 {{ end }}
