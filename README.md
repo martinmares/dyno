@@ -6,7 +6,7 @@ A self-hosted documentation server — think GitBook or Notion, but as a single 
 
 - **Markdown rendering** — GFM, footnotes, definition lists, syntax highlighting (200+ languages via Chroma)
 - **Mermaid diagrams** — flowcharts, sequence diagrams, pie charts, and more
-- **Full-text search** — built-in in-memory search with highlighted snippets
+- **Full-text search** — embedded Bleve engine, relevance ranking, chapter links, typo fallback and highlighted snippets; no external service
 - **Repository Explorer** — opt-in `--explore` workspace with folders, advanced search, metadata filters, configurable columns, previews, overview and Markdown relationships; no AI or external search service
 - **Auto-generated sidebar** — navigation tree built from the filesystem, no config needed; desktop collapse hides it entirely, leaving a small bottom-left restore button and more room for the document
 - **Light / dark mode** — persisted to localStorage
@@ -348,6 +348,31 @@ This flag overrides document settings, even `dyno.tables.sortable: false` or `dy
 `--library` is exclusive with `--site` and `--git-repo-site`: when you use a library file, define all books inside `dyno-library.yaml`. `--work-dir` may still be used to override the library file's `work_dir` for git-backed entries.
 
 If a section directory has no `index.md`, dyno serves a synthetic landing page with links to child pages.
+
+### Search
+
+Search is built into the binary using Bleve. No separate service, API key or
+configuration is required. The in-memory index is rebuilt at startup and by
+`--watch`; it contains the same published documents as navigation. Local
+`dyno browse` searches only the selected filesystem roots.
+
+- Results use BM25 relevance with stronger weights for titles and headings than
+  paths and body text. Each document appears once, with a relevant chapter,
+  highlighted excerpt and a direct heading link.
+- Search ignores case and accents. The final word supports prefix matching,
+  including technical identifiers. Quoted phrases require adjacent words.
+- Quick search first requires all query words. If nothing matches, it tries one
+  typo in ordinary words of 5–40 characters (first character unchanged). It does
+  not typo-correct identifiers containing digits or `-`, `_`, `/`, `.` or quoted
+  phrases. As a final fallback, it shows documents matching only some words.
+  Relaxed results are labelled **Similar match** or **Partial match**.
+- The dropdown shows the first 20 documents and the total count. **Open all
+  search results** or Enter opens a paginated list, preserving metadata filters.
+  Arrow keys and Enter open a selected quick result; Escape closes the dropdown.
+- Explorer uses the same engine with explicit all/any matching and field scopes.
+
+This is lexical search, not semantic/AI search. Accent normalization and typo
+tolerance do not provide full Czech morphology or automatic synonyms.
 
 ### Repository Explorer
 

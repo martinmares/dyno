@@ -2,30 +2,46 @@
 {{ if .Results }}
 <div class="card dyno-search-results">
   <div class="dyno-search-results-summary">
-    {{ len .Results }} result{{ if ne (len .Results) 1 }}s{{ end }} for "<strong>{{ .Query }}</strong>"
+    {{ .TotalResults }} result{{ if ne .TotalResults 1 }}s{{ end }} for "<strong>{{ .Query }}</strong>" · {{ .RangeStart }}–{{ .RangeEnd }}
   </div>
   <ul class="dyno-unstyled dyno-search-results-list">
     {{ range .Results }}
     <li>
-      <a href="{{ .Path }}{{ $.ResultQuery }}"
-         {{ if $.Nav }}hx-get="{{ .Path }}{{ $.ResultQuery }}"{{ end }}
-         {{ if $.Nav }}hx-target="#page-content"{{ end }}
-         {{ if $.Nav }}hx-push-url="true"{{ end }}
+      <a href="{{ .Path }}{{ $.ResultQuery }}{{ if .Anchor }}#{{ .Anchor }}{{ end }}"
+         {{ if and $.Nav $.CanSwapResults }}hx-get="{{ .Path }}{{ $.ResultQuery }}{{ if .Anchor }}&_search_anchor={{ .Anchor }}{{ end }}"{{ end }}
+         {{ if and $.Nav $.CanSwapResults }}hx-target="#page-content"{{ end }}
+         {{ if and $.Nav $.CanSwapResults }}hx-push-url="true"{{ end }}
          class="dyno-search-result search-result-link">
         <div class="dyno-search-result-title">
           <span>{{ .Title | safeHTML }}</span>
           {{ if .BookTitle }}<span class="tag is-light dyno-search-result-book">{{ .BookTitle }}</span>{{ end }}
+          {{ if .Approximate }}<span class="tag is-light dyno-search-result-book">Similar match</span>{{ end }}
+          {{ if .Partial }}<span class="tag is-light dyno-search-result-book">Partial match</span>{{ end }}
         </div>
+        {{ if .Section }}<div class="dyno-search-result-section">{{ .Section }}</div>{{ end }}
         <div class="dyno-search-result-snippet">{{ .Snippet | safeHTML }}</div>
         <div class="dyno-search-result-path">{{ .Path }}</div>
       </a>
     </li>
     {{ end }}
   </ul>
+  {{ if or .IsHTMX .PreviousURL .NextURL }}<div class="dyno-search-results-footer">
+    {{ if .IsHTMX }}
+    <a href="{{ .AllResultsURL }}">Open all search results →</a>
+    {{ else }}
+    {{ if .PreviousURL }}<a href="{{ .PreviousURL }}">← Previous</a>{{ end }}
+    {{ if .NextURL }}<a href="{{ .NextURL }}">Next →</a>{{ end }}
+    {{ end }}
+  </div>{{ end }}
 </div>
 {{ else if .Query }}
 <div class="card dyno-search-results dyno-search-empty">
+  {{ if .TotalResults }}
+  No results on this page. <a href="{{ .AllResultsURL }}">Return to the first page</a>.
+  {{ else }}
   No results for "<strong>{{ .Query }}</strong>"
+  <p>Try fewer words or a document identifier. Put an exact phrase in quotation marks.</p>
+  {{ end }}
 </div>
 {{ end }}
 {{ end }}

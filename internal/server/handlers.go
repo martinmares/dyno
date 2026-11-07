@@ -123,6 +123,13 @@ type LibraryData struct {
 type SearchData struct {
 	Query           string
 	Results         []search.SearchResult
+	TotalResults    int
+	RangeStart      int
+	RangeEnd        int
+	AllResultsURL   string
+	PreviousURL     string
+	NextURL         string
+	CanSwapResults  bool
 	Nav             *navigation.NavNode
 	IsHTMX          bool
 	LightCSS        template.CSS
@@ -220,6 +227,12 @@ func (s *Server) render(w http.ResponseWriter, name string, data any) error {
 }
 
 func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
+	searchAnchor := r.URL.Query().Get("_search_anchor")
+	if searchAnchor != "" {
+		values := r.URL.Query()
+		values.Del("_search_anchor")
+		r.URL.RawQuery = values.Encode()
+	}
 	rawPath := r.PathValue("path")
 	urlPath := s.basePath + "/" + rawPath
 	if s.browse != nil {
@@ -453,6 +466,9 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		if rawQuery := r.URL.RawQuery; rawQuery != "" {
 			pushURL += "?" + rawQuery
 		}
+		if searchAnchor != "" {
+			pushURL += "#" + (&url.URL{Fragment: searchAnchor}).EscapedFragment()
+		}
 		w.Header().Set("HX-Push-Url", pushURL)
 		w.Header().Set("X-Search-URL", s.searchPath+view.Query)
 		if err := s.render(w, "page-fragment", data); err != nil {
@@ -583,9 +599,12 @@ func (s *Server) searchHandler(w http.ResponseWriter, r *http.Request) {
 	view := s.metadataView(r)
 	resultValues := r.URL.Query()
 	resultValues.Set("q", q)
+	resultValues.Del("page")
 	var results []search.SearchResult
+	offset := searchOffset(r)
+	total := 0
 	if q != "" {
-		results = s.getIdx().SearchFiltered(q, view.Allowed)
+		results, total = s.getIdx().SearchPage(q, view.Allowed, offset, searchPageSize)
 	}
 
 	data := SearchData{
@@ -613,6 +632,7 @@ func (s *Server) searchHandler(w http.ResponseWriter, r *http.Request) {
 		FiltersActive:  view.Active,
 		ResultQuery:    "?" + resultValues.Encode(),
 	}
+	setSearchPagination(&data, r, total, offset)
 
 	if isHTMX(r) {
 		if err := s.render(w, "search-results", data); err != nil {

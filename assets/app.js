@@ -1805,6 +1805,50 @@ function shouldSkipHighlightNode(node) {
   return Boolean(parent.closest('pre, code, script, style, svg, .mermaid, .d2-diagram, .api-widget'));
 }
 
+// Map normalized matches back to UTF-16 offsets so Czech accents and combining
+// marks cannot shift highlights in the original DOM text.
+function searchMatchRanges(value, query) {
+  const fold = text => text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  const terms = Array.from(query.matchAll(/"([^"]+)"|(\S+)/g), match =>
+    fold(match[1] || match[2]).replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 32);
+  let normalized = '';
+  let offset = 0;
+  const positions = [];
+  for (const character of value) {
+    const start = offset;
+    offset += character.length;
+    let part = fold(character);
+    if (/^\s+$/.test(part)) part = normalized.endsWith(' ') ? '' : ' ';
+    for (let i = 0; i < part.length; i++) positions.push({ start, end: offset });
+    normalized += part;
+    if (!part && positions.length) positions[positions.length - 1].end = offset;
+  }
+  const ranges = [];
+  const words = Array.from(value.matchAll(/[\p{L}\p{N}\p{M}_]+/gu), match =>
+    ({ start: match.index, end: match.index + match[0].length }));
+  for (const term of terms) {
+    let index = normalized.indexOf(term);
+    while (index !== -1) {
+      const range = { start: positions[index].start, end: positions[index + term.length - 1].end };
+      // Prefixes should mark the complete word, not leave its suffix outside.
+      for (const word of words) {
+        if (word.start < range.start && range.start < word.end) range.start = word.start;
+        if (word.start < range.end && range.end < word.end) range.end = word.end;
+      }
+      ranges.push(range);
+      index = normalized.indexOf(term, index + term.length);
+    }
+  }
+  ranges.sort((a, b) => a.start - b.start);
+  const merged = [];
+  for (const range of ranges) {
+    const last = merged[merged.length - 1];
+    if (last && range.start <= last.end) last.end = Math.max(last.end, range.end);
+    else merged.push(range);
+  }
+  return merged;
+}
+
 function applySearchHighlights() {
   clearSearchHighlights();
 
@@ -1814,13 +1858,11 @@ function applySearchHighlights() {
   const prose = document.querySelector('.dyno-prose');
   if (!prose) return;
 
-  const pattern = new RegExp('(' + escapeRegExp(query) + ')', 'gi');
   const walker = document.createTreeWalker(prose, NodeFilter.SHOW_TEXT, {
     acceptNode: function (node) {
       if (!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
       if (shouldSkipHighlightNode(node)) return NodeFilter.FILTER_REJECT;
-      if (!pattern.test(node.nodeValue)) return NodeFilter.FILTER_REJECT;
-      pattern.lastIndex = 0;
+      if (!searchMatchRanges(node.nodeValue, query).length) return NodeFilter.FILTER_REJECT;
       return NodeFilter.FILTER_ACCEPT;
     }
   });
@@ -1833,23 +1875,18 @@ function applySearchHighlights() {
   let firstMark = null;
   textNodes.forEach(function (node) {
     const text = node.nodeValue;
-    pattern.lastIndex = 0;
-    if (!pattern.test(text)) return;
-    pattern.lastIndex = 0;
-
     const fragment = document.createDocumentFragment();
     let lastIndex = 0;
-    text.replace(pattern, function (match, _group, offset) {
-      if (offset > lastIndex) {
-        fragment.appendChild(document.createTextNode(text.slice(lastIndex, offset)));
+    searchMatchRanges(text, query).forEach(function (range) {
+      if (range.start > lastIndex) {
+        fragment.appendChild(document.createTextNode(text.slice(lastIndex, range.start)));
       }
       const mark = document.createElement('mark');
       mark.setAttribute('data-search-highlight', '1');
-      mark.textContent = match;
+      mark.textContent = text.slice(range.start, range.end);
       if (!firstMark) firstMark = mark;
       fragment.appendChild(mark);
-      lastIndex = offset + match.length;
-      return match;
+      lastIndex = range.end;
     });
 
     if (lastIndex < text.length) {
@@ -1860,9 +1897,25 @@ function applySearchHighlights() {
     }
   });
 
-  if (firstMark) {
+  const anchor = searchHeadingTarget();
+  if (anchor) {
+    anchor.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  } else if (firstMark) {
     firstMark.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
+}
+
+function searchHeadingTarget() {
+  if (!window.location.hash) return null;
+  try { return document.getElementById(decodeURIComponent(window.location.hash.slice(1))); }
+  catch (_) { return null; }
+}
+
+function searchResultsURL(endpoint, query, currentURL) {
+  const target = new URL(endpoint, currentURL);
+  target.searchParams.set('q', query.trim());
+  target.searchParams.delete('page');
+  return target.pathname + target.search;
 }
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -1934,6 +1987,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Show/hide results container
   input.addEventListener('input', function () {
+    container.querySelectorAll('.is-keyboard-active').forEach(link => link.classList.remove('is-keyboard-active'));
     if (input.value.trim()) {
       container.classList.remove('hidden');
     } else {
@@ -1951,6 +2005,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
   // Keyboard shortcut Ctrl+K / Cmd+K + arrow navigation
   document.addEventListener('keydown', function (e) {
+    if (e.isComposing) return;
     if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
       e.preventDefault();
       input.focus();
@@ -1977,12 +2032,14 @@ document.addEventListener('DOMContentLoaded', function () {
       return;
     }
 
-    // Enter — navigate to focused result
-    if (e.key === 'Enter' && !container.classList.contains('hidden')) {
-      const active = container.querySelector('.search-result-link.is-keyboard-active');
+    // Enter opens the focused hit, or the full results for the current input.
+    if (e.key === 'Enter' && document.activeElement === input && input.value.trim()) {
+      e.preventDefault();
+      const active = !container.classList.contains('hidden') && container.querySelector('.search-result-link.is-keyboard-active');
       if (active) {
-        e.preventDefault();
         active.click();
+      } else {
+        window.location.assign(searchResultsURL(input.getAttribute('hx-get'), input.value, window.location.href));
       }
     }
   });

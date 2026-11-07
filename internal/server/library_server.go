@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -350,10 +351,15 @@ func (ls *LibraryServer) searchHandler(w http.ResponseWriter, r *http.Request) {
 	allowed := ls.metadata.Allowed(filter)
 	resultValues := r.URL.Query()
 	resultValues.Set("q", q)
+	resultValues.Del("page")
 	var results []search.SearchResult
+	offset := searchOffset(r)
+	total := 0
 	if q != "" {
 		for _, book := range ls.books {
-			for _, res := range book.Idx.SearchFiltered(q, allowed) {
+			hits, count := book.Idx.SearchPage(q, allowed, 0, offset+searchPageSize)
+			total += count
+			for _, res := range hits {
 				res.BookTitle = book.Cfg.Title
 				res.BookSlug = book.Slug
 				results = append(results, res)
@@ -361,9 +367,8 @@ func (ls *LibraryServer) searchHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		// Re-sort merged results by score descending
 		sortResults(results)
-		if len(results) > 20 {
-			results = results[:20]
-		}
+		end := min(len(results), offset+searchPageSize)
+		results = results[min(offset, end):end]
 	}
 
 	// Build asset URLs
@@ -390,6 +395,7 @@ func (ls *LibraryServer) searchHandler(w http.ResponseWriter, r *http.Request) {
 		FilterQuery: metadata.Encode(filter),
 		ResultQuery: "?" + resultValues.Encode(),
 	}
+	setSearchPagination(&data, r, total, offset)
 
 	tmpl, err := ls.getTemplate()
 	if err != nil {
@@ -409,11 +415,20 @@ func (ls *LibraryServer) searchHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func sortResults(results []search.SearchResult) {
-	for i := 1; i < len(results); i++ {
-		for j := i; j > 0 && results[j].Score > results[j-1].Score; j-- {
-			results[j], results[j-1] = results[j-1], results[j]
-		}
+	sort.SliceStable(results, func(i, j int) bool { return searchResultBefore(results[i], results[j]) })
+}
+
+func searchResultBefore(a, b search.SearchResult) bool {
+	if a.Partial != b.Partial {
+		return !a.Partial
 	}
+	if a.Approximate != b.Approximate {
+		return !a.Approximate
+	}
+	if a.Score == b.Score {
+		return a.Path < b.Path
+	}
+	return a.Score > b.Score
 }
 
 // apiProxyHandlerShared returns a handler that delegates to the first book server's proxy.

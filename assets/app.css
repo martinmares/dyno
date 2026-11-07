@@ -2050,6 +2050,19 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   border-top: var(--dyno-border-width) solid var(--dyno-border-soft);
 }
 
+.dyno-search-results-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .65rem 1rem;
+  font-size: .8rem;
+  border-top: var(--dyno-border-width) solid var(--dyno-border-soft);
+}
+
+.dyno-search-page-content .dyno-search-results-list {
+  max-height: none;
+}
+
 .dyno-search-result {
   display: block;
   padding: 0.75rem 1rem;
@@ -2072,6 +2085,7 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 
 .dyno-search-result-title {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.25rem;
@@ -2093,6 +2107,14 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   line-height: 1.45;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+.dyno-search-result-section {
+  margin: .3rem 0;
+  color: var(--dyno-primary);
+  font-size: .8rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .dyno-search-result-path {

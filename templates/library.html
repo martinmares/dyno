@@ -44,6 +44,7 @@
             placeholder="Search all books… (Ctrl+K)"
             class="input is-small"
             hx-get="{{ .SearchURL }}"
+            hx-sync="this:replace"
             hx-trigger="input changed delay:300ms, search"
             hx-target="#search-results-container"
             hx-indicator="#search-spinner"

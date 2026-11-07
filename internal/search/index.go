@@ -2,17 +2,15 @@ package search
 
 import (
 	"html"
+	"log/slog"
 	"os"
 	"regexp"
-	"sort"
 	"strings"
 	"sync"
 	"unicode"
 
+	"github.com/blevesearch/bleve/v2"
 	"github.com/mares/dyno/internal/navigation"
-	"github.com/yuin/goldmark"
-	"github.com/yuin/goldmark/ast"
-	"github.com/yuin/goldmark/text"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -22,6 +20,7 @@ type Document struct {
 	Title    string
 	Body     string   // Plain text, for snippet extraction
 	Headings []string // H2/H3 headings extracted from markdown source
+	Sections []Section
 }
 
 // Options controls the full result set used by Explorer. Quick search remains
@@ -30,23 +29,30 @@ type Options struct {
 	Match        string // all (default) or any
 	Scope        string // all (default), title, path or body
 	Limit        int    // zero returns the full result set
+	Offset       int    // document offset, applied after relevance sorting
 	OmitSnippets bool   // Explorer has a separate selected-document preview
 }
 
 // Index is an in-memory full-text search index.
 type Index struct {
-	mu          sync.RWMutex
-	docs, texts []Document
+	mu     sync.RWMutex
+	docs   []Document
+	engine bleve.Index
+	err    error
 }
 
 // SearchResult is one search hit.
 type SearchResult struct {
-	Path      string
-	Title     string
-	Snippet   string // Plain text with <mark> around matches
-	Score     float64
-	BookTitle string // Set by library mode to identify which book the result is from
-	BookSlug  string // Set by library mode for badge coloring
+	Path        string
+	Title       string
+	Snippet     string // Plain text with <mark> around matches
+	Score       float64
+	BookTitle   string // Set by library mode to identify which book the result is from
+	BookSlug    string // Set by library mode for badge coloring
+	Section     string // Breadcrumb of the most relevant chapter
+	Anchor      string // Heading fragment, separate from Path for metadata and Explorer
+	Approximate bool   // The result needed typo tolerance
+	Partial     bool   // Only some query words matched
 }
 
 func fold(text string) string {
@@ -60,7 +66,8 @@ func fold(text string) string {
 
 // New creates an empty index.
 func New() *Index {
-	return &Index{}
+	engine, err := newEngine()
+	return &Index{engine: engine, err: err}
 }
 
 // Add indexes a document.
@@ -68,24 +75,37 @@ func (idx *Index) Add(doc Document) {
 	idx.mu.Lock()
 	defer idx.mu.Unlock()
 
+	if idx.err != nil {
+		return
+	}
+	idx.err = idx.engine.Index(doc.Path, engineDocument(doc))
+	if idx.err != nil {
+		return
+	}
+	for i := range idx.docs {
+		if idx.docs[i].Path == doc.Path {
+			idx.docs[i] = doc
+			return
+		}
+	}
 	idx.docs = append(idx.docs, doc)
-	idx.texts = append(idx.texts, Document{Path: fold(doc.Path), Title: fold(doc.Title), Body: fold(doc.Body)})
 }
 
 // extractHeadings returns H2/H3 headings from raw markdown source (max 4).
 func extractHeadings(src string) []string {
-	data := headingFrontmatter.ReplaceAll([]byte(src), nil)
-	doc := goldmark.New().Parser().Parse(text.NewReader(data))
+	return previewHeadings(extractSections([]byte(src)))
+}
+
+func previewHeadings(sections []Section) []string {
 	var out []string
-	_ = ast.Walk(doc, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
-		if heading, ok := node.(*ast.Heading); ok && entering && (heading.Level == 2 || heading.Level == 3) {
-			out = append(out, string(heading.Text(data)))
+	for _, section := range sections {
+		if section.Level == 2 || section.Level == 3 {
+			out = append(out, section.Heading)
 			if len(out) == 4 {
-				return ast.WalkStop, nil
+				break
 			}
 		}
-		return ast.WalkContinue, nil
-	})
+	}
 	return out
 }
 
@@ -101,7 +121,7 @@ func BuildIndex(tree *navigation.NavNode, plainText func(path string) (string, e
 func BuildIndexWithReader(tree *navigation.NavNode, plainText func(string) (string, error), readFile func(string) ([]byte, error)) (*Index, error) {
 	idx := New()
 	walkNodes(tree, func(node *navigation.NavNode) {
-		if node.FSPath == "" || node.IsDir {
+		if node.FSPath == "" {
 			return
 		}
 		src, err := readFile(node.FSPath)
@@ -112,34 +132,16 @@ func BuildIndexWithReader(tree *navigation.NavNode, plainText func(string) (stri
 		if err != nil {
 			return
 		}
+		sections := extractSections(src)
 		idx.Add(Document{
 			Path:     node.FullPath,
 			Title:    node.Title,
 			Body:     body,
-			Headings: extractHeadings(string(src)),
+			Headings: previewHeadings(sections),
+			Sections: sections,
 		})
 	})
-	// Also index dir nodes that have an index.md (FSPath set on dir node)
-	walkNodes(tree, func(node *navigation.NavNode) {
-		if node.FSPath == "" || !node.IsDir {
-			return
-		}
-		src, err := readFile(node.FSPath)
-		if err != nil {
-			return
-		}
-		body, err := plainText(string(src))
-		if err != nil {
-			return
-		}
-		idx.Add(Document{
-			Path:     node.FullPath,
-			Title:    node.Title,
-			Body:     body,
-			Headings: extractHeadings(string(src)),
-		})
-	})
-	return idx, nil
+	return idx, idx.err
 }
 
 func walkNodes(node *navigation.NavNode, fn func(*navigation.NavNode)) {
@@ -176,10 +178,23 @@ func (idx *Index) Search(query string) []SearchResult {
 // SearchFiltered restricts results to paths accepted by allowed. A nil map
 // searches every indexed document.
 func (idx *Index) SearchFiltered(query string, allowed map[string]bool) []SearchResult {
+	results, _ := idx.SearchPage(query, allowed, 0, 20)
+	return results
+}
+
+// SearchPage returns a relevance-ranked document page and the total hit count.
+func (idx *Index) SearchPage(query string, allowed map[string]bool, offset, limit int) ([]SearchResult, int) {
 	if strings.TrimSpace(query) == "" {
-		return nil
+		return nil, 0
 	}
-	return idx.Query(query, Options{Match: "any", Limit: 20}, allowed)
+	results, total := idx.query(query, Options{Limit: limit, Offset: offset}, allowed)
+	if total == 0 {
+		results, total = idx.query(query, Options{Match: "any", Limit: limit, Offset: offset}, allowed)
+		for i := range results {
+			results[i].Partial = true
+		}
+	}
+	return results, total
 }
 
 // Documents returns a snapshot; callers must not mutate the heading slices.
@@ -193,80 +208,40 @@ var queryClause = regexp.MustCompile(`"([^"]+)"|(\S+)`)
 
 // Query searches phrases and words without imposing the quick-search limit.
 func (idx *Index) Query(query string, options Options, allowed map[string]bool) []SearchResult {
-	idx.mu.RLock()
-	defer idx.mu.RUnlock()
-	var clauses []string
-	for _, match := range queryClause.FindAllStringSubmatch(query, -1) {
-		text := match[1]
-		if text == "" {
-			text = match[2]
-		}
-		if text = fold(text); text != "" {
-			clauses = append(clauses, text)
-		}
-	}
-	var results []SearchResult
-	for i, doc := range idx.docs {
-		if allowed != nil && !allowed[doc.Path] {
-			continue
-		}
-		text := idx.texts[i]
-		matched, score := 0, 0.0
-		for _, clause := range clauses {
-			weight := 0.0
-			if (options.Scope == "" || options.Scope == "all" || options.Scope == "body") && strings.Contains(text.Body, clause) {
-				weight = 1
-			}
-			if (options.Scope == "" || options.Scope == "all" || options.Scope == "path") && strings.Contains(text.Path, clause) {
-				weight += 3
-			}
-			if (options.Scope == "" || options.Scope == "all" || options.Scope == "title") && strings.Contains(text.Title, clause) {
-				weight += 8
-			}
-			if weight > 0 {
-				matched++
-				score += weight
-			}
-		}
-		if len(clauses) > 0 && ((options.Match == "any" && matched == 0) || (options.Match != "any" && matched != len(clauses))) {
-			continue
-		}
-		results = append(results, SearchResult{
-			Path:    doc.Path,
-			Title:   doc.Title,
-			Snippet: doc.Body,
-			Score:   score,
-		})
-	}
-
-	sort.Slice(results, func(i, j int) bool {
-		if results[i].Score == results[j].Score {
-			return results[i].Path < results[j].Path
-		}
-		return results[i].Score > results[j].Score
-	})
-	if options.Limit > 0 && len(results) > options.Limit {
-		results = results[:options.Limit]
-	}
-	for i := range results {
-		results[i].Title = highlightTerms(results[i].Title, clauses)
-		if options.OmitSnippets {
-			results[i].Snippet = ""
-		} else {
-			results[i].Snippet = extractSnippet(results[i].Snippet, clauses, 0)
-		}
-	}
+	results, _ := idx.query(query, options, allowed)
 	return results
 }
 
-// extractSnippet finds the first match in plain text and returns ±150 chars around it.
+func (idx *Index) query(query string, options Options, allowed map[string]bool) ([]SearchResult, int) {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+	if idx.err != nil {
+		slog.Error("search index unavailable", "err", idx.err)
+		return nil, 0
+	}
+	return idx.search(query, options, allowed)
+}
+
+// extractSnippet prefers a dense matching passage over an incidental first mention.
 func extractSnippet(body string, tokens []string, _ int) string {
 	runes := []rune(body)
 	runePos := 0
-	for i, matched := range matchRunes(body, tokens) {
-		if matched {
-			runePos = i
-			break
+	marks := matchRunes(body, tokens)
+	prefix := make([]int, len(marks)+1)
+	for i, marked := range marks {
+		prefix[i+1] = prefix[i]
+		if marked {
+			prefix[i+1]++
+		}
+	}
+	bestScore := 0
+	for i, marked := range marks {
+		if !marked {
+			continue
+		}
+		start, end := max(0, i-80), min(len(runes), i+150)
+		if score := prefix[end] - prefix[start]; score > bestScore {
+			bestScore, runePos = score, i
 		}
 	}
 
@@ -277,6 +252,13 @@ func extractSnippet(body string, tokens []string, _ int) string {
 	end := runePos + 150
 	if end > len(runes) {
 		end = len(runes)
+	}
+	minStart, maxEnd := max(0, start-32), min(len(runes), end+32)
+	for start > minStart && start < runePos && !unicode.IsSpace(runes[start-1]) {
+		start--
+	}
+	for end < maxEnd && !unicode.IsSpace(runes[end]) {
+		end++
 	}
 
 	snippet := string(runes[start:end])
@@ -359,7 +341,18 @@ func matchRunes(text string, terms []string) []bool {
 				break
 			}
 			index += offset
-			for i := positions[index]; i <= positions[index+len(term)-1]; i++ {
+			start, end := positions[index], positions[index+len(term)-1]+1
+			if searchWordRune(runes[start]) {
+				for start > 0 && searchWordRune(runes[start-1]) {
+					start--
+				}
+			}
+			if searchWordRune(runes[end-1]) {
+				for end < len(runes) && searchWordRune(runes[end]) {
+					end++
+				}
+			}
+			for i := start; i < end; i++ {
 				marked[i] = true
 			}
 			offset = index + len(term)
@@ -371,4 +364,8 @@ func matchRunes(text string, terms []string) []bool {
 		}
 	}
 	return marked
+}
+
+func searchWordRune(r rune) bool {
+	return unicode.IsLetter(r) || unicode.IsNumber(r) || unicode.IsMark(r) || r == '_'
 }

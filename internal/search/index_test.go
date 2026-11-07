@@ -83,6 +83,23 @@ func TestHeadingsAreMarkdownHeadingsNotCodeOrFrontmatter(t *testing.T) {
 	}
 }
 
+func TestPrefixHighlightsCoverWholeWords(t *testing.T) {
+	for _, tt := range []struct {
+		text  string
+		terms []string
+		want  string
+	}{
+		{"Cílové rozdělení schémat PostgreSQL, rozdělená data.", []string{"postgres", "rozdelen"}, "Cílové <mark>rozdělení</mark> schémat <mark>PostgreSQL</mark>, <mark>rozdělená</mark> data."},
+		{"rozděleni\u0301, další", []string{"rozdelen"}, "<mark>rozděleni\u0301</mark>, další"},
+		{"😀 PostgreSQL; tsm-pd-backend", []string{"postgres", "pd"}, "😀 <mark>PostgreSQL</mark>; tsm-<mark>pd</mark>-backend"},
+		{"A<script> text", []string{"<script>"}, "A<mark>&lt;script&gt;</mark> text"},
+	} {
+		if got := highlightTerms(tt.text, tt.terms); got != tt.want {
+			t.Errorf("%q: got %q, want %q", tt.text, got, tt.want)
+		}
+	}
+}
+
 func BenchmarkExplorerQuery(b *testing.B) {
 	idx := New()
 	for i := range 1000 {
