@@ -17,7 +17,7 @@ Samostatně hostovaný dokumentační server — něco jako GitBook nebo Notion,
 - **Mermaid diagramy** — vývojové diagramy, sekvenční diagramy, koláčové grafy a další
 - **Fulltextové vyhledávání** — vestavěný in-memory index se zvýrazněnými úryvky
 - **Repository Explorer** — volitelný `--explore`: složky, pokročilé hledání, metadata filtry, volitelné sloupce, náhled, přehled a Markdown vazby. Bez AI a externí vyhledávací služby.
-- **Automatický sidebar** — navigace se generuje z adresářové struktury, žádná konfigurace není potřeba
+- **Automatický sidebar** — navigace se generuje z adresářové struktury; na desktopu se sbalí úplně a ponechá jen malé obnovovací tlačítko vlevo dole, obsah využije uvolněnou šířku
 - **Světlý / tmavý režim** — uložen v localStorage
 - **Obsah stránky** — TOC s automatickým sledováním pozice; dlouhý seznam posouvá aktivní kapitolu do viditelné části svého panelu bez pohybu článku
 - **Předchozí / Další stránka** — automaticky podle pořadí v sidebaru

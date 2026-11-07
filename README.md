@@ -8,7 +8,7 @@ A self-hosted documentation server — think GitBook or Notion, but as a single 
 - **Mermaid diagrams** — flowcharts, sequence diagrams, pie charts, and more
 - **Full-text search** — built-in in-memory search with highlighted snippets
 - **Repository Explorer** — opt-in `--explore` workspace with folders, advanced search, metadata filters, configurable columns, previews, overview and Markdown relationships; no AI or external search service
-- **Auto-generated sidebar** — navigation tree built from the filesystem, no config needed
+- **Auto-generated sidebar** — navigation tree built from the filesystem, no config needed; desktop collapse hides it entirely, leaving a small bottom-left restore button and more room for the document
 - **Light / dark mode** — persisted to localStorage
 - **Table of contents** — per-page TOC with scroll spy; long lists follow the active heading inside their own pane without moving the article
 - **Prev / Next navigation** — automatic based on sidebar order

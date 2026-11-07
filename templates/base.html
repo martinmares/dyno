@@ -222,6 +222,7 @@
     <aside id="sidebar" data-nav-storage-key="{{ .BasePath }}" class="dyno-sidebar">
       {{ template "sidebar-inner" . }}
     </aside>
+    {{ template "sidebar-restore-button" . }}
 
     <!-- Sidebar overlay (mobile) -->
     <div id="sidebar-overlay" class="dyno-sidebar-overlay"></div>
@@ -435,12 +436,23 @@
 {{ define "sidebar-collapse-button" }}
 <div class="dyno-sidebar-footer">
 <button type="button" data-sidebar-collapse class="button dyno-icon-button is-ghost dyno-sidebar-collapse"
-  aria-label="Collapse navigation" title="Collapse navigation" aria-expanded="true" aria-controls="sidebar-content">
-  <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
-    <path stroke-linecap="round" stroke-linejoin="round" d="M5 4v16M16 7l-5 5 5 5"/>
-  </svg>
+  aria-label="Collapse navigation" title="Collapse navigation" aria-expanded="true" aria-controls="sidebar">
+  {{ template "sidebar-collapse-icon" . }}
 </button>
 </div>
+{{ end }}
+
+{{ define "sidebar-restore-button" }}
+<button type="button" data-sidebar-collapse class="button dyno-icon-button dyno-sidebar-restore dyno-screen-only"
+  aria-label="Expand navigation" title="Expand navigation" aria-expanded="false" aria-controls="sidebar">
+  {{ template "sidebar-collapse-icon" . }}
+</button>
+{{ end }}
+
+{{ define "sidebar-collapse-icon" }}
+<svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" aria-hidden="true">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M5 4v16M16 7l-5 5 5 5"/>
+</svg>
 {{ end }}
 
 {{/* dict helper used in nav-tree */}}

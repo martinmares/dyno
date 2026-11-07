@@ -853,13 +853,17 @@ func TestSidebarCollapseControlsOnDocumentsAndSearch(t *testing.T) {
 			t.Fatalf("%s: got %d", target, rec.Code)
 		}
 		body := rec.Body.String()
-		for _, want := range []string{`data-sidebar-collapse`, `aria-controls="sidebar-content"`, `id="sidebar-content"`, `dyno-sidebar-collapsed:`, `class="dyno-sidebar-footer"`} {
+		for _, want := range []string{`data-sidebar-collapse`, `aria-controls="sidebar"`, `id="sidebar-content"`, `dyno-sidebar-collapsed:`, `class="dyno-sidebar-footer"`, `dyno-sidebar-restore`} {
 			if !strings.Contains(body, want) {
 				t.Fatalf("%s: missing %s", target, want)
 			}
 		}
-		if strings.Count(body, `data-sidebar-collapse`) != 1 {
-			t.Fatalf("%s: duplicate collapse controls", target)
+		if strings.Count(body, `data-sidebar-collapse`) != 2 {
+			t.Fatalf("%s: expected collapse and external restore controls", target)
+		}
+		sidebarEnd := strings.Index(body[strings.Index(body, `id="sidebar"`):], "</aside>") + strings.Index(body, `id="sidebar"`)
+		if strings.Index(body, `class="button dyno-icon-button dyno-sidebar-restore`) < sidebarEnd {
+			t.Fatalf("%s: restore button must be outside the hidden sidebar", target)
 		}
 		if strings.Index(body, `class="dyno-sidebar-footer"`) < strings.Index(body, `id="sidebar-content"`) {
 			t.Fatalf("%s: collapse footer precedes navigation content", target)
@@ -896,7 +900,7 @@ func TestSidebarSectionsHaveIndependentToggleAndTitleTooltips(t *testing.T) {
 		`class="dyno-nav-children"`,
 		`data-nav-expand-all`,
 		`data-sidebar-collapse`,
-		`aria-controls="sidebar-content"`,
+		`aria-controls="sidebar"`,
 		`id="sidebar-content"`,
 		`dyno-sidebar-collapsed:`,
 		`Expand all`,

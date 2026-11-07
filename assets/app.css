@@ -2394,30 +2394,36 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   padding: 0.25rem;
 }
 
+.dyno-sidebar-restore { display: none; }
+
 @media (min-width: 1024px) {
   .dyno-sidebar-footer {
     display: flex;
   }
 
   .dyno-sidebar-collapsed .dyno-sidebar {
-    width: 2rem;
-    overflow: hidden;
-  }
-
-  .dyno-sidebar-collapsed .dyno-sidebar-content {
     display: none;
   }
 
-  .dyno-sidebar-collapsed .dyno-sidebar-footer {
-    margin-top: auto;
+  .dyno-sidebar-collapsed .dyno-sidebar-restore {
+    display: inline-flex;
+    position: fixed;
+    left: var(--dyno-shell-gap);
+    bottom: var(--dyno-shell-gap);
+    z-index: 45;
+    width: 2rem;
+    height: 2rem;
+    padding: 0.35rem;
+    background: var(--dyno-surface);
+    color: var(--dyno-muted);
+    border: var(--dyno-border-width) solid var(--dyno-border);
+    border-radius: var(--dyno-radius-sm);
   }
 
-  .dyno-sidebar-collapsed .dyno-sidebar-collapse svg {
-    transform: rotate(180deg);
-  }
+  .dyno-sidebar-restore svg { transform: rotate(180deg); }
 
   .dyno-sidebar-collapsed .dyno-main {
-    margin-left: calc(2rem + 2 * var(--dyno-shell-gap));
+    margin-left: var(--dyno-shell-gap);
   }
 }
 

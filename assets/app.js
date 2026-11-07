@@ -235,13 +235,15 @@ document.addEventListener('htmx:afterSwap', initSidebarCollapse);
 document.addEventListener('click', function (event) {
   const button = event.target.closest('[data-sidebar-collapse]');
   if (!button || window.innerWidth < 1024) return;
-  const sidebar = button.closest('#sidebar');
+  const sidebar = document.getElementById('sidebar');
   if (!sidebar) return;
   const collapsed = document.documentElement.classList.toggle('dyno-sidebar-collapsed');
   try {
     localStorage.setItem('dyno-sidebar-collapsed:' + (sidebar.dataset.navStorageKey || '/'), String(collapsed));
   } catch (_) {}
   initSidebarCollapse();
+  const focusTarget = collapsed ? '.dyno-sidebar-restore' : '#sidebar [data-sidebar-collapse]';
+  document.querySelector(focusTarget)?.focus({ preventScroll: true });
 });
 
 document.addEventListener('DOMContentLoaded', function () {
