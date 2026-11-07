@@ -321,6 +321,7 @@ func (ls *LibraryServer) dashboardHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	data := LibraryData{
+		PinsSources: ls.pinSources(),
 		Title:       ls.title,
 		LogoText:    ls.logoText,
 		Subtitle:    ls.subtitle,
@@ -383,6 +384,7 @@ func (ls *LibraryServer) searchHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := SearchData{
+		PinsSources: ls.pinSources(),
 		Query:       q,
 		Results:     results,
 		IsHTMX:      r.Header.Get("HX-Request") == "true",

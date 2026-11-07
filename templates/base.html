@@ -107,6 +107,8 @@
     {{ end }}
 
     <div class="dyno-navbar-actions">
+      {{ template "pin-toggle" . }}
+      {{ template "pins-button" . }}
       <!-- GitHub link -->
       {{ if and .Site .Site.GitHubURL }}
       <a href="{{ .Site.GitHubURL }}" target="_blank" rel="noopener" class="button dyno-icon-button is-ghost" aria-label="GitHub">
@@ -218,6 +220,7 @@
     </div>
   </header>
 
+  {{ template "pins-dialog" . }}
   <div class="dyno-shell">
     <!-- Sidebar -->
     <aside id="sidebar" data-nav-storage-key="{{ .BasePath }}" class="dyno-sidebar">

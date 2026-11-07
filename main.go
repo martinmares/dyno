@@ -523,6 +523,7 @@ func hasStaticSource(root string) bool {
 
 func siteEntryToSiteConfig(e libraryconfig.SiteEntry) *config.SiteConfig {
 	cfg := &config.SiteConfig{
+		StorageID:       e.StorageID,
 		Title:           e.Title,
 		Description:     e.Description,
 		LogoText:        e.LogoText,

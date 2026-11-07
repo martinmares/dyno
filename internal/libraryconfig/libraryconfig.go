@@ -36,6 +36,7 @@ type SiteEntry struct {
 	Path string `yaml:"path"`
 	// Metadata (fallback if dyno.yaml absent in the site)
 	Title          string                   `yaml:"title"`
+	StorageID      string                   `yaml:"storage_id"`
 	Description    string                   `yaml:"description"`
 	LogoText       string                   `yaml:"logo_text"`
 	Slug           string                   `yaml:"slug"`

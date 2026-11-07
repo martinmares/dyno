@@ -17,6 +17,7 @@ type SiteConfig struct {
 	Title        string  `yaml:"title"`
 	Description  string  `yaml:"description"`
 	Version      string  `yaml:"version"`
+	StorageID    string  `yaml:"storage_id"` // Optional identity for browser-local document pins
 	LogoURL      string  `yaml:"logo_url"`
 	LogoText     string  `yaml:"logo_text"`
 	GitHubURL    string  `yaml:"github_url"`    // e.g. "https://github.com/org/repo"
@@ -232,6 +233,9 @@ func (c *SiteConfig) AllowPrivateProxyTargets() bool {
 // MergeDefaults fills in missing fields from ext (external source, e.g. dyno-library.yaml entry).
 // Only fields that are still at their zero value are overwritten — dyno.yaml values always win.
 func (c *SiteConfig) MergeDefaults(ext SiteConfig) {
+	if c.StorageID == "" {
+		c.StorageID = ext.StorageID
+	}
 	if c.Title == "" || c.Title == "Docs" {
 		if ext.Title != "" {
 			c.Title = ext.Title

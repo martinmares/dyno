@@ -117,6 +117,16 @@ func suffix(name string, depth int) string {
 	return strings.Join(parts[len(parts)-depth:], "/")
 }
 
+// SourcePaths returns the canonical roots, independent of selection order.
+func (c *Catalog) SourcePaths() []string {
+	paths := make([]string, 0, len(c.sources))
+	for _, source := range c.sources {
+		paths = append(paths, source.path)
+	}
+	sort.Strings(paths)
+	return paths
+}
+
 func (c *Catalog) Close() {
 	for _, s := range c.sources {
 		if s.root != nil {

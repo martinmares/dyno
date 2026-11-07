@@ -1918,6 +1918,140 @@ function searchResultsURL(endpoint, query, currentURL) {
   return target.pathname + target.search;
 }
 
+// Pins contain only document-relative paths, never an origin, query or anchor.
+function pinnedDocumentURL(base, path, origin) {
+  if (typeof path !== 'string' || !path.startsWith('/') || path.startsWith('//') || /[\\?#\u0000-\u001f]/.test(path)) return null;
+  try {
+    const decoded = decodeURIComponent(path);
+    if (decoded.includes('\\') || decoded.split('/').some(segment => segment === '.' || segment === '..')) return null;
+    const url = new URL((base || '') + path, origin);
+    if (url.origin !== new URL(origin).origin || (base && url.pathname !== base && !url.pathname.startsWith(base + '/'))) return null;
+    return url.pathname;
+  } catch (_) { return null; }
+}
+
+function parsePinnedDocuments(raw) {
+  let entries;
+  try { entries = JSON.parse(raw); } catch (_) { return []; }
+  if (!Array.isArray(entries)) return [];
+  const seen = new Set();
+  return entries.filter(entry => entry && typeof entry.path === 'string' && typeof entry.title === 'string' && entry.title.trim())
+    .map(entry => ({ path: entry.path, title: entry.title.slice(0, 500), pinnedAt: Number.isSafeInteger(entry.pinnedAt) ? entry.pinnedAt : 0 }))
+    .sort((a, b) => b.pinnedAt - a.pinnedAt || a.path.localeCompare(b.path))
+    .filter(entry => { if (seen.has(entry.path)) return false; seen.add(entry.path); return true; });
+}
+
+function initPinnedDocuments() {
+  const dialog = document.querySelector('[data-pins-dialog]');
+  if (!dialog || dialog.dataset.pinsBound) return;
+  dialog.dataset.pinsBound = '1';
+  let sources;
+  try { sources = JSON.parse(dialog.dataset.pinsSources); } catch (_) { return; }
+  if (!Array.isArray(sources) || !sources.length) return;
+  const list = dialog.querySelector('[data-pins-list]');
+  const close = dialog.querySelector('[data-pins-close]');
+  const temporary = new Map();
+  let notice = '';
+  const key = source => 'dyno:pins:v1:' + source.id;
+  const read = source => {
+    if (temporary.has(source.id)) return temporary.get(source.id);
+    try { return parsePinnedDocuments(localStorage.getItem(key(source))); }
+    catch (_) { notice = 'Browser storage is unavailable. Changes will last only until this page is closed.'; return []; }
+  };
+  const write = (source, entries) => {
+    try { localStorage.setItem(key(source), JSON.stringify(entries)); temporary.delete(source.id); notice = ''; }
+    catch (_) { temporary.set(source.id, entries); notice = 'Pins could not be saved. Changes will last only until this page is closed.'; }
+  };
+  const current = () => {
+    const marker = document.querySelector('#page-content [data-pin-document]');
+    if (!marker) return null;
+    const path = marker.dataset.pinPath;
+    if (!pinnedDocumentURL(sources[0].base, path, window.location.href)) return null;
+    return { path, title: marker.dataset.pinTitle || path };
+  };
+  const refresh = () => {
+    const page = current();
+    const entries = [];
+    const scopePaths = new Set();
+    sources.forEach(source => read(source).forEach(entry => {
+      const url = pinnedDocumentURL(source.base, entry.path, window.location.href);
+      const id = source.id + '\n' + entry.path;
+      if (url && !scopePaths.has(id)) { scopePaths.add(id); entries.push({ ...entry, source, url }); }
+    }));
+    entries.sort((a, b) => b.pinnedAt - a.pinnedAt || a.title.localeCompare(b.title));
+    const pinned = page && entries.some(entry => entry.source.id === sources[0].id && entry.path === page.path);
+    document.querySelectorAll('[data-pin-toggle]').forEach(button => {
+      button.hidden = !page;
+      button.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+      button.setAttribute('aria-label', pinned ? 'Unpin document' : 'Pin document');
+      button.title = pinned ? 'Unpin document' : 'Pin document';
+      const label = button.querySelector('[data-pin-toggle-label]');
+      if (label) label.textContent = pinned ? 'Unpin current document' : 'Pin current document';
+    });
+    document.querySelectorAll('[data-pins-open]').forEach(button => {
+      const count = button.querySelector('[data-pins-count]');
+      count.textContent = entries.length;
+      count.hidden = !entries.length;
+      button.setAttribute('aria-label', entries.length ? 'Pinned documents (' + entries.length + ')' : 'Pinned documents');
+    });
+    list.replaceChildren();
+    entries.forEach(entry => {
+      const row = document.createElement('li');
+      const link = document.createElement('a');
+      link.href = entry.url;
+      if (page && entry.source.id === sources[0].id && entry.path === page.path) link.setAttribute('aria-current', 'page');
+      const title = document.createElement('span'); title.textContent = entry.title;
+      const path = document.createElement('small'); path.textContent = (sources.length > 1 ? entry.source.label + ' / ' : '') + entry.path;
+      link.append(title, path);
+      const remove = document.createElement('button');
+      remove.type = 'button'; remove.className = 'button dyno-icon-button is-ghost';
+      remove.title = 'Unpin document';
+      remove.setAttribute('aria-label', 'Unpin ' + entry.title);
+      const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      icon.setAttribute('viewBox', '0 0 24 24');
+      icon.setAttribute('fill', 'none');
+      icon.setAttribute('stroke', 'currentColor');
+      icon.setAttribute('stroke-width', '1.7');
+      icon.setAttribute('aria-hidden', 'true');
+      const outline = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      outline.setAttribute('stroke-linecap', 'round');
+      outline.setAttribute('stroke-linejoin', 'round');
+      outline.setAttribute('d', 'M6 6l12 12M18 6L6 18');
+      icon.append(outline); remove.append(icon);
+      remove.addEventListener('click', () => {
+        const index = Array.from(list.children).indexOf(row);
+        write(entry.source, read(entry.source).filter(pin => pin.path !== entry.path));
+        refresh();
+        const buttons = list.querySelectorAll('button');
+        (buttons[Math.min(index, buttons.length - 1)] || close).focus();
+      });
+      link.addEventListener('click', () => dialog.close());
+      row.append(link, remove); list.append(row);
+    });
+    dialog.querySelector('[data-pins-empty]').hidden = entries.length > 0;
+    const status = dialog.querySelector('[data-pins-status]');
+    status.textContent = notice; status.hidden = !notice;
+  };
+  document.querySelectorAll('[data-pin-toggle]').forEach(button => button.addEventListener('click', () => {
+    const page = current(); if (!page) return;
+    const source = sources[0], entries = read(source);
+    const exists = entries.some(entry => entry.path === page.path);
+    const next = entries.filter(entry => entry.path !== page.path);
+    if (!exists) next.unshift({ ...page, pinnedAt: Date.now() });
+    write(source, next); refresh();
+    if (notice && !dialog.open) dialog.showModal();
+  }));
+  document.querySelectorAll('[data-pins-open]').forEach(button => button.addEventListener('click', () => { refresh(); dialog.showModal(); }));
+  close.addEventListener('click', () => dialog.close());
+  dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
+  document.addEventListener('htmx:afterSettle', refresh);
+  document.addEventListener('htmx:historyRestore', refresh);
+  window.addEventListener('storage', event => { if (event.key === null || sources.some(source => key(source) === event.key)) refresh(); });
+  refresh();
+}
+
+document.addEventListener('DOMContentLoaded', initPinnedDocuments);
+
 document.addEventListener('DOMContentLoaded', function () {
   initNavTree();
   initMermaid();

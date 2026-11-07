@@ -245,6 +245,7 @@ func (s *Server) explorerHandler(w http.ResponseWriter, r *http.Request) {
 	data := explorerData{PageData: PageData{Title: "Explorer", Site: s.siteCfg, BasePath: s.basePath, BulmaCSSURL: s.assetURL("bulma.min.css"), AppCSSURL: s.assetURL("app.css"), AppJSURL: s.assetURL("app.js"), FaviconURL: s.faviconURL(), BuildVersion: s.version}, Query: q.Get("q"), Folder: folder, Scope: q.Get("scope"), Match: q.Get("match"), Tab: q.Get("tab"), Order: q.Get("order"), AllTotal: len(catalog.Documents)}
 	fields := s.siteCfg.Frontmatter.OrderedFields()
 	data.ExplorerJSURL = s.assetURL("explorer.js")
+	data.PinsSources = s.pinSources()
 	data.ExplorerCSSURL = s.assetURL("explorer.css")
 	selectedColumns := make(map[string]bool)
 	for _, name := range q["columns"] {

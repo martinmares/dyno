@@ -12,9 +12,10 @@
   <header class="dyno-explorer-header">
     <a class="dyno-brand" href="{{ .BasePath }}/_explore">{{ if .Site.LogoURL }}<img src="{{ .Site.LogoURL }}" alt="">{{ else }}{{ template "dyno-logo" . }}{{ end }}<span>{{ .Site.Title }}</span></a>
     <span class="dyno-explorer-label">Explorer</span>
-    <div class="dyno-explorer-header-actions"><a href="{{ .BasePath }}/" class="button is-small is-ghost">Reader</a></div>
+    <div class="dyno-explorer-header-actions">{{ template "pins-button" . }}<a href="{{ .BasePath }}/" class="button is-small is-ghost">Reader</a></div>
   </header>
 
+  {{ template "pins-dialog" . }}
   <form method="get" action="{{ .BasePath }}/_explore" id="explorer-filters" class="dyno-explorer-search">
     <input type="hidden" name="tab" value="{{ .Tab }}"><input type="hidden" name="folder" value="{{ .Folder }}"><input type="hidden" name="columns_set" value="1">
     <div class="dyno-explorer-query"><label class="is-sr-only" for="explorer-query">Search documentation</label><input class="input" id="explorer-query" type="search" name="q" value="{{ .Query }}" placeholder='Find documents, "exact phrases", topics…' autocomplete="off"><span>Press / to search</span></div>

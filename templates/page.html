@@ -1,5 +1,5 @@
 {{ define "page-content" }}
-<article class="dyno-article">
+<article class="dyno-article"{{ if .PinPath }} data-pin-document data-pin-path="{{ .PinPath }}" data-pin-title="{{ .PinTitle }}"{{ end }}>
   {{/* Breadcrumbs */}}
   {{ if gt (len .Breadcrumbs) 1 }}
   <nav class="breadcrumb dyno-breadcrumb" aria-label="Breadcrumb">

@@ -63,6 +63,7 @@
       </div>
 
       <div class="dyno-navbar-actions">
+        {{ template "pins-button" . }}
         <div class="dyno-font-size-controls" role="group" aria-label="Text size">
           <button id="font-size-decrease" type="button" class="button dyno-icon-button is-ghost dyno-font-size-button"
                   aria-label="Decrease text size" title="Decrease text size">A-</button>
@@ -83,6 +84,7 @@
     </div>
   </header>
 
+  {{ template "pins-dialog" . }}
   <main class="dyno-standalone-main">
     <div class="dyno-library-content">
       {{ if .Subtitle }}

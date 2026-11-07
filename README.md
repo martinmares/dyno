@@ -7,6 +7,7 @@ A self-hosted documentation server — think GitBook or Notion, but as a single 
 - **Markdown rendering** — GFM, footnotes, definition lists, syntax highlighting (200+ languages via Chroma)
 - **Mermaid diagrams** — flowcharts, sequence diagrams, pie charts, and more
 - **Full-text search** — embedded Bleve engine, relevance ranking, chapter links, typo fallback and highlighted snippets; no external service
+- **Pinned documents** — a personal browser-local working list with pin/unpin and a toolbar shortcut, isolated by documentation identity
 - **Repository Explorer** — opt-in `--explore` workspace with folders, advanced search, metadata filters, configurable columns, previews, overview and Markdown relationships; no AI or external search service
 - **Auto-generated sidebar** — navigation tree built from the filesystem, no config needed; desktop collapse hides it entirely, leaving a small bottom-left restore button and more room for the document
 - **Light / dark mode** — persisted to localStorage
@@ -79,6 +80,8 @@ github_url: https://github.com/org/repo
 github_branch: main
 copyright: My Organization
 base_path: /docs        # or "" for root
+# Optional stable identity for browser-local pins; defaults to the canonical content path
+# storage_id: my-project-docs
 # Git auto-pull (when site is cloned via --git-repo-site)
 git_pull_interval: 5m   # or "false" to disable
 git_branch: main
@@ -348,6 +351,30 @@ This flag overrides document settings, even `dyno.tables.sortable: false` or `dy
 `--library` is exclusive with `--site` and `--git-repo-site`: when you use a library file, define all books inside `dyno-library.yaml`. `--work-dir` may still be used to override the library file's `work_dir` for git-backed entries.
 
 If a section directory has no `index.md`, dyno serves a synthetic landing page with links to child pages.
+
+### Pinned Documents
+
+Use **Pin document** in the reader toolbar to add the current document to your
+working list. **Pinned documents** opens the list, newest pin first, with direct
+links and an **Unpin** action. The list is also available in search and Explorer;
+the library dashboard combines pins from its configured books.
+
+Pins are stored only in this browser's `localStorage`, not in Markdown or Git.
+Different documentation directories served successively on the same origin have
+separate lists. Restarts, version changes and Git branch switches in the same
+directory keep the list. `dyno browse` identifies the canonical selection of
+files/directories independently of argument order. No local filesystem paths are
+sent to the browser for this identity; only their digest is exposed.
+
+To keep a list across checkout moves or deliberately separate deployments using
+the same directory, set `storage_id: my-project-docs` in `dyno.yaml` (or per site
+in `dyno-library.yaml`). Reuse an ID only for the same document layout. Pins use
+document-relative paths, so URL mount changes do not break links. Missing
+documents are not removed automatically: they may return on another branch.
+
+Browser storage is origin-specific: `localhost`, `127.0.0.1`, different ports and
+HTTP/HTTPS do not share pins. Clearing site data removes them. If storage is
+blocked or full, Dyno warns and keeps changes only for the current page lifetime.
 
 ### Search
 

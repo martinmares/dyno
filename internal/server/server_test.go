@@ -1083,7 +1083,8 @@ func TestLibrarySearchUsesBasePath(t *testing.T) {
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodGet, "/docs/?meta.owner=alice", nil)
 	ls.Handler().ServeHTTP(rec, req)
-	if !strings.Contains(rec.Body.String(), "Alpha Docs") || strings.Contains(rec.Body.String(), "Beta Docs") {
+	// Pin sources still describe every book; only the visible cards are filtered.
+	if !strings.Contains(rec.Body.String(), ">Alpha Docs</a>") || strings.Contains(rec.Body.String(), ">Beta Docs</a>") {
 		t.Fatalf("library dashboard must filter books by metadata, got: %s", rec.Body.String())
 	}
 

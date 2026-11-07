@@ -27,6 +27,9 @@ import (
 
 // PageData is passed to page templates.
 type PageData struct {
+	PinsSources        string
+	PinPath            string
+	PinTitle           string
 	Title              string
 	Breadcrumbs        []navigation.NavNode
 	ContentHTML        template.HTML
@@ -100,6 +103,7 @@ type CommentNode struct {
 
 // LibraryData is passed to the library dashboard template.
 type LibraryData struct {
+	PinsSources    string
 	Title          string // page <title>
 	LogoText       string // short name shown in navbar, e.g. "Dyno"
 	Subtitle       string
@@ -121,6 +125,7 @@ type LibraryData struct {
 
 // SearchData is passed to search templates.
 type SearchData struct {
+	PinsSources     string
 	Query           string
 	Results         []search.SearchResult
 	TotalResults    int
@@ -184,6 +189,10 @@ func isHTMX(r *http.Request) bool {
 
 // render executes a named template, re-parsing from disk in dev mode.
 func (s *Server) render(w http.ResponseWriter, name string, data any) error {
+	if page, ok := data.(SearchData); ok {
+		page.PinsSources = s.pinSources()
+		data = page
+	}
 	if page, ok := data.(SearchData); ok && s.browse != nil {
 		page.BrowseMode = true
 		page.TasksURL, page.GraphURL = "", ""
@@ -196,6 +205,7 @@ func (s *Server) render(w http.ResponseWriter, name string, data any) error {
 		data = page
 	}
 	if page, ok := data.(PageData); ok {
+		page.PinsSources = s.pinSources()
 		page.EditMode = s.editMode
 		if s.explore && page.ExploreURL == "" {
 			page.ExploreURL = s.basePath + "/_explore"
@@ -460,6 +470,11 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 	if data.HasTasksBlock {
 		data.TasksAnchorURL = node.FullPath + "#tasks-0-filter"
 	}
+	data.PinPath = strings.TrimPrefix(node.FullPath, s.basePath)
+	if data.PinPath == "" {
+		data.PinPath = "/"
+	}
+	data.PinTitle = node.Title
 
 	if isHTMX(r) {
 		pushURL := node.FullPath
