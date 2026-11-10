@@ -11,11 +11,59 @@ import (
 	"testing"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/mares/dyno/internal/browse"
 	"github.com/mares/dyno/internal/config"
 	"github.com/mares/dyno/internal/markdown"
+	"github.com/mares/dyno/internal/navigation"
 	"github.com/mares/dyno/internal/search"
 )
+
+func TestBrowseUnicodeHeadingLinksWithinAndBetweenSelectedFiles(t *testing.T) {
+	root := t.TempDir()
+	readme, other := filepath.Join(root, "README.cs.md"), filepath.Join(root, "other.cs.md")
+	writeTestFile(t, readme, "[Bloky](#stavební-bloky-yaml) · [Scénáře](#scénáře-sestavené-ze-stavebních-bloků) · [Nasazení](#deployment-flow) · [Jiný soubor](other.cs.md#česká-kapitola)\n\n## Stavební bloky YAML\n\n## Scénáře sestavené ze stavebních bloků\n\n<a id=\"deployment-flow\"></a>\n\n## Jak funguje nasazení\n")
+	writeTestFile(t, other, "# Other\n\n## Česká kapitola\n")
+	s := newBrowseTestServer(t, readme, other)
+	canonical, err := filepath.EvalSymlinks(readme)
+	if err != nil {
+		t.Fatal(err)
+	}
+	node := navigation.FindNodeByFSPath(s.getNav(), canonical)
+	if node == nil {
+		t.Fatal("selected README is missing from navigation")
+	}
+	body := browseRequest(t, s, node.FullPath, 200)
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, label := range []string{"Bloky", "Scénáře", "Nasazení", "Jiný soubor"} {
+		var href string
+		doc.Find(".dyno-prose a").Each(func(_ int, a *goquery.Selection) {
+			if a.Text() == label {
+				href, _ = a.Attr("href")
+			}
+		})
+		u, err := url.Parse(href)
+		if err != nil || u.Fragment == "" {
+			t.Fatalf("%s: invalid link %q: %v", label, href, err)
+		}
+		target := doc
+		if u.Path != "" {
+			if !strings.HasPrefix(u.Path, "/browse/") {
+				t.Fatalf("cross-document link not rewritten: %q", href)
+			}
+			target, err = goquery.NewDocumentFromReader(strings.NewReader(browseRequest(t, s, u.EscapedPath(), 200)))
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		if target.Find(`[id="`+u.Fragment+`"]`).Length() != 1 {
+			t.Fatalf("%s: missing or ambiguous target for %q", label, href)
+		}
+	}
+}
 
 func newBrowseTestServer(t *testing.T, paths ...string) *Server {
 	t.Helper()

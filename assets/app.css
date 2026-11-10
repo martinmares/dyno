@@ -294,6 +294,16 @@ pre.mermaid::after,
   line-height: 1.11111;
 }
 
+.dyno-prose .dyno-heading-alias {
+  display: block;
+  scroll-margin-top: 6rem;
+}
+
+.dyno-prose a[id]:not([href]),
+.dyno-prose a[name]:not([href]) {
+  scroll-margin-top: 6rem;
+}
+
 .dyno-prose h2 {
   margin: 1.65em 0 0.65em;
   font-size: 1.27em;

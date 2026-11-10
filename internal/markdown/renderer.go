@@ -342,7 +342,7 @@ func (r *Renderer) renderMarkdownBody(body []byte, opts RenderOptions, tableOpti
 		return "", err
 	}
 	htmlStr = annotateTaskLists(htmlStr)
-	htmlStr = transformCallouts(addAnchorLinks(htmlStr))
+	htmlStr = transformCallouts(addAnchorLinks(addUnicodeHeadingAnchors(htmlStr)))
 	htmlStr = transformMkDocsInlineHTML(htmlStr)
 	return htmlStr, nil
 }
