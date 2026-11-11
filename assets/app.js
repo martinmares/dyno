@@ -636,7 +636,7 @@ function preparePagePrint() {
   const article = document.querySelector('#page-content .dyno-article');
   if (!article) return;
   printPageState = {
-    details: Array.from(article.querySelectorAll('details:not([open]):not([data-report-code-full])')),
+    details: Array.from(article.querySelectorAll('details:not([open]):not([data-report-code-full]):not([data-report-table-full])')),
     rows: Array.from(article.querySelectorAll('.dyno-table-widget tbody tr[hidden]'))
   };
   article.querySelectorAll('[data-report-time]').forEach(setPrintTimestamp);

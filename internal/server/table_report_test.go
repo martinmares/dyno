@@ -1,12 +1,14 @@
 package server
 
 import (
+	"fmt"
 	"html/template"
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/mares/dyno/internal/markdown"
 )
 
@@ -85,7 +87,7 @@ func TestReportTableAddedRemovedAndEmptyValues(t *testing.T) {
 	}
 	for _, pair := range [][2]template.HTML{{"", after}, {before, ""}} {
 		diff, err := buildTableReport(pair[0], pair[1])
-		if err != nil || len(diff.Rows) != 2 {
+		if err != nil || diff == nil || diff.Whole == nil || len(diff.Whole.Rows) != 2 || len(diff.Rows) != 0 || len(diff.Context) != 0 {
 			t.Fatalf("%+v %v", diff, err)
 		}
 	}
@@ -121,5 +123,61 @@ func TestReportTableMarkupOnlyCellChangeAndBlankHeaders(t *testing.T) {
 	diff, err := buildTableReport(left, right)
 	if err != nil || len(diff.Rows) != 1 || diff.Rows[0].Identity != "Column 1: key" || diff.Rows[0].Cells[0].Column != "Column 2" || !diff.Rows[0].Cells[0].MarkupOnly {
 		t.Fatalf("%+v %v", diff, err)
+	}
+}
+
+func TestWholeTableReportIsOneCompactChange(t *testing.T) {
+	for _, interactive := range []bool{false, true} {
+		for _, kind := range []string{"Added", "Removed"} {
+			t.Run(fmt.Sprintf("%s/interactive=%t", kind, interactive), func(t *testing.T) {
+				s := newTestServer(t)
+				renderer, err := markdown.NewRendererWithOptions(markdown.RendererOptions{InteractiveTables: interactive})
+				if err != nil {
+					t.Fatal(err)
+				}
+				s.renderer = renderer
+				table := "# Guide\n\n| Repository | Description |\n| --- | --- |\n| `app` | Original [rule](/guide). |\n| runtime | Another value. |\n"
+				before, after := "# Guide\n", table
+				if kind == "Removed" {
+					before, after = after, before
+				}
+				changes, _, _, _, err := s.buildChangeReport([]byte(before), []byte(after), filepath.Join(s.contentDir, "index.md"))
+				if err != nil || len(changes) != 1 || changes[0].Table == nil || changes[0].Table.Whole == nil {
+					t.Fatalf("%+v %v", changes, err)
+				}
+				rec := httptest.NewRecorder()
+				if err := s.render(rec, "git-compare.html", gitCompareData{Mode: "report", Changes: changes}); err != nil {
+					t.Fatal(err)
+				}
+				doc, err := goquery.NewDocumentFromReader(strings.NewReader(rec.Body.String()))
+				if err != nil {
+					t.Fatal(err)
+				}
+				summary := doc.Find(".dyno-change-report-table-summary").Text()
+				if !strings.Contains(summary, "Entire table "+strings.ToLower(kind)+" · 2 rows · 2 columns") || !strings.Contains(summary, "Repository · Description") {
+					t.Fatalf("wrong summary: %s", summary)
+				}
+				full := doc.Find("details[data-report-table-full]")
+				if full.Length() != 1 {
+					t.Fatal("missing disclosure")
+				}
+				if _, open := full.Attr("open"); open {
+					t.Fatal("full table should start collapsed")
+				}
+				if full.Find("tbody tr").Length() != 2 || full.Find("td code").Text() != "app" || full.Find(`a[href="/guide"]`).Text() != "rule" {
+					t.Fatal("original table content lost")
+				}
+				if doc.Find(".dyno-change-report-table-context, .dyno-change-report-table-row, .dyno-table-widget").Length() != 0 {
+					t.Fatal("whole table must not repeat row/context details or interactive controls")
+				}
+			})
+		}
+	}
+}
+
+func TestWholeTableWithHeadersOnly(t *testing.T) {
+	diff, err := buildTableReport(template.HTML(`<table><thead><tr><th>ID</th></tr></thead></table>`), "")
+	if err != nil || diff == nil || diff.Whole == nil || len(diff.Whole.Rows) != 0 || len(diff.Whole.Headers) != 1 {
+		t.Fatalf("headers-only table: %+v %v", diff, err)
 	}
 }

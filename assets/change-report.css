@@ -30,8 +30,12 @@
 .dyno-change-report pre { white-space: pre-wrap !important; overflow-wrap: anywhere; overflow-x: hidden; max-width: 100%; }
 .dyno-change-report pre code, .dyno-change-report pre code span { white-space: pre-wrap !important; overflow-wrap: anywhere; }
 .dyno-change-report-code-hunk { margin-top: 1rem; }
-.dyno-change-report-code-full { margin-top: 1rem; }
-.dyno-change-report-code-full > summary { color: var(--dyno-primary); font-size: 0.8125rem; cursor: pointer; }
+.dyno-change-report-code-full, .dyno-change-report-table-full { margin-top: 1rem; }
+.dyno-change-report-code-full > summary, .dyno-change-report-table-full > summary { color: var(--dyno-primary); font-size: 0.8125rem; cursor: pointer; }
+.dyno-change-report-table-summary { margin-top: .75rem; }
+.dyno-change-report-table-summary > p { margin: .5rem 0; overflow-wrap: anywhere; }
+.dyno-change-report-full-table { margin-top: 1rem; overflow-x: auto; }
+.dyno-change-report-full-table table { min-width: 44rem; table-layout: auto; }
 .dyno-change-report-section { margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--dyno-border); scroll-margin-top: 1rem; }
 .dyno-change-report-section > header { break-inside: avoid; break-after: avoid; }
 .dyno-change-report-section > header h2 { font-size: 1.125rem; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
@@ -61,7 +65,7 @@
 @media (max-width: 700px) { .dyno-change-report-scroll { padding: 0.75rem; } .dyno-change-report { padding: 1.25rem; } }
 @media (max-width: 500px) { .dyno-change-report-context-row { grid-template-columns: 1.5rem minmax(0, 1fr); } .dyno-change-report-context-status { grid-column: 2; } }
 @media print {
-  .dyno-change-report-code-full { display: none !important; }
+  .dyno-change-report-code-full, .dyno-change-report-table-full { display: none !important; }
   .dyno-change-report-body { height: auto; overflow: visible; background: #fff; }
   .dyno-change-report-body .dyno-compare { height: auto; overflow: visible; display: block; }
   .dyno-change-report-body .dyno-compare-header { display: none; }

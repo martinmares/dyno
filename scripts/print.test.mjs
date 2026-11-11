@@ -31,15 +31,16 @@ test('printing expands closed details and hidden table rows, then restores them'
   assert.equal(prints, 1);
 });
 
-test('printing does not expand the full code disclosure in change reports', () => {
+test('printing does not expand full code or table disclosures in change reports', () => {
   const ordinary = { open: false };
   const completeCode = { open: false };
+  const completeTable = { open: false };
   const context = vm.createContext({
     window: { addEventListener() {} },
     document: {
       querySelector: () => ({ querySelector: () => null, querySelectorAll(selector) {
         if (!selector.startsWith('details')) return [];
-        return selector.includes(':not([data-report-code-full])') ? [ordinary] : [ordinary, completeCode];
+        return [ordinary, ...(!selector.includes(':not([data-report-code-full])') ? [completeCode] : []), ...(!selector.includes(':not([data-report-table-full])') ? [completeTable] : [])];
       } }),
       addEventListener() {},
     },
@@ -48,6 +49,7 @@ test('printing does not expand the full code disclosure in change reports', () =
   context.preparePagePrint();
   assert.equal(ordinary.open, true);
   assert.equal(completeCode.open, false);
+  assert.equal(completeTable.open, false);
   context.restorePagePrint();
   assert.equal(ordinary.open, false);
 });

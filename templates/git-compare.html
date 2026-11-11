@@ -112,6 +112,21 @@
         <section class="dyno-change-report-block" id="{{ .ID }}">
           <header><span class="dyno-change-report-kind">{{ .Kind }} · {{ .BlockType }}</span></header>
           {{ if .Table }}
+            {{ if .Table.Whole }}
+            <div class="dyno-change-report-table-summary">
+              <p>Entire table {{ if eq .Kind "Removed" }}removed{{ else }}added{{ end }} · {{ len .Table.Whole.Rows }} row{{ if ne (len .Table.Whole.Rows) 1 }}s{{ end }} · {{ len .Table.Whole.Headers }} column{{ if ne (len .Table.Whole.Headers) 1 }}s{{ end }}</p>
+              <p class="dyno-change-report-note">Columns: {{ range $i, $header := .Table.Whole.Headers }}{{ if $i }} · {{ end }}{{ if $header }}{{ $header }}{{ else }}Column {{ add $i 1 }}{{ end }}{{ end }}</p>
+            </div>
+            <details class="dyno-change-report-table-full" data-report-table-full>
+              <summary>{{ if eq .Kind "Removed" }}Show removed table{{ else }}Show added table{{ end }}</summary>
+              <div class="dyno-prose dyno-change-report-full-table">
+                <table>
+                  <thead><tr>{{ range .Table.Whole.Headers }}<th scope="col">{{ . }}</th>{{ end }}</tr></thead>
+                  <tbody>{{ range .Table.Whole.Rows }}<tr>{{ range . }}<td>{{ . }}</td>{{ end }}</tr>{{ end }}</tbody>
+                </table>
+              </div>
+            </details>
+            {{ else }}
             {{ if .Table.Note }}<p class="dyno-change-report-note">{{ .Table.Note }}</p>{{ end }}
             {{ range .Table.Context }}
             <div class="dyno-change-report-table-context">
@@ -141,6 +156,7 @@
               </div>
               {{ end }}
             </section>
+            {{ end }}
             {{ end }}
           {{ else if .Code }}
             <p class="dyno-change-report-note">Only changed lines and two surrounding lines are shown. Line numbers refer to the code block; unchanged sections are omitted.</p>

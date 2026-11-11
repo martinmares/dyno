@@ -16,6 +16,7 @@ type reportTable struct {
 }
 
 type reportTableDiff struct {
+	Whole   *reportTable // A table added or removed as a single content block
 	Note    string
 	Rows    []reportTableRow
 	Context []reportTableContext
@@ -255,6 +256,13 @@ func buildTableReport(before, after template.HTML) (*reportTableDiff, error) {
 		return nil, nil
 	}
 	result := &reportTableDiff{}
+	if left == nil || right == nil {
+		result.Whole = left
+		if right != nil {
+			result.Whole = right
+		}
+		return result, nil
+	}
 	appendRow := func(old, new *reportTable, i, j int) error {
 		row, err := tableRowChange(old, new, i, j)
 		if err == nil && len(row.Cells) > 0 {
@@ -267,32 +275,20 @@ func buildTableReport(before, after template.HTML) (*reportTableDiff, error) {
 		result.Context = reportTableContexts(left, right, result.Rows)
 		return result, nil
 	}
-	if left == nil || right == nil || !slices.Equal(left.Headers, right.Headers) {
-		if left != nil && right != nil {
-			result.Note = "Column headings changed; removed and added rows are shown in full."
-		}
-		if left != nil {
-			for i := range left.Rows {
-				if err := appendRow(left, nil, i, -1); err != nil {
-					return nil, err
-				}
+	if !slices.Equal(left.Headers, right.Headers) {
+		result.Note = "Column headings changed; removed and added rows are shown in full."
+		for i := range left.Rows {
+			if err := appendRow(left, nil, i, -1); err != nil {
+				return nil, err
 			}
 		}
-		if right != nil {
-			for j := range right.Rows {
-				if err := appendRow(nil, right, -1, j); err != nil {
-					return nil, err
-				}
+		for j := range right.Rows {
+			if err := appendRow(nil, right, -1, j); err != nil {
+				return nil, err
 			}
 		}
 		if len(result.Rows) == 0 {
-			result.Note = "Table headings: "
-			if left != nil {
-				result.Note += "Before: " + strings.Join(left.Headers, ", ") + ". "
-			}
-			if right != nil {
-				result.Note += "After: " + strings.Join(right.Headers, ", ") + "."
-			}
+			result.Note = "Table headings: Before: " + strings.Join(left.Headers, ", ") + ". After: " + strings.Join(right.Headers, ", ") + "."
 		}
 		return finish()
 	}

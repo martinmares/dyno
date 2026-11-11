@@ -51,13 +51,26 @@ func TestTableContextShowsNeighborsAndLinksToDetails(t *testing.T) {
 	}
 }
 
-func TestTableContextIsBoundedForWholeAddedTables(t *testing.T) {
+func TestWholeAddedTablesKeepAllRowsInOneDisclosure(t *testing.T) {
 	var rows strings.Builder
 	for i := 0; i < 40; i++ {
 		fmt.Fprintf(&rows, "<tr><td>item-%d</td><td>value</td></tr>", i)
 	}
 	diff, err := buildTableReport("", template.HTML("<table><thead><tr><th>ID</th><th>Value</th></tr></thead><tbody>"+rows.String()+"</tbody></table>"))
-	if err != nil || len(diff.Context) != 1 {
+	if err != nil || diff == nil || diff.Whole == nil || len(diff.Whole.Rows) != 40 || len(diff.Rows) != 0 || len(diff.Context) != 0 {
+		t.Fatalf("%+v %v", diff, err)
+	}
+}
+
+func TestTableContextIsBoundedForManyChangedRows(t *testing.T) {
+	var rows strings.Builder
+	for i := 0; i < 40; i++ {
+		fmt.Fprintf(&rows, "<tr><td>item-%d</td><td>value</td></tr>", i)
+	}
+	before := template.HTML("<table><thead><tr><th>ID</th><th>Value</th></tr></thead><tbody>" + rows.String() + "</tbody></table>")
+	after := template.HTML(strings.ReplaceAll(string(before), ">value<", ">updated<"))
+	diff, err := buildTableReport(before, after)
+	if err != nil || diff == nil || diff.Whole != nil || len(diff.Context) != 1 {
 		t.Fatalf("%+v %v", diff, err)
 	}
 	context := diff.Context[0]
