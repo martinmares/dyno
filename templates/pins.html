@@ -16,17 +16,40 @@
 {{ end }}
 
 {{ define "pins-dialog" }}
-<dialog id="dyno-pins-dialog" data-pins-dialog data-pins-sources="{{ .PinsSources }}" class="dyno-dialog dyno-dialog-md dyno-screen-only" aria-labelledby="dyno-pins-title">
+<dialog id="dyno-pins-dialog" data-pins-dialog data-pins-sources="{{ .PinsSources }}" class="dyno-dialog dyno-pins-dialog dyno-screen-only" aria-labelledby="dyno-pins-title">
   <div class="card">
     <div class="card-header dyno-pins-header">
-      <div><h2 id="dyno-pins-title" class="dyno-card-title">Pinned documents</h2><p class="dyno-pins-note">Your working list, most recently pinned first.</p></div>
+      <div><h2 id="dyno-pins-title" class="dyno-card-title">Pinned documents</h2><p class="dyno-pins-note">Your working list. Drag a document by its handle to move it between groups.</p></div>
       <button type="button" data-pins-close class="delete" aria-label="Close pinned documents"></button>
     </div>
-    <button type="button" data-pin-toggle class="button is-small is-ghost dyno-pin-toggle dyno-pins-current" aria-label="Pin document" aria-pressed="false" hidden>
+    <div class="dyno-pins-tools">
+      <label class="is-sr-only" for="dyno-pins-filter">Filter pinned documents</label>
+      <input id="dyno-pins-filter" data-pins-filter type="search" class="input is-small" placeholder="Filter titles or paths..." autocomplete="off">
+      <div class="dyno-pins-filters">
+        <label>Group <span class="select is-small"><select data-pins-group-filter aria-label="Filter by group"></select></span></label>
+        <label>Sort by <span class="select is-small"><select data-pins-sort aria-label="Sort pinned documents"><option value="recent">Recently pinned</option><option value="name">Name</option></select></span></label>
+      </div>
+      <div class="dyno-pins-actions">
+    <button type="button" data-pin-toggle class="button is-small is-ghost dyno-pin-toggle" aria-label="Pin document" aria-pressed="false" hidden>
       {{ template "pins-icon" . }}<span data-pin-toggle-label>Pin document</span>
     </button>
+        <button type="button" data-pins-new-group class="button is-small is-link is-outlined">+ New group</button>
+      </div>
+      <form data-pins-group-editor class="dyno-pins-editor" hidden>
+        <label><span data-pins-group-editor-label>New group</span><input data-pins-group-name class="input is-small" maxlength="80" required autocomplete="off" aria-label="Group name"></label>
+        <label data-pins-source-label hidden>Documentation <span class="select is-small"><select data-pins-group-source aria-label="Documentation for group"></select></span></label>
+        <p data-pins-group-delete-note class="dyno-pins-note" hidden>Deleting this group moves its documents to Unsorted. No pins will be removed.</p>
+        <div class="dyno-pins-actions"><button type="submit" class="button is-small is-link">Save group</button><button type="button" data-pins-delete-group class="button is-small is-danger is-light" hidden>Delete group</button><button type="button" data-pins-editor-cancel class="button is-small is-ghost">Cancel</button></div>
+        <p data-pins-group-error class="dyno-pins-status" role="alert" hidden></p>
+      </form>
+      <form data-pins-move-editor class="dyno-pins-editor" hidden>
+        <p class="dyno-pins-note">Move <strong data-pins-move-title></strong></p>
+        <label>To group <span class="select is-small"><select data-pins-move-target aria-label="Destination group"></select></span></label>
+        <div class="dyno-pins-actions"><button type="submit" class="button is-small is-link">Move document</button><button type="button" data-pins-editor-cancel class="button is-small is-ghost">Cancel</button></div>
+      </form>
+    </div>
     <div class="dyno-dialog-scroll">
-      <ul data-pins-list class="dyno-unstyled dyno-pins-list"></ul>
+      <div data-pins-list class="dyno-pins-groups"></div>
       <p data-pins-empty class="dyno-pins-empty">No pinned documents yet. Open a document and use the pin icon in the toolbar.</p>
     </div>
     <div class="dyno-pins-footer">

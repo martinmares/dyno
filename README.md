@@ -355,9 +355,24 @@ If a section directory has no `index.md`, dyno serves a synthetic landing page w
 ### Pinned Documents
 
 Use **Pin document** in the reader toolbar to add the current document to your
-working list. **Pinned documents** opens the list, newest pin first, with direct
-links and an **Unpin** action. The list is also available in search and Explorer;
+working list. **Pinned documents** opens the list with direct links and an
+**Unpin** action. The list is also available in search and Explorer;
 the library dashboard combines pins from its configured books.
+
+Organize pins into collapsible groups, filter titles/paths without case or accent
+sensitivity, and sort by name or pin date. Existing and newly pinned documents
+start in **Unsorted**. Use **New group**, the three-dot group action to rename or
+delete a group, and the three-dot document action to move a pin. Deleting a group
+moves its documents to Unsorted without unpinning them.
+
+On desktop, drag a document by its grip onto another group's header or body,
+including a collapsed group. Dragging changes only the group, not the pin date or
+sort order. The move action provides the same operation for keyboard and mobile
+users. Groups belong to their documentation; pins cannot be dragged into another
+book's groups in the library dashboard.
+
+The grouped format upgrades the old list on the first edit. The previous list is
+kept as a local backup; older Dyno versions do not see subsequent grouped edits.
 
 Pins are stored only in this browser's `localStorage`, not in Markdown or Git.
 Different documentation directories served successively on the same origin have

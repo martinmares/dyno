@@ -1936,9 +1936,47 @@ function parsePinnedDocuments(raw) {
   if (!Array.isArray(entries)) return [];
   const seen = new Set();
   return entries.filter(entry => entry && typeof entry.path === 'string' && typeof entry.title === 'string' && entry.title.trim())
-    .map(entry => ({ path: entry.path, title: entry.title.slice(0, 500), pinnedAt: Number.isSafeInteger(entry.pinnedAt) ? entry.pinnedAt : 0 }))
+    .map(entry => ({ path: entry.path, title: entry.title.slice(0, 500), pinnedAt: Number.isSafeInteger(entry.pinnedAt) ? entry.pinnedAt : 0, group: typeof entry.group === 'string' ? entry.group : '' }))
     .sort((a, b) => b.pinnedAt - a.pinnedAt || a.path.localeCompare(b.path))
     .filter(entry => { if (seen.has(entry.path)) return false; seen.add(entry.path); return true; });
+}
+
+function parsePinnedCollection(raw, legacy) {
+  let saved;
+  try { saved = JSON.parse(raw); } catch (_) {}
+  if (!saved || Array.isArray(saved) || !Array.isArray(saved.entries)) {
+    return { groups: [], entries: parsePinnedDocuments(legacy).map(entry => ({ ...entry, group: '' })) };
+  }
+  const ids = new Set();
+  const groups = (Array.isArray(saved.groups) ? saved.groups : []).filter(group => {
+    if (!group || typeof group.id !== 'string' || !group.id || group.id.length > 128 || ids.has(group.id) || typeof group.name !== 'string' || !group.name.trim()) return false;
+    ids.add(group.id); return true;
+  }).map(group => ({ id: group.id, name: group.name.trim().slice(0, 80) }));
+  const entries = parsePinnedDocuments(JSON.stringify(saved.entries)).map(entry => ({ ...entry, group: ids.has(entry.group) ? entry.group : '' }));
+  return { groups, entries };
+}
+
+function filterPinnedDocuments(entries, query, order) {
+  const fold = value => value.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  const terms = fold(query.trim()).split(/\s+/).filter(Boolean);
+  return entries.filter(entry => {
+    let path = entry.path;
+    try { path = decodeURIComponent(path); } catch (_) {}
+    const searchable = fold(entry.title + ' ' + path);
+    return terms.every(term => searchable.includes(term));
+  })
+    .sort((a, b) => order === 'name'
+      ? a.title.localeCompare(b.title, undefined, { sensitivity: 'base', numeric: true }) || a.path.localeCompare(b.path)
+      : b.pinnedAt - a.pinnedAt || a.title.localeCompare(b.title));
+}
+
+function movePinnedDocument(collection, path, group) {
+  if (group && !collection.groups.some(item => item.id === group)) return collection;
+  return { ...collection, entries: collection.entries.map(entry => entry.path === path ? { ...entry, group } : entry) };
+}
+
+function deletePinnedGroup(collection, id) {
+  return { groups: collection.groups.filter(group => group.id !== id), entries: collection.entries.map(entry => entry.group === id ? { ...entry, group: '' } : entry) };
 }
 
 function initPinnedDocuments() {
@@ -1950,17 +1988,38 @@ function initPinnedDocuments() {
   if (!Array.isArray(sources) || !sources.length) return;
   const list = dialog.querySelector('[data-pins-list]');
   const close = dialog.querySelector('[data-pins-close]');
+  const filter = dialog.querySelector('[data-pins-filter]');
+  const groupFilter = dialog.querySelector('[data-pins-group-filter]');
+  const sort = dialog.querySelector('[data-pins-sort]');
+  const editor = dialog.querySelector('[data-pins-group-editor]');
+  const nameInput = dialog.querySelector('[data-pins-group-name]');
+  const sourceInput = dialog.querySelector('[data-pins-group-source]');
+  const moveEditor = dialog.querySelector('[data-pins-move-editor]');
+  const moveTarget = dialog.querySelector('[data-pins-move-target]');
   const temporary = new Map();
+  const collapsed = new Set();
   let notice = '';
-  const key = source => 'dyno:pins:v1:' + source.id;
+  let message = '';
+  let selectedGroup = 'all';
+  let editing = null;
+  let moving = null;
+  let dragged = null;
+  const key = source => 'dyno:pins:v2:' + source.id;
+  const legacyKey = source => 'dyno:pins:v1:' + source.id;
+  const groupKey = (source, id) => JSON.stringify([source.id, id]);
+  const option = (value, label) => {
+    const item = document.createElement('option'); item.value = value; item.textContent = label; return item;
+  };
   const read = source => {
     if (temporary.has(source.id)) return temporary.get(source.id);
-    try { return parsePinnedDocuments(localStorage.getItem(key(source))); }
-    catch (_) { notice = 'Browser storage is unavailable. Changes will last only until this page is closed.'; return []; }
+    try { return parsePinnedCollection(localStorage.getItem(key(source)), localStorage.getItem(legacyKey(source))); }
+    catch (_) { notice = 'Browser storage is unavailable. Changes will last only until this page is closed.'; return { groups: [], entries: [] }; }
   };
-  const write = (source, entries) => {
-    try { localStorage.setItem(key(source), JSON.stringify(entries)); temporary.delete(source.id); notice = ''; }
-    catch (_) { temporary.set(source.id, entries); notice = 'Pins could not be saved. Changes will last only until this page is closed.'; }
+  const write = (source, collection) => {
+    // A single v2 write keeps assignments and groups atomic. The v1 list is
+    // retained as a backup and never overwritten during migration.
+    try { localStorage.setItem(key(source), JSON.stringify(collection)); temporary.delete(source.id); notice = ''; }
+    catch (_) { temporary.set(source.id, collection); notice = 'Pins could not be saved. Changes will last only until this page is closed.'; }
   };
   const current = () => {
     const marker = document.querySelector('#page-content [data-pin-document]');
@@ -1969,16 +2028,69 @@ function initPinnedDocuments() {
     if (!pinnedDocumentURL(sources[0].base, path, window.location.href)) return null;
     return { path, title: marker.dataset.pinTitle || path };
   };
-  const refresh = () => {
+  const icon = (path, strokeWidth = 1.7) => {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    for (const [key, value] of Object.entries({ viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': String(strokeWidth), 'aria-hidden': 'true' })) svg.setAttribute(key, value);
+    const shape = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    shape.setAttribute('stroke-linecap', 'round'); shape.setAttribute('stroke-linejoin', 'round'); shape.setAttribute('d', path);
+    svg.append(shape); return svg;
+  };
+  const iconButton = (label, path, strokeWidth = 1.7) => {
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'button dyno-icon-button is-ghost';
+    button.title = label; button.setAttribute('aria-label', label); button.append(icon(path, strokeWidth)); return button;
+  };
+  const closeEditors = () => { editor.hidden = true; moveEditor.hidden = true; editing = null; moving = null; };
+  const openGroupEditor = (source, group) => {
+    closeEditors(); editing = { source, id: group ? group.id : '' };
+    sourceInput.replaceChildren(...sources.map(item => option(item.id, item.label)));
+    sourceInput.value = source.id; sourceInput.disabled = Boolean(group);
+    dialog.querySelector('[data-pins-source-label]').hidden = sources.length === 1;
+    dialog.querySelector('[data-pins-group-editor-label]').textContent = group ? 'Manage group' : 'New group';
+    dialog.querySelector('[data-pins-delete-group]').hidden = !group;
+    dialog.querySelector('[data-pins-group-delete-note]').hidden = !group;
+    dialog.querySelector('[data-pins-group-error]').hidden = true;
+    nameInput.value = group ? group.name : ''; editor.hidden = false; nameInput.focus();
+  };
+  const move = (source, path, target) => {
+    const collection = read(source);
+    if (!collection.entries.some(entry => entry.path === path) || (target && !collection.groups.some(group => group.id === target))) {
+      message = 'The document or destination has changed. Please choose again.'; closeEditors(); refresh(); groupFilter.focus(); return;
+    }
+    write(source, movePinnedDocument(collection, path, target));
+    collapsed.delete(groupKey(source, target));
+    message = 'Document moved to ' + (collection.groups.find(group => group.id === target)?.name || 'Unsorted') + '.';
+    closeEditors(); refresh(source.id + '\n' + path);
+  };
+  const openMoveEditor = entry => {
+    closeEditors(); moving = entry;
+    const collection = read(entry.source);
+    moveTarget.replaceChildren(option('', 'Unsorted'), ...collection.groups.map(group => option(group.id, group.name)));
+    moveTarget.value = entry.group;
+    dialog.querySelector('[data-pins-move-title]').textContent = entry.title;
+    moveEditor.hidden = false; moveTarget.focus();
+  };
+  const refresh = focusKey => {
     const page = current();
     const entries = [];
+    const groups = [];
     const scopePaths = new Set();
-    sources.forEach(source => read(source).forEach(entry => {
-      const url = pinnedDocumentURL(source.base, entry.path, window.location.href);
-      const id = source.id + '\n' + entry.path;
-      if (url && !scopePaths.has(id)) { scopePaths.add(id); entries.push({ ...entry, source, url }); }
-    }));
-    entries.sort((a, b) => b.pinnedAt - a.pinnedAt || a.title.localeCompare(b.title));
+    const scopeGroups = new Set();
+    sources.forEach(source => {
+      const collection = read(source);
+      [{ id: '', name: 'Unsorted' }, ...collection.groups].forEach(group => {
+        const key = groupKey(source, group.id);
+        if (!scopeGroups.has(key)) { scopeGroups.add(key); groups.push({ ...group, source, key }); }
+      });
+      collection.entries.forEach(entry => {
+        const url = pinnedDocumentURL(source.base, entry.path, window.location.href);
+        const id = source.id + '\n' + entry.path;
+        if (url && !scopePaths.has(id)) { scopePaths.add(id); entries.push({ ...entry, source, url }); }
+      });
+    });
+    groupFilter.replaceChildren(option('all', 'All groups'), ...groups.map(group => option(group.key, (sources.length > 1 ? group.source.label + ' / ' : '') + group.name)));
+    if (!groups.some(group => group.key === selectedGroup)) selectedGroup = 'all';
+    groupFilter.value = selectedGroup;
+    const matching = filterPinnedDocuments(entries, filter.value, sort.value);
     const pinned = page && entries.some(entry => entry.source.id === sources[0].id && entry.path === page.path);
     document.querySelectorAll('[data-pin-toggle]').forEach(button => {
       button.hidden = !page;
@@ -1995,58 +2107,131 @@ function initPinnedDocuments() {
       button.setAttribute('aria-label', entries.length ? 'Pinned documents (' + entries.length + ')' : 'Pinned documents');
     });
     list.replaceChildren();
-    entries.forEach(entry => {
-      const row = document.createElement('li');
-      const link = document.createElement('a');
-      link.href = entry.url;
-      if (page && entry.source.id === sources[0].id && entry.path === page.path) link.setAttribute('aria-current', 'page');
-      const title = document.createElement('span'); title.textContent = entry.title;
-      const path = document.createElement('small'); path.textContent = (sources.length > 1 ? entry.source.label + ' / ' : '') + entry.path;
-      link.append(title, path);
-      const remove = document.createElement('button');
-      remove.type = 'button'; remove.className = 'button dyno-icon-button is-ghost';
-      remove.title = 'Unpin document';
-      remove.setAttribute('aria-label', 'Unpin ' + entry.title);
-      const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      icon.setAttribute('viewBox', '0 0 24 24');
-      icon.setAttribute('fill', 'none');
-      icon.setAttribute('stroke', 'currentColor');
-      icon.setAttribute('stroke-width', '1.7');
-      icon.setAttribute('aria-hidden', 'true');
-      const outline = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      outline.setAttribute('stroke-linecap', 'round');
-      outline.setAttribute('stroke-linejoin', 'round');
-      outline.setAttribute('d', 'M6 6l12 12M18 6L6 18');
-      icon.append(outline); remove.append(icon);
-      remove.addEventListener('click', () => {
-        const index = Array.from(list.children).indexOf(row);
-        write(entry.source, read(entry.source).filter(pin => pin.path !== entry.path));
-        refresh();
-        const buttons = list.querySelectorAll('button');
-        (buttons[Math.min(index, buttons.length - 1)] || close).focus();
+    const rowLinks = new Map();
+    let visible = 0;
+    groups.forEach((group, index) => {
+      if (selectedGroup !== 'all' && selectedGroup !== group.key) return;
+      const members = matching.filter(entry => entry.source.id === group.source.id && entry.group === group.id);
+      visible += members.length;
+      const section = document.createElement('section'); section.className = 'dyno-pins-group'; section.dataset.pinGroup = group.key;
+      const header = document.createElement('div'); header.className = 'dyno-pins-group-header';
+      const toggle = document.createElement('button'); toggle.type = 'button'; toggle.className = 'dyno-pins-group-toggle';
+      const groupList = document.createElement('ul'); groupList.className = 'dyno-unstyled dyno-pins-list'; groupList.id = 'dyno-pin-group-' + index;
+      toggle.setAttribute('aria-controls', groupList.id); toggle.setAttribute('aria-expanded', String(!collapsed.has(group.key)));
+      toggle.append(icon('M9 5l7 7-7 7'));
+      const label = document.createElement('span'); label.textContent = (sources.length > 1 ? group.source.label + ' / ' : '') + group.name;
+      const count = document.createElement('small');
+      const total = entries.filter(entry => entry.source.id === group.source.id && entry.group === group.id).length;
+      count.textContent = filter.value.trim() ? members.length + '/' + total : String(total);
+      toggle.append(label, count); groupList.hidden = collapsed.has(group.key);
+      toggle.addEventListener('click', () => {
+        if (collapsed.has(group.key)) collapsed.delete(group.key); else collapsed.add(group.key);
+        groupList.hidden = collapsed.has(group.key); toggle.setAttribute('aria-expanded', String(!groupList.hidden));
       });
-      link.addEventListener('click', () => dialog.close());
-      row.append(link, remove); list.append(row);
+      header.append(toggle);
+      if (group.id) {
+        const manage = iconButton('Manage group ' + group.name, 'M5 12h.01M12 12h.01M19 12h.01', 3);
+        manage.addEventListener('click', () => openGroupEditor(group.source, group)); header.append(manage);
+      }
+      section.append(header, groupList);
+      section.addEventListener('dragover', event => {
+        if (!dragged || dragged.source !== group.source.id) return;
+        event.preventDefault(); event.dataTransfer.dropEffect = 'move'; section.classList.add('is-drop-target');
+      });
+      section.addEventListener('dragleave', event => { if (!section.contains(event.relatedTarget)) section.classList.remove('is-drop-target'); });
+      section.addEventListener('drop', event => {
+        section.classList.remove('is-drop-target');
+        if (!dragged || dragged.source !== group.source.id) return;
+        event.preventDefault(); const path = dragged.path; dragged = null; move(group.source, path, group.id);
+      });
+      members.forEach(entry => {
+        const row = document.createElement('li');
+        const handle = document.createElement('span'); handle.className = 'dyno-pins-drag'; handle.draggable = true;
+        handle.title = 'Drag to another group'; handle.setAttribute('aria-hidden', 'true');
+        handle.append(icon('M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01', 2.6));
+        handle.addEventListener('dragstart', event => {
+          dragged = { source: entry.source.id, path: entry.path };
+          event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('application/x-dyno-pin', entry.path);
+        });
+        handle.addEventListener('dragend', () => { dragged = null; dialog.querySelectorAll('.is-drop-target').forEach(target => target.classList.remove('is-drop-target')); });
+        const link = document.createElement('a');
+        link.href = entry.url; link.draggable = false;
+        if (page && entry.source.id === sources[0].id && entry.path === page.path) link.setAttribute('aria-current', 'page');
+        const title = document.createElement('span'); title.textContent = entry.title;
+        const path = document.createElement('small'); path.textContent = entry.path; path.title = entry.path;
+        link.append(title, path);
+        const relocate = iconButton('Move ' + entry.title + ' to group', 'M5 12h.01M12 12h.01M19 12h.01', 3);
+        relocate.addEventListener('click', () => openMoveEditor(entry));
+        const remove = iconButton('Unpin ' + entry.title, 'M6 6l12 12M18 6L6 18'); remove.title = 'Unpin document';
+        remove.addEventListener('click', () => {
+          const collection = read(entry.source);
+          write(entry.source, { ...collection, entries: collection.entries.filter(pin => pin.path !== entry.path) });
+          refresh();
+          groupFilter.focus();
+        });
+        link.addEventListener('click', () => dialog.close());
+        row.append(handle, link, relocate, remove); groupList.append(row);
+        rowLinks.set(entry.source.id + '\n' + entry.path, link);
+      });
+      if (!members.length) { const empty = document.createElement('li'); empty.className = 'dyno-pins-group-empty'; empty.textContent = 'Drop documents here, or use the move action.'; groupList.append(empty); }
+      list.append(section);
     });
-    dialog.querySelector('[data-pins-empty]').hidden = entries.length > 0;
+    const empty = dialog.querySelector('[data-pins-empty]');
+    empty.hidden = visible > 0;
+    empty.textContent = entries.length ? 'No pins match this filter.' : 'No pinned documents yet. Open a document and use the pin icon in the toolbar.';
     const status = dialog.querySelector('[data-pins-status]');
-    status.textContent = notice; status.hidden = !notice;
+    status.textContent = [notice, message].filter(Boolean).join(' '); status.hidden = !status.textContent;
+    if (typeof focusKey === 'string') (rowLinks.get(focusKey) || groupFilter).focus();
   };
+  filter.addEventListener('input', () => refresh());
+  groupFilter.addEventListener('change', () => { selectedGroup = groupFilter.value; refresh(); });
+  sort.addEventListener('change', () => refresh());
+  dialog.querySelector('[data-pins-new-group]').addEventListener('click', () => {
+    const selected = selectedGroup === 'all' ? null : JSON.parse(selectedGroup);
+    openGroupEditor(sources.find(source => source.id === selected?.[0]) || sources[0], null);
+  });
+  dialog.querySelectorAll('[data-pins-editor-cancel]').forEach(button => button.addEventListener('click', () => { closeEditors(); groupFilter.focus(); }));
+  editor.addEventListener('submit', event => {
+    event.preventDefault(); if (!editing) return;
+    const source = sources.find(source => source.id === sourceInput.value); if (!source) return;
+    const collection = read(source);
+    const name = nameInput.value.trim().replace(/\s+/g, ' ').slice(0, 80);
+    const normalized = name.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+    if (!name || normalized === 'unsorted' || collection.groups.some(group => group.id !== editing.id && group.name.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase() === normalized)) {
+      const error = dialog.querySelector('[data-pins-group-error]'); error.textContent = 'Choose a non-empty, unique group name.'; error.hidden = false; nameInput.focus(); return;
+    }
+    if (editing.id && !collection.groups.some(group => group.id === editing.id)) { closeEditors(); refresh(); return; }
+    const isNew = !editing.id;
+    const id = editing.id || globalThis.crypto?.randomUUID?.() || Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+    const groups = editing.id ? collection.groups.map(group => group.id === id ? { ...group, name } : group) : [...collection.groups, { id, name }];
+    write(source, { ...collection, groups });
+    if (isNew) selectedGroup = 'all';
+    message = 'Group saved.'; closeEditors(); refresh(); groupFilter.focus();
+  });
+  dialog.querySelector('[data-pins-delete-group]').addEventListener('click', () => {
+    if (!editing?.id) return;
+    const source = editing.source;
+    write(source, deletePinnedGroup(read(source), editing.id));
+    collapsed.delete(groupKey(source, ''));
+    message = 'Group deleted. Its documents are now in Unsorted.'; closeEditors(); refresh(); groupFilter.focus();
+  });
+  moveEditor.addEventListener('submit', event => { event.preventDefault(); if (moving) move(moving.source, moving.path, moveTarget.value); });
   document.querySelectorAll('[data-pin-toggle]').forEach(button => button.addEventListener('click', () => {
     const page = current(); if (!page) return;
-    const source = sources[0], entries = read(source);
-    const exists = entries.some(entry => entry.path === page.path);
-    const next = entries.filter(entry => entry.path !== page.path);
-    if (!exists) next.unshift({ ...page, pinnedAt: Date.now() });
-    write(source, next); refresh();
+    const source = sources[0], collection = read(source);
+    const exists = collection.entries.some(entry => entry.path === page.path);
+    const next = collection.entries.filter(entry => entry.path !== page.path);
+    if (!exists) next.unshift({ ...page, pinnedAt: Date.now(), group: '' });
+    write(source, { ...collection, entries: next }); message = exists ? 'Document unpinned.' : 'Document pinned in Unsorted.'; refresh();
     if (notice && !dialog.open) dialog.showModal();
   }));
   document.querySelectorAll('[data-pins-open]').forEach(button => button.addEventListener('click', () => { refresh(); dialog.showModal(); }));
   close.addEventListener('click', () => dialog.close());
+  dialog.addEventListener('close', () => { closeEditors(); dragged = null; dialog.querySelectorAll('.is-drop-target').forEach(target => target.classList.remove('is-drop-target')); });
   dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
   document.addEventListener('htmx:afterSettle', refresh);
   document.addEventListener('htmx:historyRestore', refresh);
-  window.addEventListener('storage', event => { if (event.key === null || sources.some(source => key(source) === event.key)) refresh(); });
+  window.addEventListener('storage', event => { if (event.key === null || sources.some(source => key(source) === event.key || legacyKey(source) === event.key)) refresh(); });
   refresh();
 }
 
