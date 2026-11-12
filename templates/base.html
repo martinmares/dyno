@@ -80,7 +80,6 @@
           hx-trigger="input changed delay:300ms, search"
           hx-target="#search-results-container"
           hx-indicator="#search-spinner"
-          {{ if .MetadataFacets }}hx-include="#metadata-filters"{{ end }}
           name="q"
           autocomplete="off"
         />
@@ -221,6 +220,7 @@
   </header>
 
   {{ template "pins-dialog" . }}
+  <div id="metadata-filter-dialog-container">{{ template "metadata-filter-dialog" . }}</div>
   <div class="dyno-shell">
     <!-- Sidebar -->
     <aside id="sidebar" data-nav-storage-key="{{ .BasePath }}" class="dyno-sidebar">
@@ -347,32 +347,52 @@
 {{ end }}
 
 {{ define "metadata-filters" }}
-{{ if .MetadataFacets }}
-<form id="metadata-filters"
-      class="dyno-metadata-filters"
-      hx-get="{{ .MetadataFilterURL }}"
-      hx-trigger="change"
-      hx-target="#page-content"
-      hx-push-url="true">
+{{ with .MetadataControls }}
+<section class="dyno-metadata-filters" aria-label="Document filters">
   <div class="dyno-sidebar-heading">
-    <p class="dyno-eyebrow m-0">Filters</p>
+    <button type="button" data-metadata-filters-open class="button is-small is-light" aria-haspopup="dialog" aria-controls="metadata-filter-dialog">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4"/></svg>
+      <span>Filters</span>{{ if .Chips }}<span class="tag is-light">{{ len .Chips }}</span>{{ end }}
+    </button>
     <div class="dyno-sidebar-actions">
-      {{ if .BulkFrontmatterURL }}
+      {{ if .BulkURL }}
       <button type="button"
               data-bulk-frontmatter-open
-              data-bulk-frontmatter-url="{{ .BulkFrontmatterURL }}"
+              data-bulk-frontmatter-url="{{ .BulkURL }}"
               class="button is-small is-ghost">
         Bulk edit
       </button>
       {{ end }}
-      {{ if .FiltersActive }}
-      <a href="{{ .MetadataFilterURL }}" hx-get="{{ .MetadataFilterURL }}" hx-target="#page-content" hx-push-url="true"
+      {{ if .Chips }}
+      <a href="{{ .ClearURL }}" {{ if .HTMX }}hx-get="{{ .ClearURL }}" hx-target="#page-content" hx-push-url="true"{{ end }}
          class="button is-small is-ghost">Clear</a>
       {{ end }}
     </div>
   </div>
-  <div class="dyno-filter-list">
-    {{ range .MetadataFacets }}
+  {{ if .Chips }}
+  <div class="dyno-filter-chips">
+    {{ range .Chips }}
+    <a class="dyno-filter-chip" href="{{ .URL }}" {{ if $.MetadataControls.HTMX }}hx-get="{{ .URL }}" hx-target="#page-content" hx-push-url="true"{{ end }} title="Remove filter: {{ .Label }}: {{ .Value }}" aria-label="Remove filter: {{ .Label }}: {{ .Value }}">
+      <span class="dyno-truncate">{{ .Label }}: {{ .Value }}</span><span aria-hidden="true">×</span>
+    </a>
+    {{ end }}
+  </div>
+  {{ end }}
+</section>
+{{ end }}
+{{ end }}
+
+{{ define "metadata-filter-dialog" }}
+{{ with .MetadataControls }}
+<dialog id="metadata-filter-dialog" class="dyno-dialog dyno-dialog-lg dyno-metadata-dialog" aria-labelledby="metadata-filter-title">
+  <form id="metadata-filters" class="card" method="get" action="{{ .Action }}" {{ if .HTMX }}hx-get="{{ .Action }}" hx-target="#page-content" hx-push-url="true"{{ end }}>
+    <header class="card-header dyno-filter-dialog-header">
+      <div><h2 id="metadata-filter-title" class="title is-5 mb-2">Document filters</h2><p class="is-size-7">Choose values, then apply. Different fields are combined; values within a field are alternatives.</p></div>
+      <button type="button" class="delete" data-metadata-filters-close aria-label="Close filters"></button>
+    </header>
+    {{ range .Hidden }}<input type="hidden" name="{{ .Name }}" value="{{ .Value }}">{{ end }}
+    <div class="card-content dyno-filter-grid">
+    {{ range .Facets }}
     {{ $facet := . }}
     <details class="dyno-filter" open>
       <summary>{{ .Label }}</summary>
@@ -388,8 +408,13 @@
       </div>
     </details>
     {{ end }}
-  </div>
-</form>
+    </div>
+    <footer class="dyno-filter-dialog-footer">
+      <button type="button" data-metadata-filters-clear class="button is-light">Clear selection</button>
+      <div class="dyno-sidebar-actions"><button type="button" data-metadata-filters-close class="button is-light">Cancel</button><button type="submit" class="button is-primary">Apply filters</button></div>
+    </footer>
+  </form>
+</dialog>
 {{ end }}
 {{ end }}
 

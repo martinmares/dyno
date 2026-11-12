@@ -224,11 +224,33 @@ func TestMetadataFilterPrunesNavigationAndSearch(t *testing.T) {
 	if !strings.Contains(body, `name="meta.owner"`) || !strings.Contains(body, `value="alice" checked`) {
 		t.Fatalf("expected selected owner facet, got: %s", body)
 	}
+	for _, marker := range []string{`data-metadata-filters-open`, `id="metadata-filter-dialog"`, `Apply filters`, `Remove filter: Owner: alice`} {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("missing metadata modal control %q", marker)
+		}
+	}
+	if strings.Contains(body, `hx-include="#metadata-filters"`) || strings.Contains(body, `hx-trigger="change"`) {
+		t.Fatal("draft filters must not be automatically applied or included in quick search")
+	}
 	if strings.Contains(body, `/guides/internal`) {
 		t.Fatalf("filtered navigation must hide Bob's page, got: %s", body)
 	}
 	if !strings.Contains(body, `/guides/api-widget?meta.owner=alice`) {
 		t.Fatalf("navigation must preserve active filters, got: %s", body)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/guides/api-widget?meta.owner=alice", nil)
+	req.Header.Set("HX-Request", "true")
+	srv.Handler().ServeHTTP(rec, req)
+	if !strings.Contains(rec.Body.String(), `id="metadata-filter-dialog-container" hx-swap-oob="innerHTML"`) {
+		t.Fatal("HTMX navigation must refresh the filter dialog outside the sidebar")
+	}
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/_search?q=needle&meta.owner=alice", nil)
+	srv.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `name="q" value="needle"`) || !strings.Contains(rec.Body.String(), `data-metadata-filters-open`) {
+		t.Fatal("full search must expose filters and preserve the search query")
 	}
 
 	rec = httptest.NewRecorder()

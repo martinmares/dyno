@@ -389,6 +389,7 @@
   {{ end }}
 </span>
 {{ if .MetadataFilterURL }}
+<div id="metadata-filter-dialog-container" hx-swap-oob="innerHTML">{{ template "metadata-filter-dialog" . }}</div>
 <aside id="sidebar" hx-swap-oob="innerHTML">
   {{ template "sidebar-inner" . }}
 </aside>

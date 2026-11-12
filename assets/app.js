@@ -2237,6 +2237,39 @@ function initPinnedDocuments() {
 
 document.addEventListener('DOMContentLoaded', initPinnedDocuments);
 
+function initMetadataFilters() {
+  let restoreFocus = false;
+  document.addEventListener('click', function (event) {
+    const dialog = document.getElementById('metadata-filter-dialog');
+    if (!dialog) return;
+    if (event.target.closest('[data-metadata-filters-open]')) {
+      dialog.querySelector('form').reset();
+      dialog.showModal();
+    } else if (event.target.closest('[data-metadata-filters-close]') || event.target === dialog) {
+      dialog.close();
+    } else if (event.target.closest('[data-metadata-filters-clear]')) {
+      dialog.querySelectorAll('input[type="checkbox"]').forEach(input => { input.checked = false; });
+    }
+  });
+  document.addEventListener('close', function (event) {
+    if (event.target.id === 'metadata-filter-dialog') event.target.querySelector('form').reset();
+  }, true);
+  document.addEventListener('htmx:beforeSwap', function (event) {
+    const dialog = document.getElementById('metadata-filter-dialog');
+    if (event.detail.target?.id === 'page-content' && event.detail.shouldSwap && dialog?.open) {
+      restoreFocus = true;
+      dialog.close();
+    }
+  });
+  document.addEventListener('htmx:afterSettle', function () {
+    if (restoreFocus) {
+      document.querySelector('[data-metadata-filters-open]')?.focus({ preventScroll: true });
+      restoreFocus = false;
+    }
+  });
+}
+document.addEventListener('DOMContentLoaded', initMetadataFilters);
+
 document.addEventListener('DOMContentLoaded', function () {
   initNavTree();
   initMermaid();

@@ -58,10 +58,12 @@
   </header>
 
   {{ template "pins-dialog" . }}
+  <div id="metadata-filter-dialog-container">{{ template "metadata-filter-dialog" . }}</div>
   <div class="dyno-shell">
     {{ if .Nav }}
     <aside id="sidebar" data-nav-storage-key="{{ .BasePath }}" class="dyno-sidebar">
       <div id="sidebar-content" class="dyno-sidebar-content">
+      {{ template "metadata-filters" . }}
       <nav class="dyno-sidebar-nav">
         <div class="dyno-sidebar-heading">
           <p class="dyno-eyebrow m-0">Contents</p>

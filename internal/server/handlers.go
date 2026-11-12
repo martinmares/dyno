@@ -81,6 +81,7 @@ type PageData struct {
 	GitHistoryURL       string // non-empty when git history is available
 	GitCompareURL       string // compare revisions of the current document
 	MetadataFacets      []metadata.Facet
+	MetadataControls    *metadataFilterControls
 	FilterQuery         string
 	FiltersActive       bool
 	MetadataFilterURL   string
@@ -125,41 +126,42 @@ type LibraryData struct {
 
 // SearchData is passed to search templates.
 type SearchData struct {
-	PinsSources     string
-	Query           string
-	Results         []search.SearchResult
-	TotalResults    int
-	RangeStart      int
-	RangeEnd        int
-	AllResultsURL   string
-	PreviousURL     string
-	NextURL         string
-	CanSwapResults  bool
-	Nav             *navigation.NavNode
-	IsHTMX          bool
-	LightCSS        template.CSS
-	DarkCSS         template.CSS
-	Title           string
-	TOC             []markdown.TOCEntry
-	Site            *config.SiteConfig
-	BasePath        string
-	BulmaCSSURL     string
-	AppCSSURL       string
-	AppJSURL        string
-	HTMXURL         string
-	FaviconURL      string
-	SearchURL       string
-	TasksURL        string
-	GraphURL        string
-	BuildVersion    string
-	BuildCommit     string
-	MetadataFacets  []metadata.Facet
-	FilterQuery     string
-	FiltersActive   bool
-	ResultQuery     string
-	BrowseStatusURL string
-	BrowseRevision  uint64
-	BrowseMode      bool
+	PinsSources      string
+	Query            string
+	Results          []search.SearchResult
+	TotalResults     int
+	RangeStart       int
+	RangeEnd         int
+	AllResultsURL    string
+	PreviousURL      string
+	NextURL          string
+	CanSwapResults   bool
+	Nav              *navigation.NavNode
+	IsHTMX           bool
+	LightCSS         template.CSS
+	DarkCSS          template.CSS
+	Title            string
+	TOC              []markdown.TOCEntry
+	Site             *config.SiteConfig
+	BasePath         string
+	BulmaCSSURL      string
+	AppCSSURL        string
+	AppJSURL         string
+	HTMXURL          string
+	FaviconURL       string
+	SearchURL        string
+	TasksURL         string
+	GraphURL         string
+	BuildVersion     string
+	BuildCommit      string
+	MetadataFacets   []metadata.Facet
+	MetadataControls *metadataFilterControls
+	FilterQuery      string
+	FiltersActive    bool
+	ResultQuery      string
+	BrowseStatusURL  string
+	BrowseRevision   uint64
+	BrowseMode       bool
 }
 
 type metadataView struct {
@@ -205,6 +207,9 @@ func (s *Server) render(w http.ResponseWriter, name string, data any) error {
 		data = page
 	}
 	if page, ok := data.(PageData); ok {
+		if page.MetadataControls != nil {
+			page.MetadataControls.BulkURL = page.BulkFrontmatterURL
+		}
 		page.PinsSources = s.pinSources()
 		page.EditMode = s.editMode
 		if s.explore && page.ExploreURL == "" {
@@ -449,6 +454,7 @@ func (s *Server) pageHandler(w http.ResponseWriter, r *http.Request) {
 		GitHistoryURL:      s.gitHistoryPath,
 		GitCompareURL:      s.gitCompareURLFor(node.FullPath),
 		MetadataFacets:     view.Facets,
+		MetadataControls:   newMetadataFilterControls(r, view.Facets, true),
 		FilterQuery:        view.Query,
 		FiltersActive:      view.Active,
 		MetadataFilterURL:  node.FullPath,
@@ -585,6 +591,7 @@ func (s *Server) renderSyntheticIndex(w http.ResponseWriter, r *http.Request, no
 		BuildVersion:      s.version,
 		BuildCommit:       s.commit,
 		MetadataFacets:    view.Facets,
+		MetadataControls:  newMetadataFilterControls(r, view.Facets, true),
 		FilterQuery:       view.Query,
 		FiltersActive:     view.Active,
 		MetadataFilterURL: node.FullPath,
@@ -623,29 +630,30 @@ func (s *Server) searchHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := SearchData{
-		Query:          q,
-		Results:        results,
-		Nav:            view.Nav,
-		IsHTMX:         isHTMX(r),
-		LightCSS:       template.CSS(s.renderer.LightCSS()),
-		DarkCSS:        template.CSS(s.renderer.DarkCSS()),
-		Title:          "Search",
-		Site:           s.siteCfg,
-		BasePath:       s.basePath,
-		BulmaCSSURL:    s.assetURL("bulma.min.css"),
-		AppCSSURL:      s.assetURL("app.css"),
-		AppJSURL:       s.assetURL("app.js"),
-		HTMXURL:        s.assetURL("htmx.min.js"),
-		FaviconURL:     s.faviconURL(),
-		SearchURL:      s.searchPath + view.Query,
-		TasksURL:       s.tasksPath,
-		GraphURL:       s.graphPath,
-		BuildVersion:   s.version,
-		BuildCommit:    s.commit,
-		MetadataFacets: view.Facets,
-		FilterQuery:    view.Query,
-		FiltersActive:  view.Active,
-		ResultQuery:    "?" + resultValues.Encode(),
+		Query:            q,
+		Results:          results,
+		Nav:              view.Nav,
+		IsHTMX:           isHTMX(r),
+		LightCSS:         template.CSS(s.renderer.LightCSS()),
+		DarkCSS:          template.CSS(s.renderer.DarkCSS()),
+		Title:            "Search",
+		Site:             s.siteCfg,
+		BasePath:         s.basePath,
+		BulmaCSSURL:      s.assetURL("bulma.min.css"),
+		AppCSSURL:        s.assetURL("app.css"),
+		AppJSURL:         s.assetURL("app.js"),
+		HTMXURL:          s.assetURL("htmx.min.js"),
+		FaviconURL:       s.faviconURL(),
+		SearchURL:        s.searchPath + view.Query,
+		TasksURL:         s.tasksPath,
+		GraphURL:         s.graphPath,
+		BuildVersion:     s.version,
+		BuildCommit:      s.commit,
+		MetadataFacets:   view.Facets,
+		MetadataControls: newMetadataFilterControls(r, view.Facets, false),
+		FilterQuery:      view.Query,
+		FiltersActive:    view.Active,
+		ResultQuery:      "?" + resultValues.Encode(),
 	}
 	setSearchPagination(&data, r, total, offset)
 
@@ -968,6 +976,7 @@ func (s *Server) egoGraphHandler(w http.ResponseWriter, r *http.Request) {
 		BuildVersion:      s.version,
 		BuildCommit:       s.commit,
 		MetadataFacets:    view.Facets,
+		MetadataControls:  newMetadataFilterControls(r, view.Facets, true),
 		FilterQuery:       view.Query,
 		FiltersActive:     view.Active,
 		MetadataFilterURL: selfPath,

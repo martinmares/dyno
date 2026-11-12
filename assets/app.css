@@ -2468,6 +2468,54 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   border-bottom: var(--dyno-border-width) solid var(--dyno-border);
 }
 
+.dyno-metadata-filters .dyno-sidebar-heading { margin-bottom: 0; }
+.dyno-filter-chips { display: flex; flex-wrap: wrap; gap: .375rem; margin-top: .625rem; }
+.dyno-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  min-width: 0;
+  max-width: 100%;
+  padding: .25rem .5rem;
+  border: 1px solid var(--dyno-border);
+  border-radius: .375rem;
+  background: var(--dyno-surface-secondary);
+  font-size: .75rem;
+}
+.dyno-filter-chip:hover { border-color: var(--dyno-primary); }
+.dyno-metadata-dialog > .card { display: flex; flex-direction: column; }
+.dyno-filter-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem;
+  flex: none;
+}
+.dyno-filter-dialog-header p { color: var(--dyno-muted); }
+.dyno-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+  min-height: 0;
+  overflow-y: auto;
+}
+.dyno-filter-grid .dyno-filter { margin: 0; min-width: 0; }
+.dyno-filter-grid .dyno-filter + .dyno-filter { margin-top: 0; }
+.dyno-filter-grid .dyno-filter-values { max-height: 16rem; }
+.dyno-filter-dialog-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: .5rem;
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--dyno-border);
+  flex: none;
+}
+@media (max-width: 600px) {
+  .dyno-filter-grid { grid-template-columns: minmax(0, 1fr); }
+  .dyno-filter-dialog-footer { flex-wrap: wrap; }
+}
+
 .dyno-sidebar-heading,
 .dyno-sidebar-actions,
 .dyno-nav-section-row {
