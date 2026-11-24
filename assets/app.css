@@ -4621,8 +4621,7 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 
 .dyno-comments-overview-intro,
 .dyno-comments-overview-summary { color: var(--dyno-muted); }
-.dyno-comments-overview-search { display: flex; gap: .5rem; margin: 1.5rem 0 1rem; }
-.dyno-comments-overview-search .input { min-width: 0; }
+.dyno-comments-overview-search { margin: 1.5rem 0 1rem; }
 .dyno-comments-document { margin: 1.5rem 0; overflow: hidden; }
 .dyno-comments-document-header {
   display: flex;

@@ -13,7 +13,6 @@
   <form method="get" action="{{ .URL }}" class="dyno-comments-overview-search" hx-get="{{ .URL }}" hx-target="#comments-overview-results" hx-trigger="submit, input changed delay:300ms, search" hx-sync="this:replace" hx-push-url="true">
     <label for="comments-overview-query" class="is-sr-only">Search local comments</label>
     <input id="comments-overview-query" type="search" name="q" value="{{ .Query }}" class="input" placeholder="Search comments, quotes, authors or documents..." autocomplete="off">
-    <button type="submit" class="button is-primary">Search</button>
   </form>
   <div id="comments-overview-results" aria-live="polite">{{ template "comments-overview-results" . }}</div>
 </section>
