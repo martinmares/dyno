@@ -394,7 +394,7 @@ func TestPageCommentsCanBeAddedAndRendered(t *testing.T) {
 	if first.DocumentID != "home" {
 		t.Fatalf("comment used wrong document identity: %#v", first)
 	}
-	for _, want := range []string{"Reply", "Edit", "Delete"} {
+	for _, want := range []string{"Reply", "Edit", "Delete", "data-comment-context-link", `href="?comment_context=` + first.ID + `#intro"`} {
 		if !strings.Contains(first.CommentHTML, want) {
 			t.Fatalf("expected %q in comment html, got: %s", want, first.CommentHTML)
 		}

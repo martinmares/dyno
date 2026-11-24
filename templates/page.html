@@ -313,7 +313,9 @@
         <div class="dyno-comment-meta">
           <strong>{{ .Comment.Author }}</strong>
           <time datetime="{{ .Comment.CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}">{{ .Comment.CreatedAt.Format "2006-01-02 15:04" }}</time>
-          {{ if .Comment.Anchor }}<a href="#{{ .Comment.Anchor }}">#{{ .Comment.Anchor }}</a>{{ end }}
+          {{ if or .Comment.Anchor .Comment.Quote }}
+          <a href="?comment_context={{ .Comment.ID }}{{ if .Comment.Anchor }}#{{ .Comment.Anchor }}{{ end }}" data-comment-context-link>{{ if .Comment.Anchor }}#{{ .Comment.Anchor }}{{ else }}Show in document{{ end }}</a>
+          {{ end }}
           {{ if .Comment.ParentID }}<span class="tag is-light">RE</span>{{ end }}
         </div>
         {{ if .Comment.Quote }}

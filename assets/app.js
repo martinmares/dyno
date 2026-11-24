@@ -1168,6 +1168,11 @@ function initComments() {
         });
     });
     root.addEventListener('click', function (event) {
+      const contextLink = event.target.closest('[data-comment-context-link]');
+      if (contextLink && event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+        if (revealCommentContext(contextLink.closest('.dyno-comment-item'))) event.preventDefault();
+        return;
+      }
       const reply = event.target.closest('[data-comment-reply-to]');
       if (reply) {
         setReply(reply.getAttribute('data-comment-reply-to'), reply.getAttribute('data-comment-reply-author'));
@@ -1358,23 +1363,25 @@ function findCommentQuoteRange(article, quote, heading) {
   return range;
 }
 
-function revealCommentContext() {
-  const id = new URLSearchParams(window.location.search).get('comment_context');
-  if (!id) return;
+function revealCommentContext(comment) {
   const article = document.querySelector('#page-content .dyno-prose');
-  const comment = document.getElementById('comment-' + id);
-  if (!article || !comment?.matches('[data-comments-list] .dyno-comment-item')) return;
+  if (!article || !comment?.matches('[data-comments-list] .dyno-comment-item')) return false;
+  document.querySelectorAll('.dyno-comment-context-target').forEach(target => {
+    target.classList.remove('dyno-comment-context-target');
+  });
+  article.querySelectorAll('.dyno-comment-context-mark').forEach(mark => {
+    const parent = mark.parentNode;
+    mark.replaceWith(...mark.childNodes);
+    parent.normalize();
+  });
   const anchor = comment.dataset.commentAnchor && document.getElementById(comment.dataset.commentAnchor);
   const heading = anchor && article.contains(anchor) ? anchor : null;
   const range = findCommentQuoteRange(article, comment.dataset.commentQuote, heading);
-  const target = (range && markCommentRange(range, '', 'dyno-comment-context-mark')[0]) || heading;
-  if (!target) {
-    comment.scrollIntoView({ block: 'center' });
-    comment.classList.add('dyno-comment-context-target');
-    return;
-  }
-  target.classList.add('dyno-comment-context-target');
+  const target = (range && markCommentRange(range, '', 'dyno-comment-context-mark')[0]) || heading || comment;
+  // Scroll before restoring the class so repeated clicks restart the pulse.
   target.scrollIntoView({ block: 'center' });
+  target.classList.add('dyno-comment-context-target');
+  return true;
 }
 
 function applyCommentHighlights() {
@@ -2334,7 +2341,8 @@ document.addEventListener('DOMContentLoaded', function () {
   initCopyButtons();
   initLightbox();
   applySearchHighlights();
-  revealCommentContext();
+  const commentID = new URLSearchParams(window.location.search).get('comment_context');
+  if (commentID) revealCommentContext(document.getElementById('comment-' + commentID));
 });
 
 // ─── HTMX hooks ───────────────────────────────────────────────────────────────
