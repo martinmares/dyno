@@ -61,7 +61,7 @@ func TestCommentsOverviewGroupsByCurrentDocumentIdentityAndFindsCzech(t *testing
 			t.Fatal("must not attach a note to a different document reusing an old URL")
 		}
 	}
-	if api == nil || len(api.Entries) != 3 || api.Entries[0].URL != "/docs/guides/api-widget#comment-one" || api.Entries[0].ContextURL != "/docs/guides/api-widget#metrics" || !strings.Contains(string(api.Entries[0].BodyHTML), "<strong>rozdělení</strong>") {
+	if api == nil || len(api.Entries) != 3 || api.Entries[0].URL != "/docs/guides/api-widget#comment-one" || api.Entries[0].ContextURL != "/docs/guides/api-widget?comment_context=one#metrics" || !strings.Contains(string(api.Entries[0].BodyHTML), "<strong>rozdělení</strong>") {
 		t.Fatalf("missing current document links or comments: %+v", api)
 	}
 	for _, query := range []string{"ROZDELENI", "api metrik", "cilovy", "ALICE"} {

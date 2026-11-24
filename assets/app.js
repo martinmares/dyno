@@ -1308,11 +1308,12 @@ function removeHighlightMarks(id) {
   });
 }
 
-function markCommentRange(range, highlightID) {
+function markCommentRange(range, highlightID, className = 'comment-highlight') {
   const nodes = [];
   const walker = document.createTreeWalker(range.commonAncestorContainer, NodeFilter.SHOW_TEXT);
   while (walker.nextNode()) if (range.intersectsNode(walker.currentNode)) nodes.push(walker.currentNode);
   if (range.commonAncestorContainer.nodeType === Node.TEXT_NODE) nodes.push(range.commonAncestorContainer);
+  const marks = [];
   nodes.reverse().forEach(function (node) {
     const start = node === range.startContainer ? range.startOffset : 0;
     const end = node === range.endContainer ? range.endOffset : node.nodeValue.length;
@@ -1320,11 +1321,60 @@ function markCommentRange(range, highlightID) {
     const middle = node.splitText(start);
     middle.splitText(end - start);
     const mark = document.createElement('mark');
-    mark.className = 'comment-highlight';
+    mark.className = className;
     if (highlightID) mark.dataset.highlightMark = highlightID;
     middle.parentNode.replaceChild(mark, middle);
     mark.appendChild(middle);
+    marks.unshift(mark);
   });
+  return marks;
+}
+
+function findCommentQuoteRange(article, quote, heading) {
+  if (!quote) return null;
+  const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT);
+  const nextHeading = heading && Array.from(article.querySelectorAll('h1, h2, h3, h4, h5, h6')).find(
+    el => heading.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING
+  );
+  const nodes = [];
+  let text = '';
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    if (heading && !(heading.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING)) continue;
+    if (nextHeading && !(node.compareDocumentPosition(nextHeading) & Node.DOCUMENT_POSITION_FOLLOWING)) break;
+    if (!node.nodeValue) continue;
+    nodes.push({ node, start: text.length });
+    text += node.nodeValue;
+  }
+  const index = text.indexOf(quote);
+  // An ambiguous quote should lead to its heading, not an arbitrary occurrence.
+  if (index < 0 || text.indexOf(quote, index + 1) >= 0) return null;
+  const end = index + quote.length;
+  const startPart = nodes.find(part => index < part.start + part.node.nodeValue.length);
+  const endPart = nodes.find(part => end <= part.start + part.node.nodeValue.length);
+  const range = document.createRange();
+  range.setStart(startPart.node, index - startPart.start);
+  range.setEnd(endPart.node, end - endPart.start);
+  return range;
+}
+
+function revealCommentContext() {
+  const id = new URLSearchParams(window.location.search).get('comment_context');
+  if (!id) return;
+  const article = document.querySelector('#page-content .dyno-prose');
+  const comment = document.getElementById('comment-' + id);
+  if (!article || !comment?.matches('[data-comments-list] .dyno-comment-item')) return;
+  const anchor = comment.dataset.commentAnchor && document.getElementById(comment.dataset.commentAnchor);
+  const heading = anchor && article.contains(anchor) ? anchor : null;
+  const range = findCommentQuoteRange(article, comment.dataset.commentQuote, heading);
+  const target = (range && markCommentRange(range, '', 'dyno-comment-context-mark')[0]) || heading;
+  if (!target) {
+    comment.scrollIntoView({ block: 'center' });
+    comment.classList.add('dyno-comment-context-target');
+    return;
+  }
+  target.classList.add('dyno-comment-context-target');
+  target.scrollIntoView({ block: 'center' });
 }
 
 function applyCommentHighlights() {
@@ -2284,6 +2334,7 @@ document.addEventListener('DOMContentLoaded', function () {
   initCopyButtons();
   initLightbox();
   applySearchHighlights();
+  revealCommentContext();
 });
 
 // ─── HTMX hooks ───────────────────────────────────────────────────────────────

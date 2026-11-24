@@ -47,8 +47,8 @@
     <div class="dyno-prose dyno-prose-sm dyno-comment-body">{{ .BodyHTML }}</div>
     {{ if .URL }}
     <div class="dyno-comments-overview-links">
+      {{ if .ContextURL }}<strong><a href="{{ .ContextURL }}">Show in document</a></strong>{{ end }}
       <a href="{{ .URL }}">Open comment <span aria-hidden="true">&#8599;</span></a>
-      {{ if .ContextURL }}<a href="{{ .ContextURL }}">Show in document</a>{{ end }}
     </div>
     {{ end }}
   </article>

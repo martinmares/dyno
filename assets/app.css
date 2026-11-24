@@ -4644,6 +4644,22 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 .dyno-comments-overview-links { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: .75rem; font-size: .8rem; }
 .dyno-comment-item { scroll-margin-top: 6rem; }
 .dyno-comment-item:target { outline: 2px solid var(--dyno-primary); outline-offset: .25rem; }
+.dyno-comment-context-mark,
+.dyno-comment-context-target {
+  background: color-mix(in srgb, #e9a229 27%, transparent);
+  color: inherit;
+  border-radius: .2em;
+}
+.dyno-comment-context-target {
+  animation: dyno-comment-context-pulse 1.2s ease-out 2;
+}
+@keyframes dyno-comment-context-pulse {
+  from { box-shadow: 0 0 0 2px #e9a229; }
+  to { box-shadow: 0 0 0 12px transparent; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dyno-comment-context-target { animation: none; }
+}
 
 .dyno-section-header {
   margin-bottom: 1rem;

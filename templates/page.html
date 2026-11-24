@@ -307,7 +307,7 @@
 
 {{ define "comment-tree" }}
   {{ range .Nodes }}
-  <article id="comment-{{ .Comment.ID }}" class="dyno-comment-item">
+  <article id="comment-{{ .Comment.ID }}" class="dyno-comment-item" data-comment-anchor="{{ .Comment.Anchor }}" data-comment-quote="{{ .Comment.Quote }}">
     <div class="dyno-comment-layout">
       <div class="dyno-comment-content">
         <div class="dyno-comment-meta">

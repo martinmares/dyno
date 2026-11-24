@@ -154,8 +154,9 @@ func (s *Server) buildCommentsOverview(items []comments.Comment, query string) c
 		entry := overviewComment{Comment: item, BodyHTML: renderCommentMarkdown(item.Body)}
 		if pageURL != "" {
 			entry.URL = commentOverviewLink(pageURL, "comment-"+item.ID)
-			if item.Anchor != "" {
-				entry.ContextURL = commentOverviewLink(pageURL, item.Anchor)
+			if item.Anchor != "" || item.Quote != "" {
+				u := &url.URL{RawQuery: url.Values{"comment_context": {item.ID}}.Encode(), Fragment: item.Anchor}
+				entry.ContextURL = pageURL + u.String()
 			}
 		}
 		group.Entries = append(group.Entries, entry)
