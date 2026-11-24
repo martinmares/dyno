@@ -571,6 +571,11 @@ Place Markdown files inside `site/`. The sidebar is built automatically from the
 ![Alt text](_images/screenshot.png)
 ```
 
+Relative image and attachment URLs resolve from the Markdown file's directory,
+even when page URLs use simplified names for folders containing spaces or accents.
+This also applies to comparison previews and change reports. External image URLs
+are preserved; absolute site paths receive `base_path` automatically.
+
 **MkDocs/PyMdown compatibility:**
 
 Dyno renders MkDocs admonitions and collapsible details, including nested blocks. `???` starts closed, while `???+` starts open:

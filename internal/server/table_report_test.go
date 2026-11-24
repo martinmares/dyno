@@ -34,7 +34,7 @@ func TestReportTableWithForcedInteractiveTables(t *testing.T) {
 		t.Fatal("interactive wrapper or unchanged content leaked into report")
 	}
 	// The same renderer must still retain interactive tables outside the report.
-	preview, _, err := s.renderComparedMarkdown([]byte(left), []byte(right))
+	preview, _, err := s.renderComparedMarkdown([]byte(left), []byte(right), "")
 	if err != nil || !strings.Contains(string(preview), "dyno-table-widget") {
 		t.Fatal("Preview lost its interactive table")
 	}

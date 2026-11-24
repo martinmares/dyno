@@ -1340,11 +1340,12 @@ func rewriteAbsoluteLinks(htmlStr, basePath string) string {
 // mdLinkRe matches Markdown document links and preserves query strings/fragments.
 var mdLinkRe = regexp.MustCompile(`href="([^"?#]*\.md)([?#][^"]*)?"`)
 
-// rewriteMDLinks converts filesystem-relative Markdown links to navigation URLs.
+// rewriteMDLinks resolves document and asset links from their Markdown source file.
 func (s *Server) rewriteMDLinks(htmlStr, sourceFSPath string) string {
 	if s.browse != nil {
 		return s.rewriteBrowseLinks(htmlStr, sourceFSPath)
 	}
+	htmlStr = s.rewriteSiteAssetLinks(htmlStr, sourceFSPath)
 	return mdLinkRe.ReplaceAllStringFunc(htmlStr, func(match string) string {
 		subs := mdLinkRe.FindStringSubmatch(match)
 		href, suffix := subs[1], subs[2]

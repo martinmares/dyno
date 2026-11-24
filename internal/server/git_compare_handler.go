@@ -183,7 +183,7 @@ func (s *Server) gitCompareHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else if mode == "preview" {
-		data.LeftHTML, data.RightHTML, err = s.renderComparedMarkdown(leftSource, rightSource)
+		data.LeftHTML, data.RightHTML, err = s.renderComparedMarkdown(leftSource, rightSource, node.FSPath)
 		if err != nil {
 			s.internalError(w, r, err)
 			return
@@ -205,13 +205,15 @@ func (s *Server) gitCompareHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) renderComparedMarkdown(left, right []byte) (template.HTML, template.HTML, error) {
+func (s *Server) renderComparedMarkdown(left, right []byte, sourcePath string) (template.HTML, template.HTML, error) {
 	render := func(src []byte) (template.HTML, error) {
 		result, err := s.renderer.RenderWithOptions(src, markdown.RenderOptions{TaskRenderer: s.renderTasks})
 		if err != nil {
 			return "", err
 		}
+		result.HTML = s.rewriteMDLinks(result.HTML, sourcePath)
 		result.HTML = s.renderFileDownloads(result.HTML)
+		result.HTML = rewriteAbsoluteLinks(result.HTML, s.basePath)
 		return template.HTML(result.HTML), nil
 	}
 	leftHTML, err := render(left)
