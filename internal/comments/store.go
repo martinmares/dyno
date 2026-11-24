@@ -33,6 +33,7 @@ type Comment struct {
 // Store persists and reads comments.
 type Store interface {
 	List(documentID, legacyPagePath string) ([]Comment, error)
+	ListAll() ([]Comment, error)
 	Add(comment Comment) (Comment, error)
 	Update(comment Comment) (Comment, error)
 	Delete(documentID, pagePath, id string) error
@@ -57,6 +58,17 @@ func NewJSONLStore(path string) (*JSONLStore, error) {
 }
 
 func (s *JSONLStore) List(documentID, legacyPagePath string) ([]Comment, error) {
+	return s.list(func(c Comment) bool {
+		return c.DocumentID == documentID || (c.DocumentID == "" && c.PagePath == legacyPagePath)
+	})
+}
+
+// ListAll returns current annotations, replaying updates and deletion events.
+func (s *JSONLStore) ListAll() ([]Comment, error) {
+	return s.list(func(Comment) bool { return true })
+}
+
+func (s *JSONLStore) list(include func(Comment) bool) ([]Comment, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -81,7 +93,7 @@ func (s *JSONLStore) List(documentID, legacyPagePath string) ([]Comment, error) 
 		if err := json.Unmarshal([]byte(line), &c); err != nil {
 			continue
 		}
-		if c.DocumentID == documentID || (c.DocumentID == "" && c.PagePath == legacyPagePath) {
+		if include(c) {
 			if c.Event == "delete" {
 				delete(items, c.ID)
 				continue

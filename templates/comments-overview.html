@@ -1,0 +1,59 @@
+{{ define "comments-overview-button" }}
+{{ if .CommentsOverviewURL }}
+<a href="{{ .CommentsOverviewURL }}" class="button dyno-icon-button is-ghost dyno-comments-open" title="Local comments" aria-label="Local comments">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M7 9h10M7 13h6M5 3h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H9l-6 3V5a2 2 0 0 1 2-2Z"/></svg>
+</a>
+{{ end }}
+{{ end }}
+
+{{ define "comments-overview-content" }}
+<section class="dyno-comments-overview" aria-labelledby="comments-overview-title">
+  <h1 id="comments-overview-title">Local comments</h1>
+  <p class="dyno-comments-overview-intro">Your notes across documents, grouped by document and ordered by latest activity. Read from the configured local comments file.</p>
+  <form method="get" action="{{ .URL }}" class="dyno-comments-overview-search" hx-get="{{ .URL }}" hx-target="#comments-overview-results" hx-trigger="submit, input changed delay:300ms, search" hx-sync="this:replace" hx-push-url="true">
+    <label for="comments-overview-query" class="is-sr-only">Search local comments</label>
+    <input id="comments-overview-query" type="search" name="q" value="{{ .Query }}" class="input" placeholder="Search comments, quotes, authors or documents..." autocomplete="off">
+    <button type="submit" class="button is-primary">Search</button>
+  </form>
+  <div id="comments-overview-results" aria-live="polite">{{ template "comments-overview-results" . }}</div>
+</section>
+{{ end }}
+
+{{ define "comments-overview-results" }}
+<p class="dyno-comments-overview-summary">{{ .Shown }}{{ if .Query }} of {{ .Total }}{{ end }} comments &middot; {{ len .Groups }} documents</p>
+{{ if not .Groups }}
+<div class="notification is-light">
+  {{ if .Query }}No comments match your search.{{ else }}No local comments yet. Add a note in a document to see it here.{{ end }}
+</div>
+{{ end }}
+{{ range .Groups }}
+<section class="dyno-comments-document card">
+  <header class="dyno-comments-document-header">
+    <div>
+      <h2>{{ if .URL }}<a href="{{ .URL }}">{{ .Title }}</a>{{ else }}{{ .Title }}{{ end }}</h2>
+      <p class="dyno-comments-document-path">{{ .Path }}</p>
+      {{ if not .URL }}<p class="dyno-comments-document-missing">Document unavailable in the current documentation. Your notes are still saved.</p>{{ end }}
+    </div>
+    <span class="tag is-light" aria-label="Comment count">{{ len .Entries }}</span>
+  </header>
+  {{ range .Entries }}
+  <article class="dyno-comments-overview-note">
+    <div class="dyno-comment-meta">
+      <strong>{{ .Comment.Author }}</strong>
+      <time datetime="{{ .Comment.CreatedAt.Format "2006-01-02T15:04:05Z07:00" }}">{{ .Comment.CreatedAt.Format "2006-01-02 15:04" }}</time>
+      {{ if not .Comment.UpdatedAt.IsZero }}<span title="{{ .Comment.UpdatedAt.Format "2006-01-02 15:04" }}">Edited</span>{{ end }}
+      {{ if .Comment.ParentID }}<span class="tag is-light">Reply</span>{{ end }}
+    </div>
+    {{ if .Comment.Quote }}<blockquote class="dyno-comment-quote">{{ .Comment.Quote }}</blockquote>{{ end }}
+    <div class="dyno-prose dyno-prose-sm dyno-comment-body">{{ .BodyHTML }}</div>
+    {{ if .URL }}
+    <div class="dyno-comments-overview-links">
+      <a href="{{ .URL }}">Open comment <span aria-hidden="true">&#8599;</span></a>
+      {{ if .ContextURL }}<a href="{{ .ContextURL }}">Show in document</a>{{ end }}
+    </div>
+    {{ end }}
+  </article>
+  {{ end }}
+</section>
+{{ end }}
+{{ end }}

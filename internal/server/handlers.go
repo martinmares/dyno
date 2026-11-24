@@ -93,6 +93,8 @@ type PageData struct {
 	BrowseMode          bool
 	BrowseStatusURL     string
 	BrowseRevision      uint64
+
+	CommentsOverviewURL string
 }
 
 type CommentNode struct {
@@ -162,6 +164,8 @@ type SearchData struct {
 	BrowseStatusURL  string
 	BrowseRevision   uint64
 	BrowseMode       bool
+
+	CommentsOverviewURL string
 }
 
 type metadataView struct {
@@ -192,6 +196,7 @@ func isHTMX(r *http.Request) bool {
 // render executes a named template, re-parsing from disk in dev mode.
 func (s *Server) render(w http.ResponseWriter, name string, data any) error {
 	if page, ok := data.(SearchData); ok {
+		page.CommentsOverviewURL = s.commentsPath
 		page.PinsSources = s.pinSources()
 		data = page
 	}
@@ -207,6 +212,7 @@ func (s *Server) render(w http.ResponseWriter, name string, data any) error {
 		data = page
 	}
 	if page, ok := data.(PageData); ok {
+		page.CommentsOverviewURL = s.commentsPath
 		if page.MetadataControls != nil {
 			page.MetadataControls.BulkURL = page.BulkFrontmatterURL
 		}

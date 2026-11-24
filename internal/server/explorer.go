@@ -246,6 +246,7 @@ func (s *Server) explorerHandler(w http.ResponseWriter, r *http.Request) {
 	fields := s.siteCfg.Frontmatter.OrderedFields()
 	data.ExplorerJSURL = s.assetURL("explorer.js")
 	data.PinsSources = s.pinSources()
+	data.CommentsOverviewURL = s.commentsPath
 	data.ExplorerCSSURL = s.assetURL("explorer.css")
 	selectedColumns := make(map[string]bool)
 	for _, name := range q["columns"] {

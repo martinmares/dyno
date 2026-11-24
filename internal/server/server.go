@@ -294,6 +294,7 @@ func New(cfg Config, staticFS fs.FS, nav *navigation.NavNode, idx *search.Index,
 			commentsPath = basePath + "/_comments"
 		}
 		s.commentsPath = commentsPath
+		s.mux.HandleFunc("GET "+commentsPath, s.commentsOverviewHandler)
 		s.mux.HandleFunc("POST "+commentsPath, s.addCommentHandler)
 		s.mux.HandleFunc("PATCH "+commentsPath+"/{id}", s.updateCommentHandler)
 		s.mux.HandleFunc("DELETE "+commentsPath+"/{id}", s.deleteCommentHandler)

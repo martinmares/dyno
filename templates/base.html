@@ -108,6 +108,7 @@
     <div class="dyno-navbar-actions">
       {{ template "pin-toggle" . }}
       {{ template "pins-button" . }}
+      {{ template "comments-overview-button" . }}
       <!-- GitHub link -->
       {{ if and .Site .Site.GitHubURL }}
       <a href="{{ .Site.GitHubURL }}" target="_blank" rel="noopener" class="button dyno-icon-button is-ghost" aria-label="GitHub">

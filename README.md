@@ -548,6 +548,16 @@ Selecting rendered text opens an action dialog for adding a comment, creating a 
 
 Annotation management is disabled by default. Use `--comments-management author` with trusted OAuth proxy headers to let users edit and delete their own comments and delete their own highlights. Use `--comments-management all` for explicit local/admin access to every annotation. Updates and deletions remain append-only JSONL events.
 
+With `--enable-comments`, the **Local comments** icon in the reader, search and
+Explorer menus opens `/_comments` (under `base_path` when configured). It lists
+current comments and replies from the configured `--comments-file`, grouped by
+document with the most recently active documents first. Search covers document
+titles and paths, comment text, quotes and authors, ignoring case and accents.
+Links open the exact comment or its source heading. Stable document IDs keep
+links working after a page is renamed; notes for unavailable documents remain
+visible without a link. Deleted comments and standalone highlights are omitted.
+This is a read-only overview and does not require comment-management permissions.
+
 ## Writing content
 
 Place Markdown files inside `site/`. The sidebar is built automatically from the directory structure.

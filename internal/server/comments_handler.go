@@ -36,7 +36,11 @@ func (s *Server) commentDocumentID(pagePath string) string {
 	if node == nil || node.FSPath == "" {
 		return ""
 	}
-	source, err := os.ReadFile(node.FSPath)
+	return s.commentDocumentIDFromFile(node.FSPath)
+}
+
+func (s *Server) commentDocumentIDFromFile(filename string) string {
+	source, err := os.ReadFile(filename)
 	if err != nil {
 		return ""
 	}

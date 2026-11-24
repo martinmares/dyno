@@ -2273,7 +2273,7 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   }
 
   .dyno-section-tasks,
-  .dyno-navbar-actions > :not(#theme-toggle):not(.dyno-font-size-controls):not(.dyno-pins-open) {
+  .dyno-navbar-actions > :not(#theme-toggle):not(.dyno-font-size-controls):not(.dyno-pins-open):not(.dyno-comments-open) {
     display: none !important;
   }
 
@@ -2469,6 +2469,7 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
 }
 
 .dyno-metadata-filters .dyno-sidebar-heading { margin-bottom: 0; }
+
 .dyno-filter-chips { display: flex; flex-wrap: wrap; gap: .375rem; margin-top: .625rem; }
 .dyno-filter-chip {
   display: inline-flex;
@@ -4617,6 +4618,33 @@ html.dark dialog[data-comment-editor-dialog] .EasyMDEContainer .editor-toolbar i
   padding-top: 1.25rem;
   border-top: var(--dyno-border-width) solid var(--dyno-border);
 }
+
+.dyno-comments-overview-intro,
+.dyno-comments-overview-summary { color: var(--dyno-muted); }
+.dyno-comments-overview-search { display: flex; gap: .5rem; margin: 1.5rem 0 1rem; }
+.dyno-comments-overview-search .input { min-width: 0; }
+.dyno-comments-document { margin: 1.5rem 0; overflow: hidden; }
+.dyno-comments-document-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem;
+  background: var(--dyno-surface-secondary);
+}
+.dyno-comments-document-header h2 { margin: 0; font-size: 1.1rem; }
+.dyno-comments-document-path { overflow-wrap: anywhere; }
+.dyno-comments-document-header .dyno-comments-document-path,
+.dyno-comments-document-header .dyno-comments-document-missing {
+  margin: .375rem 0 0;
+  color: var(--dyno-muted);
+  font-size: .75rem;
+}
+.dyno-comments-overview-note { padding: 1.25rem; border-top: 1px solid var(--dyno-border); }
+.dyno-comments-overview-note .dyno-comment-meta { flex-wrap: wrap; }
+.dyno-comments-overview-links { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: .75rem; font-size: .8rem; }
+.dyno-comment-item { scroll-margin-top: 6rem; }
+.dyno-comment-item:target { outline: 2px solid var(--dyno-primary); outline-offset: .25rem; }
 
 .dyno-section-header {
   margin-bottom: 1rem;
